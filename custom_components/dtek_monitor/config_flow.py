@@ -8,9 +8,13 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import callback
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
@@ -31,7 +35,8 @@ from .const import (
     MAX_SCAN_INTERVAL_SECONDS,
     MIN_SCAN_INTERVAL_SECONDS,
 )
-from .dtek_client import DTEKApiError, DTEKClient
+from .provider import Address, ProviderError
+from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, PROVIDERS, create_provider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,11 +57,10 @@ def _combo_select(options: list[str]) -> SelectSelector:
     )
 
 
-
 class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for DTEK Monitor."""
 
-    VERSION = 2
+    VERSION = 3
 
     @staticmethod
     @callback
@@ -66,46 +70,86 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         """Initialize the config flow."""
-        self._client: DTEKClient | None = None
+        self._provider_id = DEFAULT_PROVIDER_ID
         self._streets_data: dict[str, list[str]] = {}
         self._city: str = ""
         self._street: str = ""
         self._house: str = ""
         self._available_houses: list[str] = []
 
-    def _get_client(self) -> DTEKClient:
-        """Get or create the DTEK API client."""
-        if self._client is None:
-            session = async_get_clientsession(self.hass)
-            self._client = DTEKClient(session)
-        return self._client
-
     async def _fetch_streets(self) -> dict[str, list[str]]:
-        """Fetch and cache streets data from DTEK API."""
+        """Cache options, closing owned HTTP sessions even if the flow aborts."""
         if not self._streets_data:
-            client = self._get_client()
-            self._streets_data = await client.get_streets()
+            provider = create_provider(self._provider_id)
+            try:
+                self._streets_data = {
+                    city: list(await provider.list_streets(city))
+                    for city in await provider.list_localities()
+                }
+            finally:
+                await provider.close()
         return self._streets_data
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Step 1: Select city."""
-        errors: dict[str, str] = {}
-
+        """Choose an enabled operator before requesting its address directory."""
+        errors = {}
         if user_input is not None:
-            city = user_input[CONF_CITY]
-            streets_data = await self._fetch_streets()
-            if city not in streets_data:
-                errors[CONF_CITY] = "invalid_city"
+            provider_id = user_input.get(CONF_PROVIDER)
+            spec = PROVIDERS.get(provider_id) if isinstance(provider_id, str) else None
+            if spec is None or not spec.enabled:
+                errors[CONF_PROVIDER] = "invalid_provider"
             else:
-                self._city = city
-                return await self.async_step_street()
+                if provider_id != self._provider_id:
+                    self._streets_data = {}
+                    self._city = self._street = self._house = ""
+                    self._available_houses = []
+                self._provider_id = provider_id
+                if spec.fixed_city:
+                    self._city = spec.fixed_city
+                    return await self.async_step_street()
+                return await self.async_step_city()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_PROVIDER, default=self._provider_id
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value=p.id, label=p.name)
+                                for p in PROVIDERS.values()
+                                if p.enabled
+                            ],
+                            mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=False,
+                            sort=False,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_city(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Select a locality in the chosen operator's directory."""
+        errors: dict[str, str] = {}
 
         try:
             streets_data = await self._fetch_streets()
-            cities = sorted(streets_data.keys())
-        except DTEKApiError as err:
+            cities = sorted(streets_data)
+            if user_input is not None and CONF_CITY in user_input:
+                city = str(user_input[CONF_CITY]).strip()
+                if city not in streets_data:
+                    errors[CONF_CITY] = "invalid_city"
+                else:
+                    self._city = city
+                    return await self.async_step_street()
+        except ProviderError as err:
             _LOGGER.error("Failed to fetch cities from DTEK: %s", err)
             errors["base"] = "cannot_connect"
             cities = []
@@ -115,16 +159,18 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if not cities:
             return self.async_show_form(
-                step_id="user",
+                step_id="city",
                 data_schema=vol.Schema({}),
                 errors=errors,
             )
 
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema({
-                vol.Required(CONF_CITY): _combo_select(cities),
-            }),
+            step_id="city",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_CITY): _combo_select(cities),
+                }
+            ),
             errors=errors,
         )
 
@@ -134,11 +180,18 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
         """Step 2: Select street."""
         errors: dict[str, str] = {}
 
-        streets_data = await self._fetch_streets()
+        try:
+            streets_data = await self._fetch_streets()
+        except ProviderError:
+            return self.async_show_form(
+                step_id="street",
+                data_schema=vol.Schema({}),
+                errors={"base": "cannot_connect"},
+            )
         valid_streets = streets_data.get(self._city, [])
 
-        if user_input is not None:
-            street = user_input[CONF_STREET]
+        if user_input is not None and CONF_STREET in user_input:
+            street = str(user_input[CONF_STREET]).strip()
             if street not in valid_streets:
                 errors[CONF_STREET] = "invalid_street"
             else:
@@ -157,9 +210,11 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="street",
-            data_schema=vol.Schema({
-                vol.Required(CONF_STREET): _combo_select(streets),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_STREET): _combo_select(streets),
+                }
+            ),
             errors=errors,
             description_placeholders={"city": self._city},
         )
@@ -171,26 +226,31 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            house = user_input[CONF_HOUSE]
+            house = str(user_input[CONF_HOUSE]).strip()
             self._house = house
 
-            unique_id = f"{self._city}_{self._street}_{self._house}"
+            # Keep the legacy OEM identifier so duplicate detection and existing
+            # registries continue to work. New operators use unambiguous IDs.
+            unique_id = (
+                f"{self._city}_{self._street}_{self._house}"
+                if self._provider_id == DEFAULT_PROVIDER_ID
+                else Address(
+                    self._provider_id, self._city, self._street, self._house
+                ).identity
+            )
             await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
 
             return await self.async_step_settings()
 
         try:
-            client = self._get_client()
-            result = await client.get_home_status(
-                self._city, self._street, house_num=""
-            )
-            houses_data = result.get("data", {})
-            self._available_houses = sorted(
-                houses_data.keys(),
-                key=_natural_sort_key,
-            )
-        except DTEKApiError as err:
+            provider = create_provider(self._provider_id)
+            try:
+                houses = await provider.list_houses(self._city, self._street)
+            finally:
+                await provider.close()
+            self._available_houses = sorted(houses, key=_natural_sort_key)
+        except ProviderError as err:
             _LOGGER.error("Failed to fetch houses from DTEK: %s", err)
             errors["base"] = "cannot_connect"
             self._available_houses = []
@@ -200,9 +260,11 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "no_houses"
             return self.async_show_form(
                 step_id="house",
-                data_schema=vol.Schema({
-                    vol.Required(CONF_HOUSE): str,
-                }),
+                data_schema=vol.Schema(
+                    {
+                        vol.Required(CONF_HOUSE): str,
+                    }
+                ),
                 errors=errors,
                 description_placeholders={
                     "city": self._city,
@@ -212,9 +274,11 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="house",
-            data_schema=vol.Schema({
-                vol.Required(CONF_HOUSE): _combo_select(self._available_houses),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOUSE): _combo_select(self._available_houses),
+                }
+            ),
             errors=errors,
             description_placeholders={
                 "city": self._city,
@@ -230,8 +294,13 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             scan_interval = int(user_input[CONF_SCAN_INTERVAL])
 
             return self.async_create_entry(
-                title=f"{self._street}, {self._house}",
+                title=(
+                    f"{self._street}, {self._house}"
+                    if self._provider_id == DEFAULT_PROVIDER_ID
+                    else f"{self._city} • {self._street}, {self._house} ({PROVIDERS[self._provider_id].name})"
+                ),
                 data={
+                    CONF_PROVIDER: self._provider_id,
                     CONF_CITY: self._city,
                     CONF_STREET: self._street,
                     CONF_HOUSE: self._house,
@@ -241,20 +310,22 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="settings",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_SCAN_INTERVAL,
-                    default=DEFAULT_SCAN_INTERVAL_SECONDS,
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=MIN_SCAN_INTERVAL_SECONDS,
-                        max=MAX_SCAN_INTERVAL_SECONDS,
-                        step=30,
-                        unit_of_measurement="s",
-                        mode=NumberSelectorMode.SLIDER,
-                    )
-                ),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SCAN_INTERVAL,
+                        default=DEFAULT_SCAN_INTERVAL_SECONDS,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_SCAN_INTERVAL_SECONDS,
+                            max=MAX_SCAN_INTERVAL_SECONDS,
+                            step=30,
+                            unit_of_measurement="s",
+                            mode=NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                }
+            ),
             description_placeholders={
                 "city": self._city,
                 "street": self._street,
@@ -306,18 +377,20 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema({
-                vol.Required(
-                    CONF_SCAN_INTERVAL,
-                    default=current_interval,
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=MIN_SCAN_INTERVAL_SECONDS,
-                        max=MAX_SCAN_INTERVAL_SECONDS,
-                        step=30,
-                        unit_of_measurement="s",
-                        mode=NumberSelectorMode.SLIDER,
-                    )
-                ),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SCAN_INTERVAL,
+                        default=current_interval,
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=MIN_SCAN_INTERVAL_SECONDS,
+                            max=MAX_SCAN_INTERVAL_SECONDS,
+                            step=30,
+                            unit_of_measurement="s",
+                            mode=NumberSelectorMode.SLIDER,
+                        )
+                    ),
+                }
+            ),
         )

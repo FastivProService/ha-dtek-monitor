@@ -1,19 +1,23 @@
+---
 name: Hassfest
 
-on:
+"on":
   push:
   pull_request:
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
+  workflow_call:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
   hassfest:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Run hassfest
         uses: home-assistant/actions/hassfest@master

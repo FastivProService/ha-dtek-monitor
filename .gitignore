@@ -16,3 +16,16 @@ venv/
 *~
 CONTEXT.md
 test_client.py
+
+# Local review, operator notes and generated graphs
+graphify-out/
+.review-artifacts/
+.local/
+docs/GITHUB_SETUP*.md
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*
+*.log
+options.json
+secrets.yaml

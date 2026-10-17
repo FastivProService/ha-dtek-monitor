@@ -1,12 +1,16 @@
 {
   "domain": "dtek_monitor",
   "name": "DTEK Monitor",
-  "codeowners": ["@groove-max"],
+  "codeowners": [
+    "@groove-max"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/groove-max/ha-dtek-monitor",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/groove-max/ha-dtek-monitor/issues",
-  "requirements": [],
-  "version": "1.2.0"
+  "requirements": [
+    "curl_cffi==0.16.3"
+  ],
+  "version": "1.7.0"
 }

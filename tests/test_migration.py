@@ -17,20 +17,20 @@ class MigrationHelperTests(unittest.TestCase):
         migrated = migration.migrate_entity_unique_id(
             "01ABC_power",
             "01ABC",
-            "м. Одеса_дорога Люстдорфська_56В",
+            "м. Одеса_вулиця Прикладна_12А",
         )
 
         self.assertEqual(
             migrated,
-            "м. Одеса_дорога Люстдорфська_56В_power",
+            "м. Одеса_вулиця Прикладна_12А_power",
         )
 
     def test_migrate_entity_unique_id_ignores_other_entries(self) -> None:
         """Unique IDs that are already migrated should be left untouched."""
         migrated = migration.migrate_entity_unique_id(
-            "м. Одеса_дорога Люстдорфська_56В_power",
+            "м. Одеса_вулиця Прикладна_12А_power",
             "01ABC",
-            "м. Одеса_дорога Люстдорфська_56В",
+            "м. Одеса_вулиця Прикладна_12А",
         )
 
         self.assertIsNone(migrated)
@@ -41,13 +41,13 @@ class MigrationHelperTests(unittest.TestCase):
             {("dtek_monitor", "01ABC"), ("other", "value")},
             "dtek_monitor",
             "01ABC",
-            "м. Одеса_дорога Люстдорфська_56В",
+            "м. Одеса_вулиця Прикладна_12А",
         )
 
         self.assertEqual(
             migrated,
             {
-                ("dtek_monitor", "м. Одеса_дорога Люстдорфська_56В"),
+                ("dtek_monitor", "м. Одеса_вулиця Прикладна_12А"),
                 ("other", "value"),
             },
         )

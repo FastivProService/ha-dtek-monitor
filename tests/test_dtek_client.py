@@ -12,12 +12,23 @@ dtek_client = load_component_module("dtek_client")
 class ParseHouseDataTests(unittest.TestCase):
     """Regression tests for normalized outage payloads."""
 
+    def test_malformed_payload_does_not_confirm_power(self):
+        for payload in ({}, {"data": []}, {"data": {"12А": "broken"}}, {"data": {"12А": [None]}}, {"data": {"12А": {}}}):
+            with self.subTest(payload=payload), self.assertRaises(dtek_client.DTEKApiError):
+                dtek_client.DTEKClient.parse_house_data(payload, "12А")
+
+    def test_group_array_order_does_not_change_primary(self):
+        first = dtek_client.DTEKClient.parse_house_data({"data": {"12А": {"sub_type_reason": ["GPV5.1", "GPV3.1"]}}}, "12А")
+        second = dtek_client.DTEKClient.parse_house_data({"data": {"12А": {"sub_type_reason": ["GPV3.1", "GPV5.1"]}}}, "12А")
+        self.assertEqual(first["schedule_groups"], second["schedule_groups"])
+        self.assertEqual(first["primary_schedule_group"], second["primary_schedule_group"])
+
     def test_parse_house_data_keeps_all_groups_and_primary_group(self) -> None:
         """Multiple outages should preserve all groups and pick the severe outage."""
         api_response = {
             "updateTimestamp": "09.03.2026 08:05",
             "data": {
-                "56В": [
+                "12А": [
                     {
                         "sub_type": "Планове відключення",
                         "start_date": "08:00 09.03.2026",
@@ -36,7 +47,7 @@ class ParseHouseDataTests(unittest.TestCase):
             },
         }
 
-        parsed = dtek_client.DTEKClient.parse_house_data(api_response, "56в")
+        parsed = dtek_client.DTEKClient.parse_house_data(api_response, "12а")
 
         self.assertFalse(parsed["power_on"])
         self.assertEqual(parsed["outage_type"], "emergency")

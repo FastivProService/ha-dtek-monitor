@@ -1,39 +1,115 @@
-"""HTTP client for the DTEK OEM API."""
+"""HTTP client for the DTEK website API.
+
+Transport/CSRF improvements adapted from Zerstoren/ha-dtek-krem-monitor
+(e1fb7cf), licensed under MIT; see THIRD_PARTY_NOTICES.md for those portions.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import random
 import re
 from datetime import datetime, timedelta
-from http.cookies import SimpleCookie
 from typing import Any
 from zoneinfo import ZoneInfo
 
-import aiohttp
+from curl_cffi.requests import AsyncSession
+
+from .provider import ProviderError
 
 from .const import (
-    DTEK_AJAX_URL,
+    DTEK_BASE_URL,
     DTEK_SHUTDOWNS_URL,
     REQUEST_TIMEOUT,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
-CSRF_META_RE = re.compile(r'<meta\s+name="csrf-token"\s+content="([^"]+)"')
-
-BROWSER_UA = (
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+CSRF_META_TAG_RE = re.compile(
+    r"<meta\b[^>]*(?:csrf-token|csrf_token)[^>]*>",
+    re.IGNORECASE,
+)
+CSRF_CONTENT_RE = re.compile(
+    r"""content\s*=\s*['"]([^'"]+)['"]""",
+    re.IGNORECASE,
+)
+CSRF_INPUT_RE = re.compile(
+    r"""<input\b(?=[^>]*\bname\s*=\s*['"]_token['"])(?=[^>]*\bvalue\s*=\s*['"]([^'"]+)['"])[^>]*>""",
+    re.IGNORECASE,
+)
+CSRF_JS_RE = re.compile(
+    r"""(?:csrfToken|csrf_token|_token)\s*[:=]\s*['"]([^'"]+)['"]""",
+    re.IGNORECASE,
 )
 
-COMMON_HEADERS = {
+# Use a supported desktop Chrome profile from the installed curl_cffi.
+# Its TLS/HTTP2 fingerprint, User-Agent and sec-ch-ua client hints come as one
+# consistent set. Never override User-Agent by hand: a Chrome/133 UA on top of
+# a chrome120 TLS fingerprint (or a Linux UA with sec-ch-ua-platform "macOS")
+# is a textbook bot signal for Incapsula.
+IMPERSONATE_FALLBACK = "chrome120"
+
+
+# Conservative profiles, filtered against the installed curl_cffi targets.
+_PREFERRED_TARGETS = ("chrome136", "chrome131", "chrome124", "chrome120")
+
+
+def _supported_targets() -> set[str]:
+    """Return plain desktop ``chromeNNN`` targets known to curl_cffi."""
+    try:
+        from curl_cffi import BrowserType  # type: ignore[attr-defined]
+    except ImportError:  # pragma: no cover - older curl_cffi layout
+        try:
+            from curl_cffi.requests import BrowserType  # type: ignore[no-redef]
+        except ImportError:
+            return {IMPERSONATE_FALLBACK}
+    return {
+        str(browser.value)
+        for browser in BrowserType
+        if re.fullmatch(r"chrome\d+", str(browser.value))
+    }
+
+
+def _candidate_targets(supported: set[str] | None = None) -> list[str]:
+    """Impersonation targets to try, in order, for the installed curl_cffi."""
+    supported = _supported_targets() if supported is None else supported
+    targets = [t for t in _PREFERRED_TARGETS if t in supported]
+    return targets or [IMPERSONATE_FALLBACK]
+
+
+IMPERSONATE_TARGET = _candidate_targets()[0]
+
+
+ACCEPT_LANGUAGE = "uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7"
+
+# Top-level navigation (typing the URL / reload): curl_cffi defaults already
+# look like a Chrome document request, we only localize the language.
+PAGE_HEADERS = {
+    "Accept-Language": ACCEPT_LANGUAGE,
+}
+
+# jQuery $.ajax POST issued by the shutdowns page itself. curl_cffi defaults
+# describe a navigation (Sec-Fetch-Mode: navigate, Upgrade-Insecure-Requests,
+# Accept: text/html...), which never happens for XHR in a real browser.
+# A value of None removes the default header.
+XHR_HEADERS = {
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": ACCEPT_LANGUAGE,
     "X-Requested-With": "XMLHttpRequest",
+    "Origin": DTEK_BASE_URL,
     "Referer": DTEK_SHUTDOWNS_URL,
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-User": None,
+    "Upgrade-Insecure-Requests": None,
+    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
 }
 
 
-class DTEKApiError(Exception):
+class DTEKApiError(ProviderError):
     """Base exception for DTEK API errors."""
 
 
@@ -41,34 +117,133 @@ class DTEKAuthError(DTEKApiError):
     """CSRF or session error — need to re-authenticate."""
 
 
-SESSION_MAX_AGE = timedelta(hours=1)
+class DTEKProtectionError(DTEKApiError):
+    """DTEK answered with the Incapsula/DDoS-Guard interstitial."""
+
+
+# Every page load is a fresh chance for Incapsula to challenge us, so keep the
+# CSRF session as long as the site accepts it (a 400 forces a refresh anyway).
+SESSION_MAX_AGE = timedelta(hours=6)
+_PAGE_RETRY_ATTEMPTS = 3
+# Pause before attempt N (index 0 unused). A real browser also needs a moment
+# to run the Incapsula script before it reloads; hammering makes it worse.
+_PAGE_RETRY_DELAYS = (0.0, 2.0, 8.0)
+_RETRY_JITTER = 0.5
+
+
+def _create_session(target: str = "") -> AsyncSession:
+    """Create a curl_cffi session impersonating desktop Chrome."""
+    target = target or IMPERSONATE_TARGET
+    _LOGGER.debug("Creating DTEK session impersonating %s", target)
+    return AsyncSession(impersonate=target)
+
+
+def _is_transport_error(err: BaseException) -> bool:
+    """Return True for TLS/HTTP2 level failures where a new connection may help.
+
+    curl codes: 16 HTTP/2 framing, 35 TLS handshake, 52 empty reply,
+    55/56 send/recv failure, 92 HTTP/2 stream error.
+    """
+    code = getattr(err, "code", None)
+    try:
+        code = int(code) if code is not None else None
+    except (TypeError, ValueError):
+        code = None
+    if code in (16, 35, 52, 55, 56, 92):
+        return True
+    text = str(err).lower()
+    return "curl: (16)" in text or "http/2" in text or "http2" in text
+
+
+async def _sleep_with_jitter(base: float) -> None:
+    """Sleep for base seconds +/- jitter (no-op for base <= 0)."""
+    if base <= 0:
+        return
+    await asyncio.sleep(base * random.uniform(1 - _RETRY_JITTER, 1 + _RETRY_JITTER))
 
 
 class DTEKClient:
-    """Async HTTP client for DTEK OEM shutdowns API.
+    """Async HTTP client for the DTEK shutdowns API.
 
-    Handles CSRF token acquisition, session cookies, and all API methods.
-    Can run on either a dedicated or HA-managed aiohttp session.
+    Uses curl_cffi with Chrome TLS impersonation because aiohttp is served
+    the Incapsula interstitial instead of the real shutdowns page.
     """
 
-    def __init__(
-        self,
-        session: aiohttp.ClientSession,
-        *,
-        close_session: bool = False,
-    ) -> None:
-        self._session = session
-        self._close_session = close_session
+    def __init__(self, base_url: str = DTEK_BASE_URL) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.shutdowns_url = f"{self.base_url}/ua/shutdowns"
+        self.ajax_url = f"{self.base_url}/ua/ajax"
+        self.xhr_headers = {
+            **XHR_HEADERS,
+            "Origin": self.base_url,
+            "Referer": self.shutdowns_url,
+        }
+        self._http: AsyncSession | None = None
         self._csrf_token: str | None = None
-        self._cookies: dict[str, str] = {}
         self._schedule_data: dict[str, Any] | None = None
         self._session_created: datetime | None = None
         self._schedule_dirty: bool = False
+        self._targets: list[str] = _candidate_targets()
+        self._target_index: int = 0
+        # Diagnostics (since integration start).
+        self.transport_errors: int = 0
+        self.waf_challenges: int = 0
+        self.waf_hard_blocks: int = 0
+        self.last_waf_at: datetime | None = None
 
     async def close(self) -> None:
         """Close the underlying HTTP session."""
-        if self._close_session and not self._session.closed:
-            await self._session.close()
+        await self._reset_http()
+        self._csrf_token = None
+        self._session_created = None
+
+    async def _ensure_http(self) -> AsyncSession:
+        """Create the Chrome-impersonating session on first use."""
+        if self._http is None:
+            self._http = _create_session(self.impersonate_target)
+        return self._http
+
+    @property
+    def impersonate_target(self) -> str:
+        """Browser profile currently in use."""
+        return self._targets[self._target_index]
+
+    async def _recycle_connection(self) -> AsyncSession:
+        """Open a fresh connection with the same cookies and profile.
+
+        After a 403 stub Incapsula closes the HTTP/2 connection; reusing it
+        fails with curl error 16, while a new connection carrying the cookies
+        it just set can complete the page handshake.
+        """
+        jar = list(self._http.cookies.jar) if self._http is not None else []
+        await self._reset_http()
+        session = await self._ensure_http()
+        for cookie in jar:
+            session.cookies.jar.set_cookie(cookie)
+        return session
+
+    async def _switch_target(self) -> bool:
+        """Move to the next browser profile, keeping cookies. False if none."""
+        if self._target_index + 1 >= len(self._targets):
+            return False
+        self._target_index += 1
+        await self._recycle_connection()
+        _LOGGER.warning(
+            "DTEK transport error, switching browser profile to %s",
+            self.impersonate_target,
+        )
+        return True
+
+    def _note_waf(self) -> None:
+        """Count a bot-protection page for diagnostics."""
+        self.waf_challenges += 1
+        self.last_waf_at = datetime.now(KYIV_TZ)
+
+    async def _reset_http(self) -> None:
+        """Drop the curl session (and its cookies) after a hard block."""
+        if self._http is not None:
+            await self._http.close()
+            self._http = None
 
     async def _ensure_session(self) -> None:
         """Fetch the shutdowns page to obtain CSRF token and session cookie."""
@@ -85,41 +260,114 @@ class DTEKClient:
     async def _refresh_session(self) -> None:
         """Force-refresh CSRF token and session cookies."""
         _LOGGER.debug("Refreshing DTEK session and CSRF token")
+        self._csrf_token = None
+        self._session_created = None
 
         try:
-            async with self._session.get(
-                DTEK_SHUTDOWNS_URL,
-                headers={"User-Agent": BROWSER_UA},
-                timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
-                allow_redirects=True,
-            ) as resp:
-                if resp.status != 200:
-                    raise DTEKApiError(
-                        f"Failed to load shutdowns page: HTTP {resp.status}"
-                    )
+            html = await self._load_shutdowns_page()
+            token = _extract_csrf_token(html)
+            if token is None:
+                if _is_protection_page(html):
+                    raise DTEKProtectionError(_csrf_missing_message(html))
+                raise DTEKAuthError(_csrf_missing_message(html))
 
-                html = await resp.text()
+            self._csrf_token = token
+            self._session_created = datetime.now(KYIV_TZ)
 
-                match = CSRF_META_RE.search(html)
-                if not match:
-                    raise DTEKAuthError("CSRF token not found in page HTML")
+            schedule = _parse_schedule_from_html(html)
+            if schedule:
+                self._schedule_data = schedule
+                self._schedule_dirty = True
 
-                self._csrf_token = match.group(1)
-                self._cookies = _extract_cookies(resp)
-                self._session_created = datetime.now(KYIV_TZ)
+            _LOGGER.debug("DTEK session refreshed")
 
-                # Parse schedule data embedded in HTML <script> tags
-                schedule = _parse_schedule_from_html(html)
-                if schedule:
-                    self._schedule_data = schedule
-                    self._schedule_dirty = True
-
-                _LOGGER.debug("DTEK session refreshed")
-
-        except aiohttp.ClientError as err:
+        except DTEKApiError:
+            self._csrf_token = None
+            self._session_created = None
+            raise
+        except (TimeoutError, OSError, UnicodeError) as err:
             self._csrf_token = None
             self._session_created = None
             raise DTEKApiError(f"Network error loading DTEK page: {err}") from err
+
+    async def _load_shutdowns_page(self) -> str:
+        """Download the shutdowns page HTML.
+
+        Incapsula first returns an ~800-byte iframe stub and sets cookies.
+        The next GET on the same session is usually the real page. Between
+        attempts we pause (with jitter) like a browser running the challenge
+        script would, instead of firing three requests in the same second.
+        """
+        session = await self._ensure_http()
+        html = ""
+        consecutive_transport_errors = 0
+        for attempt in range(1, _PAGE_RETRY_ATTEMPTS + 1):
+            delay_index = min(attempt - 1, len(_PAGE_RETRY_DELAYS) - 1)
+            await _sleep_with_jitter(_PAGE_RETRY_DELAYS[delay_index])
+            headers = dict(PAGE_HEADERS)
+            if attempt > 1:
+                # The challenge page reloads itself: same-origin navigation.
+                headers["Sec-Fetch-Site"] = "same-origin"
+                headers["Referer"] = self.shutdowns_url
+            try:
+                resp = await session.get(
+                    self.shutdowns_url,
+                    headers=headers,
+                    timeout=REQUEST_TIMEOUT,
+                    allow_redirects=True,
+                )
+            except (TimeoutError, OSError) as err:
+                self.transport_errors += 1
+                consecutive_transport_errors += 1
+                _LOGGER.debug(
+                    "DTEK page request failed with %s (attempt %s/%s): %s",
+                    self.impersonate_target,
+                    attempt,
+                    _PAGE_RETRY_ATTEMPTS,
+                    err,
+                )
+                if attempt >= _PAGE_RETRY_ATTEMPTS:
+                    raise
+                if consecutive_transport_errors >= 2 and _is_transport_error(err):
+                    # A fresh connection did not help either: try another
+                    # browser profile (keeps cookies).
+                    await self._switch_target()
+                    session = await self._ensure_http()
+                else:
+                    session = await self._recycle_connection()
+                continue
+            consecutive_transport_errors = 0
+            html = resp.text
+            # Incapsula serves its stub with 200 *or* 403; either way the
+            # next GET with the freshly set cookies usually passes.
+            if _is_protection_page(html):
+                if resp.status_code not in (200, 403):
+                    raise DTEKApiError(
+                        f"Failed to load shutdowns page: HTTP {resp.status_code}"
+                    )
+            elif resp.status_code != 200:
+                raise DTEKApiError(
+                    f"Failed to load shutdowns page: HTTP {resp.status_code}"
+                )
+            else:
+                return html
+            self._note_waf()
+            _LOGGER.debug(
+                "DTEK returned a WAF challenge (HTTP %s, attempt %s/%s, %s)",
+                resp.status_code,
+                attempt,
+                _PAGE_RETRY_ATTEMPTS,
+                _html_debug_summary(html),
+            )
+            if attempt < _PAGE_RETRY_ATTEMPTS:
+                session = await self._recycle_connection()
+        if _is_hard_block(html):
+            # "Request unsuccessful. Incapsula incident ID" — the current
+            # cookies are burned; start clean next time instead of reusing them.
+            _LOGGER.debug("Incapsula hard block, dropping session cookies")
+            self.waf_hard_blocks += 1
+            await self._reset_http()
+        return html
 
     async def _post(
         self,
@@ -130,56 +378,85 @@ class DTEKClient:
         """Send POST request to the DTEK AJAX endpoint.
 
         Automatically refreshes CSRF on auth errors and retries once.
-
-        Args:
-            data: POST form data.
-            retry: Whether to retry on CSRF failure.
-            require_result: If True, raise on result=false. Set False for
-                            methods where result=false is a valid response.
         """
         await self._ensure_session()
+        session = await self._ensure_http()
 
         headers = {
-            **COMMON_HEADERS,
-            "User-Agent": BROWSER_UA,
-            "X-Csrf-Token": self._csrf_token,
-            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            **self.xhr_headers,
+            "X-Csrf-Token": self._csrf_token or "",
         }
-        cookie_header = _format_cookie_header(self._cookies)
-        if cookie_header:
-            headers["Cookie"] = cookie_header
 
         try:
-            async with self._session.post(
-                DTEK_AJAX_URL,
+            resp = await session.post(
+                self.ajax_url,
                 data=data,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=REQUEST_TIMEOUT),
-            ) as resp:
-                if resp.status == 400:
-                    if retry:
-                        _LOGGER.debug("Got 400, refreshing CSRF and retrying")
-                        self._csrf_token = None
-                        self._cookies = {}
-                        self._session_created = None
-                        await self._refresh_session()
-                        return await self._post(data, retry=False,
-                                                require_result=require_result)
-                    raise DTEKAuthError("CSRF validation failed after refresh")
+                timeout=REQUEST_TIMEOUT,
+            )
+            if resp.status_code == 400:
+                if retry:
+                    _LOGGER.debug("Got 400, refreshing CSRF and retrying")
+                    await self._refresh_session()
+                    return await self._post(
+                        data,
+                        retry=False,
+                        require_result=require_result,
+                    )
+                raise DTEKAuthError("CSRF validation failed after refresh")
 
-                if resp.status != 200:
-                    raise DTEKApiError(f"DTEK API returned HTTP {resp.status}")
+            if resp.status_code not in (200, 403):
+                raise DTEKApiError(f"DTEK API returned HTTP {resp.status_code}")
 
-                result = await resp.json(content_type=None)
+            if _is_protection_page(resp.text):
+                self._note_waf()
+                # Incapsula can also interpose on XHR. Re-run the page
+                # handshake (which waits and retries) and try once more.
+                if retry:
+                    _LOGGER.debug("AJAX answered with WAF page, re-handshaking")
+                    await self._refresh_session()
+                    return await self._post(
+                        data,
+                        retry=False,
+                        require_result=require_result,
+                    )
+                raise DTEKProtectionError(
+                    "DTEK bot protection blocked the AJAX request "
+                    f"({_html_debug_summary(resp.text)})"
+                )
 
-                if require_result and (
-                    not isinstance(result, dict) or not result.get("result")
-                ):
-                    raise DTEKApiError(f"DTEK API returned error: {result}")
+            if resp.status_code != 200:
+                raise DTEKApiError(f"DTEK API returned HTTP {resp.status_code}")
 
-                return result
+            try:
+                result = resp.json()
+            except (json.JSONDecodeError, ValueError) as err:
+                raise DTEKApiError(
+                    f"Invalid JSON from DTEK API: {err} "
+                    f"({_html_debug_summary(resp.text)})"
+                ) from err
 
-        except aiohttp.ClientError as err:
+            if not isinstance(result, dict) or "result" not in result:
+                raise DTEKApiError("Malformed DTEK API response")
+            if require_result and not result["result"]:
+                raise DTEKApiError("DTEK API returned result=false")
+
+            return result
+
+        except DTEKApiError:
+            raise
+        except (TimeoutError, OSError) as err:
+            self.transport_errors += 1
+            if retry and _is_transport_error(err):
+                _LOGGER.debug(
+                    "AJAX transport error, retrying on a new connection: %s", err
+                )
+                await self._recycle_connection()
+                return await self._post(
+                    data,
+                    retry=False,
+                    require_result=require_result,
+                )
             raise DTEKApiError(f"Network error calling DTEK API: {err}") from err
 
     async def get_streets(self) -> dict[str, list[str]]:
@@ -191,7 +468,17 @@ class DTEKClient:
         streets = result.get("streets", {})
         if not isinstance(streets, dict):
             raise DTEKApiError("Unexpected streets format in API response")
-        return streets
+        return {
+            city.strip(): sorted(
+                {
+                    street.strip()
+                    for street in values
+                    if isinstance(street, str) and street.strip()
+                }
+            )
+            for city, values in streets.items()
+            if isinstance(city, str) and city.strip() and isinstance(values, list)
+        }
 
     async def get_home_status(
         self,
@@ -204,8 +491,8 @@ class DTEKClient:
 
         Args:
             city: City name (e.g. "м. Одеса")
-            street: Street name (e.g. "дорога Люстдорфська")
-            house_num: House number (e.g. "56В"), empty to get all houses
+            street: Street name (e.g. "вулиця Прикладна")
+            house_num: House number (e.g. "12А"), empty to get all houses
             update_fact: Last known update timestamp for delta updates
 
         Returns:
@@ -237,9 +524,14 @@ class DTEKClient:
             {"method": "checkDisconUpdate", "update": timestamp},
             require_result=False,
         )
-        if not isinstance(result, dict) or not result.get("result"):
+        if result.get("result") is False:
             _LOGGER.debug("No schedule updates since %s", timestamp)
             return None
+
+        if result.get("result") is not True or not any(
+            key in result for key in ("fact", "preset")
+        ):
+            raise DTEKApiError("Malformed schedule update response")
 
         # API returns updated fact + preset when there's a change
         update_data: dict[str, Any] = {}
@@ -266,13 +558,19 @@ class DTEKClient:
         return None
 
     @staticmethod
-    def parse_house_data(api_response: dict[str, Any], house_num: str) -> dict[str, Any]:
+    def parse_house_data(
+        api_response: dict[str, Any], house_num: str
+    ) -> dict[str, Any]:
         """Extract and normalize data for a specific house from API response.
 
         Handles both single outage (dict) and multiple outages (list).
         Returns a dict with normalized outage information.
         """
-        houses = api_response.get("data", {})
+        if not isinstance(api_response, dict) or not isinstance(
+            api_response.get("data"), dict
+        ):
+            raise DTEKApiError("Malformed house response")
+        houses = api_response["data"]
         update_timestamp = api_response.get("updateTimestamp", "")
 
         no_outage: dict[str, Any] = {
@@ -307,7 +605,8 @@ class DTEKClient:
         if house_data is None:
             _LOGGER.debug(
                 "No data for house %s in API response (keys: %s)",
-                house_num, list(houses.keys()),
+                house_num,
+                list(houses.keys()),
             )
             return no_outage
 
@@ -318,14 +617,20 @@ class DTEKClient:
             entries = house_data
             _LOGGER.debug(
                 "DTEK returned %d outage entries for %s (multiple outages)",
-                len(entries), house_num,
+                len(entries),
+                house_num,
             )
         else:
             _LOGGER.warning(
                 "Unexpected DTEK data type for %s: %s — raw: %s",
-                house_num, type(house_data).__name__, house_data,
+                house_num,
+                type(house_data).__name__,
+                house_data,
             )
-            return no_outage
+            raise DTEKApiError("Malformed address payload")
+
+        if any(not isinstance(entry, dict) or not entry for entry in entries):
+            raise DTEKApiError("Malformed outage entry")
 
         # Parse each outage entry
         outages: list[dict[str, Any]] = []
@@ -334,9 +639,12 @@ class DTEKClient:
             if not isinstance(entry, dict):
                 _LOGGER.warning("Skipping non-dict outage entry: %s", entry)
                 continue
-            _LOGGER.debug("House %s entry: sub_type_reason=%s, sub_type=%s",
-                          house_num, entry.get("sub_type_reason"),
-                          entry.get("sub_type", ""))
+            _LOGGER.debug(
+                "House %s entry: sub_type_reason=%s, sub_type=%s",
+                house_num,
+                entry.get("sub_type_reason"),
+                entry.get("sub_type", ""),
+            )
             parsed = _parse_single_outage(entry)
             if parsed["outage_type"] != "ok":
                 outages.append(parsed)
@@ -344,7 +652,7 @@ class DTEKClient:
             all_groups.extend(parsed.get("schedule_groups", []))
 
         if not outages:
-            no_outage["schedule_groups"] = list(dict.fromkeys(all_groups))
+            no_outage["schedule_groups"] = sorted(set(all_groups))
             no_outage["primary_schedule_group"] = (
                 no_outage["schedule_groups"][0]
                 if no_outage["schedule_groups"]
@@ -355,7 +663,7 @@ class DTEKClient:
         # Select primary outage: most severe, then most recent start
         primary = _select_primary_outage(outages)
         # Merge schedule groups from all outages
-        merged_groups = list(dict.fromkeys(all_groups))
+        merged_groups = sorted(set(all_groups))
 
         return {
             "power_on": False,
@@ -444,6 +752,7 @@ def _select_primary_outage(outages: list[dict[str, Any]]) -> dict[str, Any]:
 
 # --- Schedule parsing from HTML ---
 
+
 def _parse_schedule_from_html(html: str) -> dict[str, Any] | None:
     """Extract DisconSchedule.fact and DisconSchedule.preset from page HTML.
 
@@ -480,22 +789,6 @@ def _normalize_groups(value: Any) -> list[str]:
         if normalized:
             groups.append(normalized)
     return groups
-
-
-def _extract_cookies(response: aiohttp.ClientResponse) -> dict[str, str]:
-    """Extract response cookies into a plain dict."""
-    cookies: dict[str, str] = {}
-    for raw_cookie in response.headers.getall("Set-Cookie", []):
-        parsed = SimpleCookie()
-        parsed.load(raw_cookie)
-        for name, morsel in parsed.items():
-            cookies[name] = morsel.value
-    return cookies
-
-
-def _format_cookie_header(cookies: dict[str, str]) -> str:
-    """Convert a cookie mapping into a Cookie header value."""
-    return "; ".join(f"{name}={value}" for name, value in cookies.items())
 
 
 def _extract_js_object(html: str, assignment_name: str) -> str | None:
@@ -539,3 +832,70 @@ def _extract_js_object(html: str, assignment_name: str) -> str | None:
                 return html[start : index + 1]
 
     return None
+
+
+def _is_protection_page(html: str) -> bool:
+    """Return True when HTML looks like an Incapsula/DDoS-Guard interstitial.
+
+    The real shutdowns page also embeds an ``_Incapsula_Resource`` script, so
+    WAF markers alone are not enough: a page carrying the CSRF token or the
+    schedule data is the real one, whatever else it contains.
+    """
+    if _looks_like_real_page(html):
+        return False
+    lowered = html.lower()
+    compact = lowered.replace(" ", "")
+    if "incapsula" in lowered or "_incapsula_resource" in lowered:
+        return True
+    if "ddos-guard" in lowered or "check.ddos-guard.net" in lowered:
+        return True
+    if "noindex" in lowered and "nofollow" in lowered and "height:100%" in compact:
+        return True
+    return False
+
+
+def _looks_like_real_page(html: str) -> bool:
+    """Return True for the actual shutdowns page (token or schedule present)."""
+    if "DisconSchedule" in html:
+        return True
+    return _extract_csrf_token(html) is not None
+
+
+def _is_hard_block(html: str) -> bool:
+    """Return True for the Incapsula 'Request unsuccessful' incident page."""
+    lowered = html.lower()
+    return "incident id" in lowered or "wudnsai" in lowered
+
+
+def _csrf_missing_message(html: str) -> str:
+    """Build an error that distinguishes a WAF page from a missing token."""
+    if _is_protection_page(html):
+        return (
+            "DTEK returned a bot-protection page instead of the shutdowns form "
+            f"({_html_debug_summary(html)})"
+        )
+    return f"CSRF token not found in page HTML ({_html_debug_summary(html)})"
+
+
+def _extract_csrf_token(html: str) -> str | None:
+    """Extract a CSRF token from DTEK HTML variants."""
+    if not html:
+        return None
+
+    meta = CSRF_META_TAG_RE.search(html)
+    if meta:
+        content = CSRF_CONTENT_RE.search(meta.group(0))
+        if content and content.group(1).strip():
+            return content.group(1).strip()
+
+    for pattern in (CSRF_INPUT_RE, CSRF_JS_RE):
+        match = pattern.search(html)
+        if match and match.group(1).strip():
+            return match.group(1).strip()
+
+    return None
+
+
+def _html_debug_summary(html: str) -> str:
+    """Build a short HTML summary for logs when CSRF parsing fails."""
+    return f"len={len(html)} protection={_is_protection_page(html)}"

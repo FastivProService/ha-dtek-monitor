@@ -13,6 +13,25 @@ schedule = load_component_module("schedule")
 class ScheduleDomainTests(unittest.TestCase):
     """Regression tests for schedule merging and next-event lookup."""
 
+    def test_utc_and_kyiv_ranges_crossing_midnight_are_identical(self):
+        for day in (dt.date(2026, 10, 18), dt.date(2026, 10, 25), dt.date(2026, 3, 29)):
+            start = dt.datetime.combine(day, dt.time(), tzinfo=schedule.KYIV_TZ)
+            end = start + dt.timedelta(hours=6)
+            preset = {"GPV5.1": {str(day.isoweekday()): {"1": "no", "2": "no", "4": "no"}}}
+            local = schedule.get_schedule_windows_for_range(start, end, ["GPV5.1"], {}, preset)
+            utc = schedule.get_schedule_windows_for_range(start.astimezone(dt.timezone.utc), end.astimezone(dt.timezone.utc), ["GPV5.1"], {}, preset)
+            self.assertEqual(utc, local)
+            self.assertTrue(utc)
+
+    def test_groups_remain_separate_even_for_overlapping_windows(self):
+        date = dt.date(2026, 10, 17)
+        preset = {"GPV3.1": {"6": {"11": "no", "12": "no"}}, "GPV5.1": {"6": {"12": "no", "13": "no"}}}
+        windows = schedule.get_schedule_windows_for_date(date, ["GPV5.1", "GPV3.1"], {}, preset)
+        self.assertEqual(len(windows), 2)
+        self.assertIn("group=GPV3.1", windows[0].description)
+        self.assertIn("group=GPV5.1", windows[1].description)
+        self.assertEqual([(w.start.hour, w.end.hour) for w in windows], [(10, 12), (11, 13)])
+
     def test_fact_slots_trim_overlapping_preset_slots(self) -> None:
         """Preset windows should be cut around overlapping fact windows."""
         date = dt.date(2026, 3, 9)

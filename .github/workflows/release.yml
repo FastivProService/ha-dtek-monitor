@@ -1,0 +1,61 @@
+---
+name: Release
+
+"on":
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify release version and changelog
+        run: |
+          python - <<'PY'
+          import json, os, pathlib
+          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          manifest = pathlib.Path(
+              "custom_components/dtek_monitor/manifest.json"
+          )
+          assert json.loads(manifest.read_text())["version"] == version
+          changelog = pathlib.Path("CHANGELOG.md").read_text()
+          assert any(line.startswith(f"## [{version}] - ")
+                     for line in changelog.splitlines())
+          PY
+
+  tests:
+    needs: verify-version
+    uses: ./.github/workflows/tests.yml
+
+  hassfest:
+    needs: verify-version
+    uses: ./.github/workflows/hassfest.yml
+
+  hacs:
+    needs: verify-version
+    uses: ./.github/workflows/validate.yml
+
+  github-release:
+    needs: [verify-version, tests, hassfest, hacs]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Package integration for manual installation
+        working-directory: custom_components/dtek_monitor
+        run: zip -r ../../dtek_monitor.zip .
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dtek_monitor.zip
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

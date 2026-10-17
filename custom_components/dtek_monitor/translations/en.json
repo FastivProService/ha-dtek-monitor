@@ -2,6 +2,13 @@
   "config": {
     "step": {
       "user": {
+        "title": "Select operator",
+        "description": "Choose your distribution operator. Kyiv oblast (KREM) and Kyiv city (KEM) have different operators.",
+        "data": {
+          "provider_id": "Distribution operator"
+        }
+      },
+      "city": {
         "title": "Select city",
         "description": "Choose the city or settlement where your address is located.",
         "data": {
@@ -39,7 +46,8 @@
       "no_streets": "No streets found for the selected city.",
       "no_houses": "No houses found for the selected street. You can enter the number manually.",
       "invalid_city": "City not found in the DTEK database. Please select from the list.",
-      "invalid_street": "Street not found in the DTEK database. Please select from the list."
+      "invalid_street": "Street not found in the DTEK database. Please select from the list.",
+      "invalid_provider": "This operator is not supported yet."
     },
     "abort": {
       "already_configured": "This address is already configured."
@@ -95,6 +103,13 @@
       },
       "schedule_changed": {
         "name": "Schedule changed"
+      },
+      "connection": {
+        "name": "DTEK connection",
+        "state": {
+          "ok": "Connected",
+          "error": "Error"
+        }
       }
     },
     "calendar": {
@@ -103,6 +118,9 @@
       },
       "possible_schedule": {
         "name": "Possible outage schedule"
+      },
+      "last_known_schedule": {
+        "name": "Last known schedule (view only)"
       }
     }
   }

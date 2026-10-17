@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -74,10 +74,12 @@ def get_schedule_windows_for_date(
     event_type: str | None = None,
 ) -> list[ScheduleWindow]:
     """Build merged schedule windows for a single date."""
-    slots = get_day_slots(date, groups, fact, preset, event_type)
-    if not slots:
-        return []
-    return _slots_to_windows(slots, date)
+    windows = []
+    for group in sorted(set(groups)):
+        slots = get_day_slots(date, [group], fact, preset, event_type)
+        windows.extend(replace(window, description=f"{window.description}; group={group}")
+                       for window in _slots_to_windows(slots, date))
+    return sorted(windows, key=lambda w: (w.start, w.end, w.description))
 
 
 def get_schedule_windows_for_range(
@@ -89,6 +91,8 @@ def get_schedule_windows_for_range(
     event_type: str | None = None,
 ) -> list[ScheduleWindow]:
     """Build merged schedule windows for an arbitrary datetime range."""
+    start = start.replace(tzinfo=KYIV_TZ) if start.tzinfo is None else start.astimezone(KYIV_TZ)
+    end = end.replace(tzinfo=KYIV_TZ) if end.tzinfo is None else end.astimezone(KYIV_TZ)
     windows: list[ScheduleWindow] = []
     current_date = start.date()
     end_date = end.date()
@@ -118,6 +122,7 @@ def find_current_or_next_window(
     lookahead_days: int = DEFAULT_NEXT_EVENT_LOOKAHEAD_DAYS,
 ) -> ScheduleWindow | None:
     """Return the current or next schedule window within the lookahead period."""
+    now = now.replace(tzinfo=KYIV_TZ) if now.tzinfo is None else now.astimezone(KYIV_TZ)
     next_window: ScheduleWindow | None = None
 
     for day_offset in range(lookahead_days + 1):

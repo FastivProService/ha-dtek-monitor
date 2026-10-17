@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import logging
 
-import aiohttp
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_create_clientsession
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
 from .coordinator import DTEKDataCoordinator
-from .dtek_client import DTEKClient
+from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, create_provider
 from .migration import migrate_device_identifiers, migrate_entity_unique_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,17 +29,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up DTEK Monitor from a config entry."""
     await _async_migrate_registry_identifiers(hass, entry)
 
-    session = async_create_clientsession(
-        hass,
-        cookie_jar=aiohttp.CookieJar(),
-    )
-    client = DTEKClient(session, close_session=True)
+    provider = create_provider(entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID))
 
-    coordinator = DTEKDataCoordinator(hass, client, entry)
+    coordinator = DTEKDataCoordinator(hass, provider, entry)
+    await coordinator.async_load_snapshot()
     try:
         await coordinator.async_config_entry_first_refresh()
+    except ConfigEntryNotReady:
+        if coordinator.snapshot is None:
+            await provider.close()
+            raise
+        _LOGGER.info("DTEK unavailable; exposing the last known schedule for display")
     except Exception:
-        await client.close()
+        await provider.close()
         raise
 
     entry.runtime_data = coordinator
@@ -49,7 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
-        await client.close()
+        await provider.close()
         raise
 
     return True
@@ -57,13 +57,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entries and registry state forward."""
-    if entry.version > 2:
+    if entry.version > 3:
         _LOGGER.error("Unsupported config entry version: %s", entry.version)
         return False
 
     if entry.version < 2:
         await _async_migrate_registry_identifiers(hass, entry)
         hass.config_entries.async_update_entry(entry, version=2)
+
+    if entry.version < 3:
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_PROVIDER: DEFAULT_PROVIDER_ID}, version=3
+        )
 
     return True
 
@@ -74,7 +79,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if unload_ok:
         coordinator: DTEKDataCoordinator = entry.runtime_data
-        await coordinator.client.close()
+        await coordinator.provider.close()
 
     return unload_ok
 
@@ -143,7 +148,9 @@ async def _async_migrate_registry_identifiers(
 
     device_registry = dr.async_get(hass)
     migrated_devices = 0
-    for device_entry in dr.async_entries_for_config_entry(device_registry, entry.entry_id):
+    for device_entry in dr.async_entries_for_config_entry(
+        device_registry, entry.entry_id
+    ):
         new_identifiers = migrate_device_identifiers(
             device_entry.identifiers,
             DOMAIN,

@@ -23,7 +23,7 @@ from .const import (
     ATTR_SCHEDULE_GROUPS,
 )
 from .coordinator import DTEKDataCoordinator
-from .helpers import build_device_info, build_entity_unique_id
+from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
 
 POWER_DESCRIPTION = BinarySensorEntityDescription(
     key="power",
@@ -42,9 +42,7 @@ async def async_setup_entry(
     async_add_entities([DTEKPowerBinarySensor(coordinator, entry)])
 
 
-class DTEKPowerBinarySensor(
-    CoordinatorEntity[DTEKDataCoordinator], BinarySensorEntity
-):
+class DTEKPowerBinarySensor(CoordinatorEntity[DTEKDataCoordinator], BinarySensorEntity):
     """Binary sensor indicating whether power is currently available."""
 
     _attr_has_entity_name = True
@@ -59,22 +57,27 @@ class DTEKPowerBinarySensor(
         self.entity_description = POWER_DESCRIPTION
 
         self._attr_unique_id = build_entity_unique_id(entry, "power")
+        self.entity_id = suggested_entity_id(entry, "binary_sensor", "power")
         self._attr_device_info = build_device_info(entry)
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.address_success
 
     @property
     def is_on(self) -> bool | None:
         """Return True if power is available."""
-        if self.coordinator.data is None:
+        if self.coordinator.address_data is None:
             return None
-        return self.coordinator.data.get("power_on", True)
+        return self.coordinator.address_data.get("power_on", True)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional outage details as attributes."""
-        if self.coordinator.data is None:
+        if self.coordinator.address_data is None:
             return {}
 
-        data = self.coordinator.data
+        data = self.coordinator.address_data
         attrs: dict[str, Any] = {
             ATTR_OUTAGE_TYPE: data.get("outage_type", "ok"),
             ATTR_SCHEDULE_GROUPS: data.get("schedule_groups", []),
