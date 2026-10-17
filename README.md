@@ -54,6 +54,8 @@ Requires **Home Assistant 2026.3.0 or newer** and internet access from Home Assi
 
 This is a [HACS custom repository](https://hacs.dev/docs/faq/custom_repositories/); adding it to HACS installs the files, not the address configuration.
 
+The noncommercial license does not meet the requirements for the default HACS catalog. Install it through **Custom repositories** as described above.
+
 ### Manually
 
 1. Download the source from the [release you want to install](https://github.com/groove-max/ha-dtek-monitor/releases).

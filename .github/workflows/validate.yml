@@ -1,5 +1,5 @@
 ---
-name: HACS Validation
+name: HACS Custom Repository Validation
 
 "on":
   push:
@@ -24,7 +24,10 @@ jobs:
           comment: false
           # Custom integration brand assets ship locally since HA 2026.3.
           # The upstream brands repository no longer accepts them.
-          ignore: brands
+          # Noncommercial licensing is intentional. This project is installed
+          # as a custom repository, not submitted to the default HACS catalog.
+          # Package license integrity is checked separately below.
+          ignore: brands license
 
   secrets:
     runs-on: ubuntu-latest
@@ -40,3 +43,25 @@ jobs:
           docker run --rm -v "$PWD:/repo:ro" \
             ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo \
             --redact --no-banner --log-opts="--all"
+
+  license-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify noncommercial license and distribution notices
+        run: |
+          python - <<'PYCODE'
+          import hashlib
+          from pathlib import Path
+          root = Path("LICENSE").read_bytes()
+          expected = (
+              "c0ea4a896d2c8c394b29f9427589996db826cd501c512279ff0ed3ef48fabbe5"
+          )
+          assert hashlib.sha256(root).hexdigest() == expected
+          component = Path("custom_components/dtek_monitor")
+          assert (component / "LICENSE").read_bytes() == root
+          for name in ["NOTICE", "THIRD_PARTY_NOTICES.md"]:
+              assert (component / name).read_text().strip()
+          assert Path("NOTICE").read_text().strip()
+          PYCODE
