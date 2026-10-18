@@ -1,4 +1,4 @@
-import {el} from "./account-ui.js?v=1.8.0b20";
+import {el} from "./account-ui.js?v=1.8.0b21";
 
 // A small host for HA's existing options schemas. The backend owns validation,
 // confirmation steps and persistence; ordinary hass updates only reach ha-form.
@@ -46,9 +46,10 @@ class DtekAccountOptions extends HTMLElement{
     this.shadowRoot.replaceChildren(el("style",`:host{display:contents}dialog{box-sizing:border-box;width:min(600px,calc(100vw - 24px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;padding:24px;border:1px solid var(--divider-color,#aaa);border-radius:16px;color:var(--primary-text-color);background:var(--card-background-color,#fff)}dialog::backdrop{background:#0008}h3{margin-top:0}p{line-height:1.5;overflow-wrap:anywhere}p:empty{display:none}.scope{color:var(--secondary-text-color)}ha-form,ha-markdown{display:block;margin:16px 0}button,a{font:inherit;overflow-wrap:anywhere}button{padding:10px 14px;margin:8px 8px 0 0;border:1px solid var(--divider-color,#aaa);border-radius:8px;background:transparent;color:inherit;cursor:pointer}button:disabled{opacity:.5}.menu button{display:block;width:100%;text-align:left}footer{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}footer .actions:not(.menu){display:contents}footer .menu{width:100%}footer button{margin-right:0}.actions:not(.menu) button{background:var(--primary-color);border-color:var(--primary-color);color:var(--text-primary-color,#fff)}a{color:var(--primary-color)}section{padding:12px;border:1px solid var(--warning-color,#c88b20);border-radius:8px;margin-top:16px}[hidden]{display:none!important}@media(max-width:420px){dialog{padding:18px}}`),this._dialog);
     this._dialog.showModal();this.setBusy(true);
     try{
-      const [localize]=await Promise.all([hass.loadBackendTranslation("options","dtek_monitor"),loadForm(),hass.loadBackendTranslation("selector","dtek_monitor")]);
+      const [localize,,localizeSelector]=await Promise.all([hass.loadBackendTranslation("options","dtek_monitor"),loadForm(),hass.loadBackendTranslation("selector","dtek_monitor")]);
       if(seq!==this._seq||!this.isConnected)return;
       this._localize=localize;
+      this._localizeSelector=localizeSelector;
       const result=await hass.callWS({type:"dtek_monitor/account_options",entity_id:account.entity_id,action});
       if(seq!==this._seq||!this.isConnected){this._delete(hass,result.flow_id);return;}
       this._entryId=result.entry_id;this._flowId=result.flow_id;
@@ -79,7 +80,7 @@ class DtekAccountOptions extends HTMLElement{
       this._form.computeLabel=f=>this.local(`step.${step.step_id}.data.${f.name}`,f.name);
       this._form.computeHelper=f=>this.local(`step.${step.step_id}.data_description.${f.name}`);
       this._form.computeError=code=>this.local(`error.${code}`,code);
-      this._form.localizeValue=(key,values)=>this._localize?.(`component.dtek_monitor.selector.${key}`,values);
+      this._form.localizeValue=(key,values)=>this._localizeSelector?.(`component.dtek_monitor.selector.${key}`,values);
       this._form.addEventListener("value-changed",e=>{if(this.busy)return;this._values={...e.detail.value};this._form.data=this._values;this._dirty=true;});
       this._body.append(this._form);
       const final=["account_schedule_groups","account_reminder_settings","account_notice_settings","account_check_settings","account_selection"].includes(step.step_id);

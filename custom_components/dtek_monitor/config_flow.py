@@ -40,6 +40,7 @@ from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, PROVIDERS, create_pro
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
 from .account_flow import AccountFlowMixin, account_options, select_account_options
 from .account_link_flow import AccountLinkFlowMixin
+from .building import address_unique_id, unique_choice, verify_building
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -133,6 +134,26 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
             ),
             errors=errors,
         )
+
+    async def async_step_import(self, user_input):
+        """Create a verified public building, with no cabinet or apartment data."""
+        provider_id = user_input.get(CONF_PROVIDER)
+        if provider_id not in PROVIDERS or not PROVIDERS[provider_id].enabled:
+            return self.async_abort(reason="invalid_provider")
+        provider = create_provider(provider_id)
+        try:
+            address = await verify_building(provider, user_input)
+        except ProviderError:
+            return self.async_abort(reason="cannot_connect")
+        finally:
+            await provider.close()
+        if address is None:
+            return self.async_abort(reason="invalid_building")
+        self._provider_id = provider_id
+        self._city, self._street, self._house = address.parts
+        await self.async_set_unique_id(address_unique_id(address))
+        self._abort_if_unique_id_configured()
+        return await self.async_step_settings({CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL_SECONDS})
 
     async def async_step_city(
         self, user_input: dict[str, Any] | None = None
@@ -301,24 +322,8 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
         )
 
     def _suggested_default(self, key: str, choices: list[str]) -> dict:
-        value = self._address_suggestion.get(key)
-        if value in choices:
-            return {"default": value}
-        if not value:
-            return {}
-
-        def normalize(text):
-            text = " ".join(text.casefold().split())
-            if key == CONF_CITY:
-                text = re.sub(r"^(?:м\.|місто)\s+", "", text)
-            elif key == CONF_STREET:
-                text = re.sub(r"^вул\.\s+", "вулиця ", text)
-            return text
-
-        matches = [
-            choice for choice in choices if normalize(choice) == normalize(value)
-        ]
-        return {"default": matches[0]} if len(matches) == 1 else {}
+        value = unique_choice(self._address_suggestion.get(key), choices, key)
+        return {"default": value} if value is not None else {}
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
@@ -499,6 +504,21 @@ class DTEKMonitorOptionsFlow(AccountLinkFlowMixin, OptionsFlow):
         from .account_schedule_flow import schedule_groups
 
         return await schedule_groups(self, self._config_entry, user_input)
+
+    async def async_step_account_building_city(self, user_input=None):
+        from .account_building_flow import configure
+
+        return await configure(self, self._config_entry, CONF_CITY, user_input)
+
+    async def async_step_account_building_street(self, user_input=None):
+        from .account_building_flow import configure
+
+        return await configure(self, self._config_entry, CONF_STREET, user_input)
+
+    async def async_step_account_building_house(self, user_input=None):
+        from .account_building_flow import configure
+
+        return await configure(self, self._config_entry, CONF_HOUSE, user_input)
 
     async def async_step_account_selection(self, user_input=None):
         return await select_account_options(self, self._config_entry, user_input)

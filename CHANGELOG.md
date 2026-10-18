@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b21] - 2026-10-18
+
+- Automatically connect each monitored personal account to a building verified against its operator’s public directory. Reuse shared buildings and keep apartment details and cabinet credentials out of public connections.
+- Confirm ambiguous addresses inside Building and outage group settings. Preserve manual group choices and explicit disconnection; building calendars and bots retain every group.
+- Keep directory discovery independent of cabinet data, show pending/confirmation/unavailable states, and retry directory failures without blocking account setup.
+- Cover initial and later account selection, shared buildings, concurrent discovery, cancellation, directory failures and manual confirmation with regression tests.
+
 ## [1.8.0b20] - 2026-10-18
 
 - Show neutral connection guidance when My DTEK has no accounts, even if the card still references a removed account. Keep list-loading failures distinct.

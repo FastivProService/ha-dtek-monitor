@@ -320,14 +320,22 @@ The verified cabinet responses currently provide no such assignment. A building
 may have several groups; its **Primary schedule group** is a compatibility value,
 not a claim about your apartment.
 
-1. Use **Configure → Add building monitoring** and finish the discovered address
-   setup, or use an existing DTEK address for the same operator.
-2. Open **Configure → My group and schedule**, choose the account and verify its
-   building address.
-3. A building with exactly one verified group is linked automatically. With
-   multiple groups, select the group(s) verified for your apartment. You can change
-   this choice later. Clearing the selection returns to automatic mode: it works
-   only while the building has exactly one verified group.
+1. When HA starts monitoring an account, it matches its city, street and building
+   against the operator’s public directory. A unique match connects the building
+   automatically; an existing connection is reused, including for multiple
+   apartments in the same building. This also applies to accounts selected later.
+2. If the address needs confirmation, open **My DTEK → Settings → Building and
+   outage group → Choose another building from the directory**. Confirm the city,
+   street and building in the same dialog. Apartment numbers and cabinet credentials
+   are never included in the public building connection.
+3. A sole verified building group is used automatically. With several groups,
+   choose your apartment group in the same settings. The building calendars and
+   bot keep every group. Manual group choices never change automatically.
+
+A directory outage does not block cabinet data or readings. HA reports that
+matching is pending and retries every five minutes. **Do not link a building**
+disables automatic linking for this account until you choose a building again;
+it does not delete the shared building connection.
 
 The account device exposes **My group**, **My schedule status**,
 **My outage schedule** and **My possible outage schedule**. Add the personal

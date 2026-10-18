@@ -160,6 +160,9 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
         for status, text in [
             ("error", "The grid is unavailable"),
             ("no_address", "Link a building"),
+            ("address_pending", "Finding the building"),
+            ("address_confirmation", "Confirm the building"),
+            ("address_lookup_unavailable", "The DTEK address directory is temporarily unavailable"),
             ("address_unavailable", "The building connection is unavailable"),
             ("unsupported", "is not supported"),
             ("unpublished", "paused schedule publication"),

@@ -1,4 +1,4 @@
-import { date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b20";
+import { date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b21";
 /* Local references only. No operation in this editor submits readings to DTEK. */
 const words = {
   en: {

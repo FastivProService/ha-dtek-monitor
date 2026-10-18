@@ -229,7 +229,7 @@ class AccountScheduleTests(unittest.IsolatedAsyncioTestCase):
         removed = await self.options.async_step_account_schedule_address(
             {"schedule_address": "none"}
         )
-        self.assertEqual(removed["data"][mod.CONF_ACCOUNT_SCHEDULES], {})
+        self.assertEqual(removed["data"][mod.CONF_ACCOUNT_SCHEDULES], {"100001": {"disabled": True}})
 
     async def test_form_preserves_choices_and_rejects_changed_or_foreign_groups(self):
         await self.choose_address()

@@ -1,12 +1,12 @@
-import "./account-options.js?v=1.8.0b20";
-import "./account-energy-settings.js?v=1.8.0b20";
-import "./account-profile-card.js?v=1.8.0b20";
-import "./account-readings-card.js?v=1.8.0b20";
-import "./account-history-card.js?v=1.8.0b20";
-import "./schedule-card.js?v=1.8.0b20";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b20";
-import { accountNumber } from "./account-number.js?v=1.8.0b20";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b20";
+import "./account-options.js?v=1.8.0b21";
+import "./account-energy-settings.js?v=1.8.0b21";
+import "./account-profile-card.js?v=1.8.0b21";
+import "./account-readings-card.js?v=1.8.0b21";
+import "./account-history-card.js?v=1.8.0b21";
+import "./schedule-card.js?v=1.8.0b21";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b21";
+import { accountNumber } from "./account-number.js?v=1.8.0b21";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b21";
 
 const words = {
   en: {
@@ -29,7 +29,7 @@ const words = {
     state_current: "Today's schedule is published.", state_empty: "No planned outages today — the schedule is verified.", state_missing: "Today's schedule is not fully published yet.",
     state_unpublished: "DTEK has paused schedule publication.", state_partial: "Only part of today's schedule is available.", state_forecast: "Only a forecast is available.",
     state_error: "DTEK could not be reached. Updates will resume automatically.", state_unknown: "The schedule status is not known yet.",
-    state_no_address: "Connect the building's schedule.", state_not_selected: "Choose your group from the building's groups.", state_group_unavailable: "DTEK no longer confirms your selected group. Review the selection.",
+    state_address_pending: "Finding the building for this account…", state_address_confirmation: "Confirm the building in Building and outage group settings.", state_address_lookup_unavailable: "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.", state_no_address: "Connect the building's schedule.", state_not_selected: "Choose your group from the building's groups.", state_group_unavailable: "DTEK no longer confirms your selected group. Review the selection.",
     state_labels_hidden: "DTEK has hidden group labels.", state_address_unavailable: "The building connection is unavailable.", state_unavailable: "Schedule data is unavailable.",
   },
   uk: {
@@ -52,7 +52,7 @@ const words = {
     state_current: "Графік на сьогодні опубліковано.", state_empty: "Сьогодні планових відключень немає — графік перевірено.", state_missing: "Графік на сьогодні ще не повністю опубліковано.",
     state_unpublished: "ДТЕК призупинив публікацію графіків.", state_partial: "Доступна лише частина графіка на сьогодні.", state_forecast: "Доступний лише прогноз.",
     state_error: "Немає зв’язку з ДТЕК. Оновлення відновляться автоматично.", state_unknown: "Стан графіка поки невідомий.",
-    state_no_address: "Підключіть графік будинку.", state_not_selected: "Оберіть свою групу серед груп будинку.", state_group_unavailable: "ДТЕК більше не підтверджує обрану групу. Перевірте вибір.",
+    state_address_pending: "Підбираємо будинок за адресою рахунку…", state_address_confirmation: "Уточніть будинок у налаштуванні «Будинок і група відключень».", state_address_lookup_unavailable: "Довідник адрес ДТЕК тимчасово недоступний. Автопідбір повториться; дані рахунку працюють окремо.", state_no_address: "Підключіть графік будинку.", state_not_selected: "Оберіть свою групу серед груп будинку.", state_group_unavailable: "ДТЕК більше не підтверджує обрану групу. Перевірте вибір.",
     state_labels_hidden: "ДТЕК приховав назви груп.", state_address_unavailable: "Підключення будинку недоступне.", state_unavailable: "Дані графіка недоступні.",
   },
 };
@@ -302,7 +302,9 @@ class DtekAccountWorkspaceCard extends HTMLElement {
       for (const [key, box] of mounted) box.hidden=key!==mode;
     };
     for (const mode of ["grid","list"]) { const b=this._button(this.t[mode], () => {view=mode;show();}); b.dataset.mode=mode;b.dataset.i18n=mode; buttons.append(b); }
-    select.onchange=show;toolbar.append(buttons,scope);panel.append(toolbar,slots); show();
+    select.onchange=show;toolbar.append(buttons,scope);panel.append(toolbar);
+    if(this._hass.user?.is_admin && this._account.can_submit)this._settingsAction(panel,"groupSettings","group");
+    panel.append(slots); show();
   }
   _syncEnergyLocks(){
     if(this._energySettings)this._energySettings.locked=!!this._readings?._busy;

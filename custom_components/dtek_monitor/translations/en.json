@@ -253,10 +253,13 @@
       "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
       "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
       "account_auth_required": "Sign in to the same DTEK account again before managing links.",
-      "account_cannot_connect": "Cannot connect to DTEK. Try again later."
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
+      "invalid_building": "The building address needs directory confirmation.",
+      "invalid_provider": "The operator is not supported.",
+      "cannot_connect": "The DTEK directory is temporarily unavailable."
     },
     "create_entry": {
-      "account_connected": "**Your cabinet is connected.**\n\nTo open it on a dashboard:\n\n1. Finish setup and reload the HA page.\n2. Open your dashboard → Edit dashboard → Add card, then search for **My DTEK**.\n3. Choose the personal account for this card and save. You can add another card for a different account.\n\nIn My DTEK, open **Settings** to connect a building schedule. A **home energy sensor is optional**: any suitable cumulative kWh sensor can suggest readings; you can also enter readings manually. Nothing is submitted to DTEK without confirmation.",
+      "account_connected": "**Your cabinet is connected.**\n\nTo open it on a dashboard:\n\n1. Finish setup and reload the HA page.\n2. Open your dashboard → Edit dashboard → Add card, then search for **My DTEK**.\n3. Choose the personal account for this card and save. You can add another card for a different account.\n\nIn My DTEK, open **Settings** to connect a building schedule. A **home energy sensor is optional**: any suitable cumulative kWh sensor can suggest readings; you can also enter readings manually. Nothing is submitted to DTEK without confirmation.\n\nThe building for outage schedules is matched automatically. If the address is ambiguous, confirm it in Building and outage group. A sole building group is selected automatically; with multiple groups, choose your apartment group.",
       "account_connected_empty": "**Your cabinet is connected; no personal accounts are monitored yet.**\n\nOpen **Settings → Devices & services → DTEK Monitor → Configure** to add an account or choose which existing accounts HA monitors. You do not need to sign in again.\n\nThen reload the HA page, edit a dashboard, choose **Add card → My DTEK**, and select an account. Building schedules and a home energy sensor can be configured later."
     }
   },
@@ -274,7 +277,7 @@
       },
       "account": {
         "title": "Add building monitoring",
-        "description": "Choose an account address. A separate setup appears under Discovered on the integrations page. Verify its city, street and building; the apartment is not imported. Existing addresses are not duplicated. Configure the bot separately.",
+        "description": "Choose an account to review or change its building and outage group.",
         "data": {
           "address_account": "Account address"
         }
@@ -307,7 +310,7 @@
       },
       "account_schedule_address": {
         "title": "Apartment building",
-        "description": "Choose the verified building for this account. If missing, add building monitoring first. “—” removes the personal link without deleting the building.",
+        "description": "The building is matched automatically when the address is unambiguous. Review it or choose another from the directory. Do not link a building disables automatic linking for this account; the building and bot schedules remain.",
         "data": {
           "schedule_address": "Building address"
         }
@@ -404,6 +407,27 @@
         "data": {
           "confirm": "Unlink this account from my DTEK cabinet"
         }
+      },
+      "account_building_city": {
+        "title": "City or locality",
+        "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
+        "data": {
+          "city": "City or locality"
+        }
+      },
+      "account_building_street": {
+        "title": "Street",
+        "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
+        "data": {
+          "street": "Street"
+        }
+      },
+      "account_building_house": {
+        "title": "Building number",
+        "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
+        "data": {
+          "house_num": "Building number"
+        }
       }
     },
     "error": {
@@ -431,7 +455,10 @@
       "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
       "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
       "account_auth_required": "Sign in to the same DTEK account again before managing links.",
-      "account_cannot_connect": "Cannot connect to DTEK. Try again later."
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
+      "cannot_connect": "The DTEK directory is unavailable. Try again later.",
+      "invalid_building": "Choose a verified address from the directory.",
+      "building_not_found": "DTEK returned no choices for this address."
     },
     "abort": {
       "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
@@ -455,7 +482,8 @@
       "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
       "link_none": "There are no household accounts linked to this cabinet.",
       "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
-      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer."
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "building_context_changed": "The account settings changed. Reopen building selection."
     }
   },
   "entity": {
@@ -560,7 +588,10 @@
           "schedule_missing": "No verified schedule for today",
           "schedule_unpublished": "DTEK paused schedule publication",
           "schedule_unsupported": "Operator not supported",
-          "schedule_error": "Failed to fetch schedule"
+          "schedule_error": "Failed to fetch schedule",
+          "address_pending": "Finding the building for this account…",
+          "address_confirmation": "Confirm the building in Building and outage group settings.",
+          "address_lookup_unavailable": "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently."
         }
       },
       "account_reading_check": {
@@ -641,6 +672,12 @@
       "options": {
         "daily": "Every day",
         "reading_window": "Each day in the reporting window (last 2 and first 3 days of the month)"
+      }
+    },
+    "building_connection": {
+      "options": {
+        "none": "Do not link a building",
+        "create": "Choose another building from the directory"
       }
     }
   },

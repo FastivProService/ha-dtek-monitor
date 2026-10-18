@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import SOURCE_INTEGRATION_DISCOVERY
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.helpers.selector import (
     SelectSelector,
@@ -36,6 +34,7 @@ from .account_link_flow import AccountLinkFlowMixin
 from .account_api_health import report_api_issue, watch_api
 from .const import DOMAIN
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID
+from .building import building_suggestion as building_suggestion
 
 
 class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
@@ -223,20 +222,6 @@ class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
         return await self.async_step_address()
 
 
-def building_suggestion(address: str) -> dict[str, str]:
-    """Conservative prefill only; never use apartment/account IDs as addresses.
-
-    A match is not a confirmed address: the ordinary public-directory forms
-    still require the user's selection. Ambiguous formats get no prefill.
-    """
-    match = re.fullmatch(
-        r"\s*(?P<city>[^,]+),\s*(?P<street>.+?)\s+буд\.\s*"
-        r"(?P<house_num>[\w/\-]+)(?:,\s*(?:кв\.?|к\.|квартира)\s*[\w/\-]+)?\s*",
-        address,
-    )
-    return {k: v.strip() for k, v in match.groupdict().items()} if match else {}
-
-
 async def account_options(flow, entry, user_input: dict[str, Any] | None):
     """Offer public address setup without passing cabinet credentials onward."""
     accounts = entry.data[CONF_ACCOUNTS]
@@ -246,15 +231,8 @@ async def account_options(flow, entry, user_input: dict[str, Any] | None):
         if not isinstance(number, str) or number not in accounts:
             errors["base"] = "select_accounts"
         else:
-            await flow.hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": SOURCE_INTEGRATION_DISCOVERY},
-                data={
-                    CONF_PROVIDER: entry.data[CONF_PROVIDER],
-                    "suggestion": building_suggestion(accounts[number]),
-                },
-            )
-            return flow.async_abort(reason="address_setup_started")
+            flow._schedule_account = number
+            return await flow.async_step_account_schedule_address()
     return flow.async_show_form(
         step_id="account",
         data_schema=vol.Schema(

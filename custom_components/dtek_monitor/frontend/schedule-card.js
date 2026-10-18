@@ -1,5 +1,5 @@
-import { embeddedCSS } from "./account-ui.js?v=1.8.0b20";
-import "./schedule-grid.js?v=1.8.0b20";
+import { embeddedCSS } from "./account-ui.js?v=1.8.0b21";
+import "./schedule-grid.js?v=1.8.0b21";
 /* Publication status remains visible when HA's calendar cannot show events. */
 class DtekScheduleCard extends HTMLElement {
   constructor() {
@@ -37,6 +37,9 @@ class DtekScheduleCard extends HTMLElement {
       partial:"Графік на сьогодні неповний. Відсутні дані не означають відсутність відключень.",
       forecast:"Доступний лише прогноз. Планові відключення на сьогодні не підтверджені.",
       error:"Не вдалося отримати дані ДТЕК. Інтеграція повторить запит автоматично.",
+      address_pending:"Підбираємо будинок за адресою рахунку…",
+      address_confirmation:"Уточніть будинок у налаштуванні «Будинок і група відключень».",
+      address_lookup_unavailable:"Довідник адрес ДТЕК тимчасово недоступний. Автопідбір повториться; дані рахунку працюють окремо.",
       no_address:"Прив’яжіть адресу будинку в налаштуваннях особистого кабінету.",
       not_selected:"У будинку кілька груп або групу ще не підтверджено. Оберіть свою в налаштуваннях.",
       group_unavailable:"ДТЕК більше не підтверджує обрану групу для будинку. Перевірте особистий вибір.",
@@ -51,6 +54,9 @@ class DtekScheduleCard extends HTMLElement {
       partial:"Today's schedule is incomplete. Missing data does not mean no outages.",
       forecast:"Only a forecast is available. Today's planned outages are unconfirmed.",
       error:"Could not fetch DTEK data. The integration will retry automatically.",
+      address_pending:"Finding the building for this account…",
+      address_confirmation:"Confirm the building in Building and outage group settings.",
+      address_lookup_unavailable:"The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.",
       no_address:"Link a building address in the personal account settings.",
       not_selected:"The building has multiple or unverified groups. Choose yours in settings.",
       group_unavailable:"DTEK no longer confirms the selected group for this building. Review your selection.",

@@ -80,6 +80,19 @@ class OptionsCardTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.evaluate("optionPosts"), 0)
         self.assertFalse(await dialog.is_visible())
 
+    async def test_selector_labels_use_the_separate_selector_translations(self):
+        dialog = await self.open()
+        self.assertEqual(
+            await self.page.evaluate("card._options._form.localizeValue('building_connection.options.create')"),
+            "Choose another building from the directory",
+        )
+        self.assertEqual(
+            await self.page.evaluate("card._options._form.localizeValue('building_connection.options.none')"),
+            "Do not link a building",
+        )
+        await dialog.get_by_role("button", name="Cancel", exact=True).click()
+        self.assertEqual(await self.page.evaluate("optionPosts"), 0)
+
     async def test_explicit_save_refreshes_accounts_without_changing_selected_tab(self):
         dialog = await self.open()
         await dialog.get_by_label("Time (Europe/Kyiv)", exact=True).fill("20:15:00")

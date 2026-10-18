@@ -12,10 +12,11 @@ from .account import CONF_ACCOUNTS
 from .account_schedule import CONF_ACCOUNT_SCHEDULES, address_entries
 
 
-def selector(choices, multiple=False):
+def selector(choices, multiple=False, translation_key=None):
     return SelectSelector(
         SelectSelectorConfig(
-            options=choices, multiple=multiple, mode=SelectSelectorMode.DROPDOWN
+            options=choices, multiple=multiple, mode=SelectSelectorMode.DROPDOWN,
+            **({"translation_key": translation_key} if translation_key else {}),
         )
     )
 
@@ -26,7 +27,7 @@ def save(flow, entry, link):
     if number not in entry.data[CONF_ACCOUNTS]:
         return flow.async_abort(reason="no_accounts")
     if link is None:
-        links.pop(number, None)
+        links[number] = {"disabled": True}
     else:
         links[number] = link
     return flow.async_create_entry(
@@ -66,6 +67,12 @@ async def schedule_address(flow, entry, user_input):
         address_id = user_input.get("schedule_address")
         if address_id == "none":
             return save(flow, entry, None)
+        if address_id == "create":
+            from .account_building_flow import begin
+
+            if not begin(flow, entry):
+                return flow.async_abort(reason="no_accounts")
+            return await flow.async_step_account_building_city()
         if isinstance(address_id, str) and address_id in addresses:
             flow._schedule_address = address_id
             flow._schedule_group_choices = None
@@ -105,12 +112,13 @@ async def schedule_address(flow, entry, user_input):
                     default=default if default in addresses else "none",
                 ): selector(
                     [
-                        {"value": "none", "label": "—"},
+                        {"value": "none", "label": "Do not link a building"},
+                        {"value": "create", "label": "Choose another building from the directory"},
                         *(
                             {"value": address.entry_id, "label": address.title}
                             for address in addresses.values()
                         ),
-                    ]
+                    ], translation_key="building_connection",
                 )
             }
         ),

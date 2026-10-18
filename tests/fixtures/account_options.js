@@ -18,7 +18,8 @@ hass.callWS=async m=>{
  if(m.type==='config_entries/get_single')return {config_entry:{state:'loaded'}};
  return oldWS(m);
 };
-hass.loadBackendTranslation=async()=> (key,values={})=>{
+hass.loadBackendTranslation=async category=> (key,values={})=>{
+ if(!key.startsWith(`component.dtek_monitor.${category}.`))return undefined;
  let value=window.optionTranslations;
  for(const part of key.replace('component.dtek_monitor.','').split('.'))value=value?.[part];
  return typeof value==='string'?value.replace(/\{(\w+)\}/g,(_,key)=>values[key]??''):undefined;

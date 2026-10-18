@@ -531,25 +531,13 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["reason"], "account_mismatch")
         self.hass.config_entries.async_update_entry.assert_not_called()
 
-    async def test_address_options_pass_only_building_hints_to_independent_flow(self):
+    async def test_address_options_open_same_account_building_selection(self):
         options = runtime.flow.DTEKMonitorOptionsFlow(self.entry)
         options.hass = self.hass
         result = await options.async_step_account({"address_account": "100001"})
-        self.assertEqual(result["reason"], "address_setup_started")
-        data = self.hass.config_entries.flow.async_init.call_args.kwargs["data"]
-        self.assertEqual(
-            data,
-            {
-                "provider_id": "dtek_oem",
-                "suggestion": {
-                    "city": "м. Приклад",
-                    "street": "вул. Тестова",
-                    "house_num": "1",
-                },
-            },
-        )
-        for private in ["password", "100001", "кв.7", "subject", "username"]:
-            self.assertNotIn(private, str(data))
+        self.assertEqual(result["step_id"], "account_schedule_address")
+        self.assertEqual(options._schedule_account, "100001")
+        self.hass.config_entries.flow.async_init.assert_not_awaited()
 
     async def test_ambiguous_building_format_is_not_silently_truncated(self):
         self.assertEqual(
