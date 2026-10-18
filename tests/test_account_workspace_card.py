@@ -188,6 +188,48 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await link.get_attribute("href"), "/config/integrations/integration/dtek_monitor")
         self.assertEqual(await self.page.get_by_role("tab", name="Readings", exact=True).count(), 0)
 
+    async def test_empty_accounts_override_saved_selection_in_both_languages(self):
+        for language, message, connect in [
+            ("en", "No personal accounts are connected yet.", "Connect DTEK"),
+            ("uk", "Особові рахунки ще не підключені.", "Підключити ДТЕК"),
+        ]:
+            with self.subTest(language=language):
+                await self.page.evaluate("""async language => {
+                  accounts.splice(0);hass.language=language;card.hass=hass;
+                  await card._loadAccounts();
+                }""", language)
+                self.assertIn(message, await self.page.locator(".empty").inner_text())
+                self.assertEqual(await self.page.get_by_role("link", name=connect, exact=True).count(), 1)
+                self.assertFalse(await self.page.locator(".account-picker").is_visible())
+                self.assertEqual(await self.page.evaluate("card._config.entity"), "sensor.account_1")
+                self.assertEqual(await self.page.get_by_role("tab").count(), 0)
+
+    async def test_empty_to_new_account_keeps_explicit_choice_accessible(self):
+        await self.page.evaluate("""async () => {
+          window.replacement=accounts[1];accounts.splice(0);
+          card.setConfig({entity:'sensor.account_1',show_account_selector:false});
+          await card._loadAccounts();
+          accounts.push(replacement);
+        }""")
+        await self.page.get_by_role("button", name="Refresh account list", exact=True).click()
+        await self.page.get_by_text("This account is unavailable.", exact=False).wait_for()
+        picker = self.page.get_by_label("Personal account", exact=True)
+        self.assertTrue(await picker.is_visible())
+        self.assertEqual(await picker.input_value(), "")
+        await picker.select_option("sensor.account_2")
+        await self.page.get_by_role("tab", name="Overview", exact=True).wait_for()
+        self.assertEqual(await self.page.evaluate("card._entity"), "sensor.account_2")
+        self.assertEqual(await self.page.evaluate("card._config.entity"), "sensor.account_1")
+
+    async def test_failed_account_list_is_not_reported_as_empty(self):
+        await self.page.evaluate("""async () => {
+          const normal=hass.callWS;
+          hass.callWS=m=>m.type==='dtek_monitor/accounts'?Promise.reject(new Error('offline')):normal(m);
+          await card._loadAccounts();
+        }""")
+        self.assertIn("Could not load your accounts.", await self.page.locator(".empty").inner_text())
+        self.assertNotIn("No personal accounts are connected yet.", await self.page.locator(".empty").inner_text())
+
     async def test_schedule_opens_one_operator_grid_with_home_and_personal_highlights(self):
         await self.page.get_by_role("tab", name="Schedule", exact=True).click()
         await self.page.locator("dtek-schedule-grid tbody tr").first.wait_for()

@@ -1,12 +1,12 @@
-import "./account-options.js?v=1.8.0b19";
-import "./account-energy-settings.js?v=1.8.0b19";
-import "./account-profile-card.js?v=1.8.0b19";
-import "./account-readings-card.js?v=1.8.0b19";
-import "./account-history-card.js?v=1.8.0b19";
-import "./schedule-card.js?v=1.8.0b19";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b19";
-import { accountNumber } from "./account-number.js?v=1.8.0b19";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b19";
+import "./account-options.js?v=1.8.0b20";
+import "./account-energy-settings.js?v=1.8.0b20";
+import "./account-profile-card.js?v=1.8.0b20";
+import "./account-readings-card.js?v=1.8.0b20";
+import "./account-history-card.js?v=1.8.0b20";
+import "./schedule-card.js?v=1.8.0b20";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b20";
+import { accountNumber } from "./account-number.js?v=1.8.0b20";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b20";
 
 const words = {
   en: {
@@ -14,7 +14,7 @@ const words = {
     apartmentSettings:"This apartment", groupSettings:"Building and outage group", groupNote:"Choose the building and your apartment’s group. The bot keeps every building group.", reminders:"Reading reminders", remindersNote:"Choose when HA reminds you and whether to include a sensor estimate.", notices:"Meter notifications", noticesNote:"Verification year and meter replacement notices in HA.", cabinetSettings:"DTEK cabinet", cabinetNote:"Manage linked accounts and choose which ones HA monitors. This dashboard still displays the account selected above.", accountsSettings:"Add or unlink an account", monitoringSettings:"Choose accounts to monitor", advancedSettings:"Additional settings", checksSettings:"Scheduled reading checks", draftSettingsNote:"Opening integration settings requires closing unfinished readings or sensor edits. Nothing will be sent or saved.", discardOpen:"Discard and open settings", settingsSaved:"Settings updated.", settingsPending:"Settings were saved. Refresh the account list when HA finishes loading.",
     reload: "The dashboard still has an older version of the DTEK cards. Reload the page to open the new interface.", reloadAction: "Reload page", title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
     account: "Personal account", choose: "Choose an account", loading: "Loading accounts…", error: "Could not load your accounts. Try again.",
-    empty: "No account is selected for this card. Choose accounts to monitor in integration settings, or connect a DTEK cabinet.", missing: "This account is unavailable. Check the connection or choose another account.",
+    empty: "No personal accounts are connected yet. Connect a DTEK cabinet or choose accounts to monitor in integration settings.", missing: "This account is unavailable. Check the connection or choose another account.",
     connect: "Connect DTEK", manage: "Manage connections and notifications", retry: "Refresh account list",
     send: "Enter readings", history: "Reading history", latest: "Latest DTEK meter reading", usage: "Consumption reported by DTEK",
     readingNote: "Cumulative meter reading", noReading: "DTEK has not provided a reading yet.", unit: "kWh", GENERAL: "Single zone", DAY: "Day", NIGHT: "Night",
@@ -37,7 +37,7 @@ const words = {
     apartmentSettings:"Ця квартира", groupSettings:"Будинок і група відключень", groupNote:"Оберіть будинок і групу квартири. Бот зберігає графіки всіх груп будинку.", reminders:"Нагадування про покази", remindersNote:"Оберіть час нагадування в HA та чи додавати підказку датчика.", notices:"Сповіщення про лічильник", noticesNote:"Рік повірки та повідомлення про заміну лічильника в HA.", cabinetSettings:"Кабінет ДТЕК", cabinetNote:"Керуйте прив’язаними рахунками та обирайте, які з них відстежує HA. На цій панелі відображається рахунок, обраний вище.", accountsSettings:"Додати або відв’язати рахунок", monitoringSettings:"Обрати рахунки для моніторингу", advancedSettings:"Додаткові налаштування", checksSettings:"Перевірки показів за розкладом", draftSettingsNote:"Перед налаштуванням інтеграції потрібно закрити незавершене введення показів або редагування датчика. Нічого не буде передано чи збережено.", discardOpen:"Скасувати зміни й відкрити налаштування", settingsSaved:"Налаштування оновлено.", settingsPending:"Налаштування збережено. Оновіть список рахунків після завантаження HA.",
     reload: "На панелі залишилася попередня версія карток ДТЕК. Оновіть сторінку, щоб відкрити новий інтерфейс.", reloadAction: "Оновити сторінку", title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
     account: "Особовий рахунок", choose: "Оберіть рахунок", loading: "Завантаження рахунків…", error: "Не вдалося завантажити рахунки. Спробуйте ще раз.",
-    empty: "Для цієї картки не обрано рахунок. Оберіть рахунки для моніторингу в налаштуваннях інтеграції або підключіть кабінет ДТЕК.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
+    empty: "Особові рахунки ще не підключені. Підключіть кабінет ДТЕК або оберіть рахунки для моніторингу в налаштуваннях інтеграції.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
     connect: "Підключити ДТЕК", manage: "Керувати підключеннями та сповіщеннями", retry: "Оновити список рахунків",
     send: "Внести покази", history: "Історія показів", latest: "Останні покази в ДТЕК", usage: "Споживання за даними ДТЕК",
     readingNote: "Накопичувальні покази лічильника", noReading: "ДТЕК ще не надав показів.", unit: "кВт·год", GENERAL: "Одна зона", DAY: "День", NIGHT: "Ніч",
@@ -176,7 +176,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this._select.value=account?.entity_id || "";
     if (!account) {
       this._resetPanels(); this._identity?.remove(); this._identity=null;
-      this._showEmpty(this._entity ? this.t.missing : this._accounts.length ? this.t.choose : this.t.empty); this._updateHeader(); return;
+      this._showEmpty(!this._accounts.length ? this.t.empty : this._entity ? this.t.missing : this.t.choose); this._updateHeader(); return;
     }
     const changed=this._account?.entity_id!==account.entity_id;
     if (changed) this._resetPanels();
@@ -199,7 +199,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     for (const node of this.shadowRoot.querySelectorAll("[data-i18n-label]")) node.setAttribute("aria-label",t[node.dataset.i18nLabel]);
     this._title.textContent=this._config.title || t.title; this._detailsButton.textContent=t.detailsShort; this._detailsButton.setAttribute("aria-label",t.details); this._detailsButton.hidden=!this._account;
     this._pickerLabel.textContent=t.account; this._select.setAttribute("aria-label", t.account);
-    this._picker.hidden=(this._config.show_account_selector===false && !!this._account) || !this._accounts?.length || this._accounts.length===1;
+    this._picker.hidden=!this._accounts?.length || (!!this._account && (this._config.show_account_selector===false || this._accounts.length===1));
     this._address.textContent=this._account?.address || "";
     this._nav.setAttribute("aria-label", t.title);
     for (const [key, b] of this._tabs) b.textContent=t[key];

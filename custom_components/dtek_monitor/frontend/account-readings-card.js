@@ -1,10 +1,10 @@
-import "./account-readback.js?v=1.8.0b19";
-import { embeddedCSS, date, number } from "./account-ui.js?v=1.8.0b19";
-import "./account-check-card.js?v=1.8.0b19";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b19";
+import "./account-readback.js?v=1.8.0b20";
+import { embeddedCSS, date, number } from "./account-ui.js?v=1.8.0b20";
+import "./account-check-card.js?v=1.8.0b20";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b20";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber } from "./account-number.js?v=1.8.0b19";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b19";
+import { accountNumber } from "./account-number.js?v=1.8.0b20";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b20";
 const labels = {
   en: {
     energyLocked: "Wait for the sensor settings operation to finish.", sourceInvalid: "Sensor settings changed. Your values are retained. Insert a fresh suggestion or verify and edit the readings manually before review.",

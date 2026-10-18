@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b20] - 2026-10-18
+
+- Show neutral connection guidance when My DTEK has no accounts, even if the card still references a removed account. Keep list-loading failures distinct.
+- Keep account selection available when a saved account is missing and only one replacement account exists; require an explicit choice instead of silently switching apartments.
+- Add browser regressions for English/Ukrainian empty states, reconnecting an account and failed list requests.
+
 ## [1.8.0b19] - 2026-10-18
 
 - Explain how to add My DTEK after connecting a cabinet, including an actionable completion message for cabinets without monitored accounts.
