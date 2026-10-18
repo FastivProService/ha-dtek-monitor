@@ -41,15 +41,15 @@
       },
       "connection": {
         "title": "What would you like to connect?",
-        "description": "Address monitoring needs no login. The personal account is an independent connection, currently available only for Odessa in this preview.",
+        "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details; it is currently available for the Odessa region.",
         "menu_options": {
           "address": "Outage schedules by address",
-          "account_login": "Personal account"
+          "account_login": "Personal account and meter readings"
         }
       },
       "account_login": {
         "title": "Sign in to your personal account",
-        "description": "Enter your +380… phone number and DTEK password. This connection only reads data. The password is stored in Home Assistant configuration. Reauthentication must use the same account.",
+        "description": "Enter your DTEK phone number and password. Readings are sent only after your confirmation.\n\n[Create an account]({signup_url}) · [Forgot your password?]({recovery_url})\n\nReturn here after registration or password recovery. Your password is stored in Home Assistant configuration. Use the same account when signing in again.",
         "data": {
           "username": "Phone number",
           "password": "Password"
@@ -57,7 +57,7 @@
       },
       "accounts": {
         "title": "Select personal accounts",
-        "description": "Account data is not shared with the building Telegram bot. After setup, use Configure on this connection to add a separate building address. Data refreshes every 6 hours.",
+        "description": "Choose the accounts to connect. Each keeps its own readings and settings. View them separately in My DTEK or add a card for each. Apartment data is not shared with the building bot. You can configure the building schedule and home sensor later.",
         "data": {
           "accounts": "Personal accounts"
         }

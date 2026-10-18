@@ -1,3 +1,4 @@
+import { date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b11";
 /* Local references only. No operation in this editor submits readings to DTEK. */
 const words = {
   en: {
@@ -60,8 +61,9 @@ function el(tag, text) { const e = document.createElement(tag); if (text !== und
 
 export class DtekEnergyEditor extends HTMLElement {
   constructor() { super(); this.attachShadow({mode: "open"}); this._seq = 0; this._fields = {mode: "offset", freshness: "reported", entities: {}, references: {}, age: "15", power: "30"}; }
-  configure(hass, entity, context) { const languageChanged = this._hass?.language !== hass?.language; this._hass = hass; this._entity = entity; const changed = languageChanged || this._context !== context; this._context = context; if (changed || !this.shadowRoot.firstChild) this.render(); }
-  disconnectedCallback() { this._seq++; this._busy = false; this._draft = null; }
+  configure(hass, entity, context, compact = false) { this._compact = compact; const languageChanged = this._hass?.language !== hass?.language; this._hass = hass; this._entity = entity; const changed = languageChanged || this._context !== context; this._context = context; if (changed || !this.shadowRoot.firstChild) this.render(); }
+  disconnectedCallback() { queueMicrotask(() => { if (!this.isConnected) { this._seq++; this._busy = false; this._draft = null; } }); }
+  get hasDraft() { return !!this._draft || this._editing || Object.values(this._fields.references).some(v => v !== ""); }
   get w() { return words[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
   request(action, extra = {}) { return this._hass.callWS({type: "dtek_monitor/account_energy", entity_id: this._entity, action, ...extra}); }
   async act(action) {
@@ -110,7 +112,9 @@ export class DtekEnergyEditor extends HTMLElement {
   }
   render() {
     if (!this._hass) return;
+    if (this._compact && !this._settingsOpen && !this._draft) { this.renderCompact(); return; }
     const w = this.w, root = el("section"), binding = this._data?.binding;
+    if (this._compact) root.append(this.button(this._hass.language?.startsWith("uk") ? "Закрити налаштування датчика" : "Close sensor settings", () => {this._settingsOpen=false;this.render();}));
     root.append(el("h3", w.title), el("p", w.help));
     if (this._error) { const p = el("p", w[this._error] || w.unavailable); p.setAttribute("role", "alert"); root.append(p); }
     if (this._saved) { const p = el("p", w.saved); p.setAttribute("role", "status"); root.append(p); }
@@ -180,8 +184,26 @@ export class DtekEnergyEditor extends HTMLElement {
       if (binding && !this._editing) { const details = el("details"); details.append(el("summary", w.remove)); this.gate(details, w.removeCheck, this.button(w.remove, () => this.act("remove"))); root.append(details); }
     }
     root.append(el("small", w.staleHelp));
-    const style = el("style", `:host{display:block;margin-top:20px;border-top:1px solid var(--divider-color,#ddd)}h3{font-size:1.05em}p,small{line-height:1.5;overflow-wrap:anywhere}label{display:block;margin:12px 0}input,select{box-sizing:border-box;width:100%;margin-top:6px}button,input,select{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{margin:6px 6px 6px 0;cursor:pointer}button:disabled{opacity:.5;cursor:default}.check{display:flex;gap:10px;align-items:flex-start}.check input{width:auto;flex-shrink:0}small{display:block;margin-top:12px;color:var(--secondary-text-color)}[role=alert]{color:var(--error-color,#b22)}details{margin:12px 0}summary{cursor:pointer}`);
+    const style = el("style", embeddedCSS+`:host{display:block;margin-top:20px;border-top:1px solid var(--divider-color,#ddd)}h3{font-size:1.05em}p,small{line-height:1.5;overflow-wrap:anywhere}label{display:block;margin:12px 0}input,select{box-sizing:border-box;width:100%;margin-top:6px}button,input,select{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{margin:6px 6px 6px 0;cursor:pointer}button:disabled{opacity:.5;cursor:default}.check{display:flex;gap:10px;align-items:flex-start}.check input{width:auto;flex-shrink:0}small{display:block;margin-top:12px;color:var(--secondary-text-color)}[role=alert]{color:var(--error-color,#b22)}details{margin:12px 0}summary{cursor:pointer}`);
     this.shadowRoot.replaceChildren(style, root);
+  }
+  renderCompact() {
+    const uk=this._hass.language?.startsWith("uk"), w=this.w, root=el("section"), binding=this._data?.binding;
+    const title=el("h3",uk?"Підказка від домашнього лічильника":"Home meter suggestion");root.append(title);
+    if(this._error){const message=el("p",w[this._error]||w.unavailable);message.setAttribute("role","alert");root.append(message);}
+    if(binding){
+      for(const [zone,row] of Object.entries(binding.zones)){
+        const reading=this._data.readings?.[zone], name=this._hass.states?.[row.entity_id]?.attributes?.friendly_name || w.entity;
+        if(reading?.error)root.append(el("p",w[reading.error]||w.unavailable));
+        else if(reading){const value=el("p",`${w[zone.toLowerCase()]} · ${number(reading.send_value,this._hass.language)} ${uk?"кВт·год":"kWh"}`);value.className="value";root.append(value,el("small",`${name} · ${date(reading.source.at,this._hass.language,true)}`));}
+      }
+      const matches=this._context?.serial===binding.serial;
+      if(this._context?.serial&&!matches)root.append(el("p",w.mismatch));
+      if(this._data.ready&&matches&&!this._context.blocked)root.append(this.button(uk?"Підставити":"Use suggestion",()=>this.dispatchEvent(new CustomEvent("energy-proposal",{detail:{values:Object.fromEntries(Object.entries(this._data.readings).map(([z,r])=>[z,r.send_value])),token:this._data.proposal},bubbles:true,composed:true}))));
+      root.append(this.button(uk?"Оновити":"Refresh suggestion",()=>this.act("get")));
+    }else root.append(el("p",this._data?(uk?"Датчик не підключений. Покази можна ввести вручну.":"No sensor connected. You can enter readings manually."):(uk?"Можна використати накопичувальний датчик енергії своєї квартири.":"You can use a cumulative energy sensor for this apartment.")));
+    root.append(this.button(uk?"Налаштувати датчик":"Sensor settings",async()=>{this._settingsOpen=true;this.render();if(!this._data)await this.act("get");}));
+    this.shadowRoot.replaceChildren(el("style",embeddedCSS+`:host{display:block;margin-top:20px}section{padding:16px;border:1px solid var(--divider-color,#ddd);border-radius:12px}h3{margin:0 0 8px;font-size:1em}p{line-height:1.5}.value{font-size:1.15em;font-weight:600}small{display:block;color:var(--secondary-text-color);overflow-wrap:anywhere}button{font:inherit;padding:10px;border:1px solid var(--divider-color,#aaa);border-radius:8px;color:var(--primary-text-color);background:transparent;margin:12px 8px 0 0;cursor:pointer}button:disabled{opacity:.5}`),root);
   }
   referenceFields(root, zones) { for (const zone of zones) this.field(root, `${this.w[zone.toLowerCase()]} · ${this.w.actual}`, this._fields.references[zone], value => {this._fields.references[zone] = value;}); }
 }

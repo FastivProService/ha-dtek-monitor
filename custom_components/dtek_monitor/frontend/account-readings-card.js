@@ -1,8 +1,10 @@
-import "./account-check-card.js?v=1.8.0b10";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b10";
+import "./account-readback.js?v=1.8.0b11";
+import { embeddedCSS, date, number } from "./account-ui.js?v=1.8.0b11";
+import "./account-check-card.js?v=1.8.0b11";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b11";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber } from "./account-number.js?v=1.8.0b10";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b10";
+import { accountNumber } from "./account-number.js?v=1.8.0b11";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b11";
 const labels = {
   en: {
     title: "Send DTEK meter readings", load: "Load current meter", prepare: "Review readings", confirm: "Confirm and send to DTEK",
@@ -73,16 +75,20 @@ class DtekAccountReadingsCard extends HTMLElement {
   }
   setConfig(config) {
     if (!config.entity || typeof config.entity !== "string") throw new Error("Set an account entity");
-    this._seq++; this._config = {...config}; this._context = null; this._draft = null;
-    this._energyEditor = null; this._sourceToken = null; this._result = null; this._values = {}; this._error = null; this._uncertain = false; this._busy = false;
+    if (this._config?.entity === config.entity) { this._config={...config}; this.toggleAttribute("embedded",!!config.embedded); this.render(); return; }
+    this._seq++; this._config = {...config}; this.toggleAttribute("embedded",!!config.embedded); this._context = null; this._draft = null;
+    this._opening = null; this._readback = null; this._energyEditor = null; this._sourceToken = null; this._result = null; this._values = {}; this._error = null; this._uncertain = false; this._busy = false;
     this.render();
   }
   set hass(hass) {
+    const languageChanged = this._hass?.language !== hass.language;
     const first = !this._hass;
+    const changedUser = this._hass && (this._hass.user?.id !== hass.user?.id || this._hass.connection !== hass.connection);
     this._hass = hass;
-    this._energyEditor?.configure(hass, this._config.entity, this._context);
+    if (changedUser) { const config=this._config; this._config=null; this.setConfig(config); }
+    this._energyEditor?.configure(hass, this._config.entity, this._context, !!this._config.embedded);
     // hass is replaced on every state update; do not rebuild inputs or confirmation.
-    if (first || !this.shadowRoot.firstChild) this.render();
+    if (first || languageChanged || !this.shadowRoot.firstChild) this.render();
   }
   connectedCallback() { this.render(); }
   disconnectedCallback() {
@@ -91,6 +97,20 @@ class DtekAccountReadingsCard extends HTMLElement {
     this._sending = false;
   }
   getCardSize() { return 5; }
+  get hasDraft() { return !!this._draft || Object.values(this._values).some(v => v !== "") || !!this._energyEditor?.hasDraft; }
+  get busy() { return this._busy || !!this._energyEditor?._busy; }
+  get readOnly() { return !!this._config?.read_only || this._hass?.user?.is_admin === false; }
+  async open() {
+    if (this._opening) return this._opening;
+    if (this.readOnly || this._context || this._busy || this._uncertain) return;
+    const entity = this._config.entity;
+    const opening = (async () => {
+      await this.act("context");
+      if (this.isConnected && this._config.entity === entity && this._context && this._energyEditor) await this._energyEditor.act("get");
+    })();
+    this._opening = opening;
+    try { await opening; } finally { if (this._opening === opening) this._opening = null; }
+  }
   static getConfigElement() { return accountCardEditor(); }
   static getStubConfig() { return {entity: "sensor.example_account_data_updated"}; }
   get w() { return labels[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
@@ -98,7 +118,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     return this._hass.callWS({type: "dtek_monitor/account_submission", entity_id: this._config.entity, action, ...extra});
   }
   async act(action) {
-    if (this._busy || !this._hass) return;
+    if (this._busy || !this._hass || this.readOnly) return;
     const seq = ++this._seq;
     const draft = this._draft;
     const context = this._context;
@@ -118,7 +138,8 @@ class DtekAccountReadingsCard extends HTMLElement {
       } else if (action === "confirm") {
         result = await this.request(action, {confirmation: draft.confirmation});
         if (seq !== this._seq) return;
-        this._draft = null; this._result = result; this._uncertain = true;
+        this._draft = null; this._result = result; this._uncertain = true; this._values = {}; this._sourceToken = null;
+        this._readback?.reset();
       } else {
         result = await this.request(action, {attempt: context.last_attempt.id});
         if (seq !== this._seq) return;
@@ -147,12 +168,12 @@ class DtekAccountReadingsCard extends HTMLElement {
   }
   table(card, rows) {
     const wrap = node("div"); wrap.className = "scroll";
-    const table = node("table"), head = node("tr");
+    const table = node("table"), head = node("tr"); table.className="review-table";
     for (const text of ["", this.w.previous, this.w.value, this.w.increase]) head.append(node("th", text));
     table.append(head);
     for (const r of rows) {
       const tr = node("tr");
-      for (const text of [this.w[r.zone.toLowerCase()] || r.zone, r.previous, r.value, r.increase]) tr.append(node("td", String(text)));
+      for (const [i, text] of [this.w[r.zone.toLowerCase()] || r.zone, number(r.previous,this._hass?.language), number(r.value,this._hass?.language), number(r.increase,this._hass?.language)].entries()) { const cell=node("td", String(text)); cell.dataset.label=["",this.w.previous,this.w.value,this.w.increase][i]; tr.append(cell); }
       table.append(tr);
     }
     wrap.append(table); card.append(wrap);
@@ -162,30 +183,31 @@ class DtekAccountReadingsCard extends HTMLElement {
     const w = this.w, card = node("ha-card");
     const style = node("style", `:host{display:block}ha-card{padding:20px;overflow:hidden}h2{font-size:1.2em;margin:0 0 12px}p{line-height:1.5;overflow-wrap:anywhere}button,input{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{cursor:pointer;margin:8px 8px 0 0;white-space:normal}button:disabled{opacity:.5;cursor:default}.fields label{display:block;margin:16px 0}.fields input{display:block;box-sizing:border-box;width:100%;margin-top:8px}.check{display:flex;gap:10px;align-items:flex-start;margin:16px 0}.check input{margin-top:4px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 6px;border-bottom:1px solid var(--divider-color,#ddd);white-space:nowrap}.alert{color:var(--error-color,#b22)}a{color:var(--primary-color)}small{display:block;color:var(--secondary-text-color);margin-top:6px}`);
     card.append(node("h2", this._config.title || w.title));
-    card.append(accountNumber(this._hass, this._config.entity));
-    card.append(node("p", w.instructions));
+    if (!this._config.embedded) card.append(accountNumber(this._hass, this._config.entity));
+    if (this.readOnly) { const p=node("p", this._hass?.language?.startsWith("uk") ? "Ви можете переглядати покази та історію. Передавати покази й налаштовувати датчик може адміністратор Home Assistant." : "You can view readings and history. Sending readings and configuring the source requires a Home Assistant administrator."); p.setAttribute("role","status"); card.append(p); style.textContent+=embeddedCSS; this.shadowRoot.replaceChildren(style,card); return; }
+    card.append(node("p", this._config.embedded ? (this._hass?.language?.startsWith("uk") ? "Вкажіть накопичувальні покази з лічильника — не споживання за місяць." : "Enter the cumulative meter reading, not the monthly consumption.") : w.instructions));
     const a = node("a", w.cabinet); a.href = "https://my.dtek-oem.com.ua/"; a.target = "_blank"; a.rel = "noopener noreferrer"; card.append(a);
     if (this._error) { const error = node("p", w[this._error] || energyMessage(this._hass?.language, this._error) || w.unavailable); error.className = "alert"; error.setAttribute("role", "alert"); card.append(error); }
     const ctx = this._context;
     if (ctx) {
-      card.append(node("p", ctx.address));
-      if (ctx.serial) card.append(node("p", `${w.serial}: ${ctx.serial} · ${w.date}: ${ctx.date}`));
+      if (!this._config.embedded || this._draft) card.append(node("p", ctx.address));
+      if (ctx.serial) card.append(node("p", `${w.serial}: ${ctx.serial} · ${date(ctx.date, this._hass?.language)}`));
     }
     const result = this._result || ctx?.last_attempt;
     if (this._uncertain && !this._result) card.append(node("p", w.unknown));
     if (result) {
       const p = node("p", w[result.status] || w.unknown); p.setAttribute("role", "status"); card.append(p);
-      if (result.at) card.append(node("small", `${w.last}: ${result.at}`));
+      if (result.at) card.append(node("small", `${w.last}: ${date(result.at, this._hass?.language, true)}`));
       if (result.readings) this.table(card, result.readings);
     }
     if (this._draft) {
-      card.append(node("p", w.review)); this.table(card, this._draft.readings);
+      card.append(node("p", this._config.embedded ? (this._hass?.language?.startsWith("uk") ? "Перевірте адресу, лічильник і покази перед передачею." : "Check the address, meter and readings before sending.") : w.review)); this.table(card, this._draft.readings);
       if (this._draft.source) {
-        card.append(node("p", w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
+        card.append(node("p", this._config.embedded ? (this._hass?.language?.startsWith("uk") ? "Покази розраховано за домашнім датчиком. Перед передачею джерело буде перевірено ще раз." : "These readings use your home sensor. Its data is checked again before sending.") : w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
         for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zone.toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
       }
       card.append(this.button(w.back, () => {this._draft = null; this.render();}));
-      this.gate(card, w.checked, this.button(w.confirm, () => this.act("confirm")));
+      const send = this.button(w.confirm, () => this.act("confirm")); send.className="primary"; this.gate(card, w.checked, send);
     } else if (ctx?.blocked && !this._uncertain) {
       if (["unknown", "partial"].includes(ctx.last_attempt?.status)) {
         this.gate(card, w.ackCheck, this.button(w.ack, () => this.act("acknowledge")));
@@ -193,21 +215,21 @@ class DtekAccountReadingsCard extends HTMLElement {
     } else if (ctx && !this._uncertain) {
       const form = node("form"); form.className = "fields";
       for (const z of ctx.zones) {
-        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (kWh)`);
-        label.append(node("small", `${w.previous}: ${z.previous} · ${z.date}`));
+        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (${this._hass?.language?.startsWith("uk") ? "кВт·год" : "kWh"})`);
+        label.append(node("small", `${w.previous}: ${number(z.previous, this._hass?.language)} · ${date(z.date, this._hass?.language)}`));
         const input = node("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]+";
         input.maxLength = ctx.digits; input.required = true; input.disabled = this._busy;
         input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[z.zone.toLowerCase()] || z.zone} (kWh)`);
         input.addEventListener("input", () => {this._values[z.zone] = input.value; this._sourceToken = null;});
         label.append(input); form.append(label);
       }
-      const prepare = this.button(w.prepare, () => {}); prepare.type = "submit"; form.append(prepare);
+      const prepare = this.button(w.prepare, () => {}); prepare.className="primary"; prepare.type = "submit"; form.append(prepare);
       form.addEventListener("submit", e => {e.preventDefault(); this.act("prepare");}); card.append(form);
-      card.append(this.button(w.calibrate, () => this._energyEditor?.calibrate({...this._values})));
+      if (!this._config.embedded) card.append(this.button(w.calibrate, () => this._energyEditor?.calibrate({...this._values})));
     }
-    if (!this._draft) card.append(this.button(this._uncertain ? w.recover : w.load, () => this.act("context")));
+    if (!this._draft) { const refresh=this.button(this._uncertain ? w.recover : w.load, () => this.act("context")); if (this._config.embedded && ctx && !this._uncertain) { const more=node("details"), summary=node("summary", this._hass?.language?.startsWith("uk")?"Оновити дані лічильника":"Refresh meter data"); more.append(summary,refresh); card.append(more); } else card.append(refresh); }
     if (this._busy) card.append(node("p", w.loading));
-    if (!this._draft) {
+    if (!this._draft && !this._uncertain) {
       if (!this._energyEditor) {
         this._energyEditor = new DtekEnergyEditor();
         this._energyEditor.addEventListener("energy-proposal", event => {
@@ -215,9 +237,17 @@ class DtekAccountReadingsCard extends HTMLElement {
           this._values = {...event.detail.values}; this._sourceToken = event.detail.token; this.render();
         });
       }
-      this._energyEditor.configure(this._hass, this._config.entity, ctx);
-      card.append(this._energyEditor);
+      this._energyEditor.configure(this._hass, this._config.entity, ctx, !!this._config.embedded);
+      const form=card.querySelector("form");
+      if (this._config.embedded && form) card.insertBefore(this._energyEditor,form); else card.append(this._energyEditor);
     }
+    if (result || this._uncertain) {
+      if (!this._readback) this._readback=document.createElement("dtek-account-readback");
+      this._readback.configure(this._hass, this._config.entity); card.append(this._readback);
+    }
+    style.textContent+=embeddedCSS+`:host{container-type:inline-size}.fields button.primary{width:100%;margin-right:0}
+      @container(max-width:500px){.review-table tr:first-child{display:none}.review-table tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.review-table td{white-space:normal;overflow-wrap:anywhere;padding:8px 0}.review-table td:first-child{grid-column:1/-1;font-weight:600}.review-table td::before{content:attr(data-label);display:block;font-size:.8em;color:var(--secondary-text-color);margin-bottom:4px}}`;
+
     this.shadowRoot.replaceChildren(style, card);
   }
 }

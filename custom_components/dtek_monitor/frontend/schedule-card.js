@@ -1,3 +1,4 @@
+import { embeddedCSS } from "./account-ui.js?v=1.8.0b11";
 /* Publication status remains visible when HA's calendar cannot show events. */
 class DtekScheduleCard extends HTMLElement {
   constructor() {
@@ -6,13 +7,13 @@ class DtekScheduleCard extends HTMLElement {
       :host{display:block}ha-card{overflow:hidden}h2{overflow-wrap:anywhere;font-size:1.2em;margin:0;padding:16px 16px 0}
       .status{padding:16px;line-height:1.5;overflow-wrap:anywhere}
       .error{color:var(--error-color,#b22)}small{display:block;color:var(--secondary-text-color);margin-top:4px}
-    </style><ha-card><h2></h2><div class="status" role="status"></div><div class="calendar"></div></ha-card>`;
+    ${embeddedCSS}</style><ha-card><h2></h2><div class="status" role="status"></div><div class="calendar"></div></ha-card>`;
   }
   setConfig(config) {
     if(typeof config.status_entity!=="string" || !Array.isArray(config.entities)
       || !config.entities.length || config.entities.some(e=>typeof e!=="string" || !e.startsWith("calendar.")))
       throw new Error("Set status_entity and calendar entities");
-    this._config={...config,entities:[...config.entities]}; this._key=null; this._render();
+    this._config={...config,entities:[...config.entities]}; this.toggleAttribute("embedded",!!config.embedded); this._key=null; this._render();
   }
   set hass(value) { this._hass=value; this._render(); }
   getCardSize() { return 6; }

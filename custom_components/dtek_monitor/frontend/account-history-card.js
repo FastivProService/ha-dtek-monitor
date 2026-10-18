@@ -1,6 +1,7 @@
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b10";
+import { embeddedCSS, date } from "./account-ui.js?v=1.8.0b11";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b11";
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=1.8.0b10";
+import { accountNumber } from "./account-number.js?v=1.8.0b11";
 const words = {
   en: {
     compare: "Compare with previous year", comparison: "Consumption for matching periods", pairNote: "Only months closed and published in both years are included. Partial totals cover the listed months, not the whole year or season. Winter here means January, February and December of the same calendar year. Negative corrections remain included.", yearTotal: "Year", winter: "Winter", spring: "Spring", summer: "Summer", autumn: "Autumn", coverage: "Included months", difference: "Difference", complete: "Complete", partial: "Partial", title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
@@ -34,7 +35,7 @@ const words = {
   },
 };
 const css = `
-  :host { display:block; } ha-card { padding:20px; overflow:hidden; }
+  :host { display:block; container-type:inline-size; } ha-card { padding:20px; overflow:hidden; }
   h2 { font-size:1.3em; margin:0 0 16px; } h3 { font-size:1.08em; margin:20px 0 12px; }
   .controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
   label { display:flex; align-items:center; gap:8px; }
@@ -51,6 +52,16 @@ const css = `
   svg { display:block; width:100%; min-width:300px; height:auto; } svg text { font:16px sans-serif; fill:var(--secondary-text-color); }
   .bar { fill:var(--primary-color,#0288d1); } .negative { fill:var(--warning-color,#c67a00); }
   .axis { stroke:var(--divider-color,#aaa); stroke-width:1; }
+  @container(max-width:500px) {
+    table.readings thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+    table.readings,table.readings tbody{display:block}
+    table.readings tr{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 0;border-bottom:1px solid var(--divider-color,#ddd)}
+    table.readings td{display:block;border:0;padding:0;white-space:normal;overflow-wrap:anywhere}
+    table.readings td::before{content:attr(data-label);display:block;font-size:.8em;color:var(--secondary-text-color);margin-bottom:4px}
+    table.readings td:nth-child(2){font-size:1.1em;font-weight:600}
+    table.readings td:nth-child(5){display:none}
+    .pagination{justify-content:space-between}
+  }
   @media(max-width:500px) { ha-card {padding:14px;} h2 {font-size:1.15em;} }
 `;
 function element(tag, text, className) {
@@ -72,13 +83,15 @@ class DtekAccountHistoryCard extends HTMLElement {
     const year = config.year ?? Number(new Intl.DateTimeFormat("en", {year:"numeric", timeZone:"Europe/Kyiv"}).format(new Date()));
     if (!Number.isInteger(year) || year < 2000 || year > Number(new Intl.DateTimeFormat("en", {year:"numeric", timeZone:"Europe/Kyiv"}).format(new Date()))) throw new Error("Invalid history year.");
     const changed = !this._config || config.entity !== this._config.entity || config.year !== this._config.year;
-    this._config = {...config};
+    this._config = {...config}; this.toggleAttribute("embedded", !!config.embedded);
     if (changed) { this._year=year; this._compare=false; this._data=null; this._error=null; this._seq++; this._busy=false; this._page=0; }
     this._render();
     if (changed && this.isConnected && this._hass) this._load(false);
   }
   set hass(hass) {
-    const initial = !this._hass;
+    const changedUser = this._hass && (this._hass.user?.id !== hass.user?.id || this._hass.connection !== hass.connection);
+    const initial = !this._hass || changedUser;
+    if (changedUser) { this._seq++; this._data=null; this._error=null; this._busy=false; this._render(); }
     const lang = hass.language?.startsWith("uk") ? "uk" : "en";
     const languageChanged = lang !== this._lang;
     this._hass=hass; this._lang=lang;
@@ -113,10 +126,11 @@ class DtekAccountHistoryCard extends HTMLElement {
   _render() {
     if (!this._config) return;
     const t=this.t, root=this.shadowRoot;
-    root.replaceChildren(element("style",css));
+    const opened = [...root.querySelectorAll("details")].map(d => d.open);
+    root.replaceChildren(element("style",css + embeddedCSS));
     const card=element("ha-card"); root.append(card);
-    card.append(element("h2",this._config.title || t.title));
-    card.append(accountNumber(this._hass, this._config.entity));
+    card.append(element("h2",this._config.title || (this._config.view === "readings" ? t.readings : this._config.view === "consumption" ? t.consumption : t.title), "card-title"));
+    if (!this._config.embedded) card.append(accountNumber(this._hass, this._config.entity));
     const controls=element("div",undefined,"controls"), label=element("label",t.year), select=element("select");
     select.setAttribute("aria-label",t.year);
     const current=Number(new Intl.DateTimeFormat("en",{year:"numeric",timeZone:"Europe/Kyiv"}).format(new Date()));
@@ -125,12 +139,13 @@ class DtekAccountHistoryCard extends HTMLElement {
     select.addEventListener("change",()=>{ this._year=Number(select.value);this._compare=false;this._data=null;this._page=0;this._load(false); });
     label.append(select);controls.append(label);
     const refresh=element("button",this._busy?t.loading:t.refresh);refresh.disabled=this._busy;refresh.addEventListener("click",()=>this._load(true));controls.append(refresh);
-    const compare=element("button",t.compare);compare.disabled=this._busy||this._year<=2000;compare.addEventListener("click",()=>{this._compare=true;this._load(false);});controls.append(compare);card.append(controls);
+    const compare=element("button",t.compare);compare.disabled=this._busy||this._year<=2000;compare.addEventListener("click",()=>{this._compare=true;this._load(false);});if (this._config.view !== "readings") controls.append(compare);card.append(controls);
     if(this._error) { const error=element("p",t[this._error],"error");error.setAttribute("role","alert");card.append(error);if(this._data)card.append(element("p",t.stale,"muted")); }
     if(!this._data || this._data.year!==this._year) return;
     const data=this._data;
     const fetched = new Intl.DateTimeFormat(this._lang || "en",{dateStyle:"medium",timeStyle:"short",timeZone:"Europe/Kyiv"}).format(new Date(data.fetched_at));
     card.append(element("p",`${t.fetched}: ${fetched} (Europe/Kyiv)`,"muted"));
+    if (this._config.view !== "readings") {
     card.append(element("h3",`${t.consumption} · ${data.year}`));
     card.append(this._chart(data.months));card.append(element("p",t.note,"muted"));
     const details=element("details"),summary=element("summary",`${t.consumption} · kWh`);details.append(summary);
@@ -147,13 +162,16 @@ class DtekAccountHistoryCard extends HTMLElement {
       const monthly=this._table([t.period,String(c.year),String(c.previous_year),`${t.difference} · kWh`]);for(const p of c.months){const row=element("tr");for(const value of [String(p.month).padStart(2,"0"),this.format(p.current),this.format(p.previous),p.comparable?this.format(p.difference):t.missing])row.append(element("td",value));monthly.body.append(row);}card.append(monthly.wrap);
       card.append(element("p",`${t.fetched} ${c.previous_year}: ${new Intl.DateTimeFormat(this._lang||"en",{dateStyle:"medium",timeStyle:"short",timeZone:"Europe/Kyiv"}).format(new Date(c.fetched_at.previous))} (Europe/Kyiv)`,"muted"));
     }
+    }
+    if (this._config.view === "consumption") { [...root.querySelectorAll("details")].forEach((d,i) => d.open=opened[i]||false); return; }
     card.append(element("h3",`${t.readings} · ${data.readings.length}`));card.append(element("p",t.scope,"muted"));
     if(!data.readings.length) {card.append(element("p",t.empty));return;}
     const table=this._table([t.date,t.value,t.status,t.zone,t.energy,t.source]);
+    table.wrap.querySelector("table").classList.add("readings");
     const pageSize=10, pages=Math.ceil(data.readings.length/pageSize);this._page=Math.min(this._page,pages-1);
     for(const record of data.readings.slice(this._page*pageSize,(this._page+1)*pageSize)) {
       const row=element("tr",undefined,record.status);
-      const local=record.date_time.slice(0,16).replace("T"," ");
+      const local=date(record.date_time, this._lang);
       row.append(element("td",local,"numeric"),element("td",this.format(record.value),"numeric"));
       const status=element("td");status.append(element("span",t[record.status]||t.unknown,"pill"));row.append(status,element("td",this.zone(record.zone)),element("td",record.energy),element("td",record.source||"—"));table.body.append(row);
     }
@@ -162,6 +180,8 @@ class DtekAccountHistoryCard extends HTMLElement {
     prev.disabled=this._page===0;next.disabled=this._page>=pages-1;
     prev.addEventListener("click",()=>{this._page--;this._render();});next.addEventListener("click",()=>{this._page++;this._render();});
     pagination.append(prev,element("span",`${t.page} ${this._page+1} / ${pages}`),next);card.append(pagination);
+    [...root.querySelectorAll("details")].forEach((d,i) => d.open=opened[i]||false);
+    for (const table of root.querySelectorAll("table")) { const labels=[...table.querySelectorAll("th")].map(h=>h.textContent); for (const row of table.querySelectorAll("tbody tr")) [...row.children].forEach((cell,i)=>cell.dataset.label=labels[i]); }
   }
   _table(headers) {
     const wrap=element("div",undefined,"scroll"),table=element("table"),head=element("thead"),tr=element("tr"),body=element("tbody");

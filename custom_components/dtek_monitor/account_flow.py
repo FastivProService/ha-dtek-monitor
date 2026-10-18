@@ -106,6 +106,7 @@ class AccountFlowMixin:
                     vol.Required(
                         CONF_USERNAME,
                         default=(
+                            user_input.get(CONF_USERNAME, "") if user_input else
                             reauth_entry.data[CONF_USERNAME] if reauth_entry else ""
                         ),
                     ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEL)),
@@ -115,6 +116,10 @@ class AccountFlowMixin:
                 }
             ),
             errors=errors,
+            description_placeholders={
+                "signup_url": "https://auth.my.dtek-oem.com.ua/signup",
+                "recovery_url": "https://auth.my.dtek-oem.com.ua/recovery",
+            },
         )
 
     async def async_step_accounts(self, user_input=None):
@@ -157,7 +162,10 @@ class AccountFlowMixin:
             step_id="accounts",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_ACCOUNTS): SelectSelector(
+                    vol.Required(
+                        CONF_ACCOUNTS,
+                        default=list(available) if len(available) == 1 else [],
+                    ): SelectSelector(
                         SelectSelectorConfig(
                             options=[
                                 {"value": a.number, "label": a.label}

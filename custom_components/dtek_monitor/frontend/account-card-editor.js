@@ -66,6 +66,10 @@ class DtekAccountCardEditor extends HTMLElement {
     if(signature!==this._options) {
       this._options=signature;this._select.replaceChildren(...options.map(o=>{const el=document.createElement("option");el.value=o.value;el.textContent=o.label;return el;}));
     }
+    if (this._config.type === "custom:dtek-account-workspace-card" && !this._scope) {
+      const label=document.createElement("label");this._scope=document.createElement("input");this._scope.type="checkbox";this._scope.style.width="auto";this._scopeText=document.createElement("span");label.append(this._scope,this._scopeText);this.shadowRoot.append(label);this._scope.onchange=()=>this._change("show_account_selector",this._scope.checked);
+    }
+    if(this._scope){this._scope.checked=this._config.show_account_selector!==false;this._scopeText.textContent=this._hass.language?.startsWith("uk")?"Дозволити перемикання рахунків у цій картці":"Allow switching accounts in this card";}
     this._select.value=selected;
     this._feedback.textContent=this._pending?w.loading:this._error?w.error:this._loaded&&!accounts.length?w.empty:"";
     this._retry.textContent=w.retry;this._retry.disabled=this._pending;this._help.textContent=w.help;

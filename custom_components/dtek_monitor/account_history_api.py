@@ -62,6 +62,21 @@ async def async_setup_history(hass):
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
+                    "/dtek_monitor/account-workspace-card.js",
+                    str(Path(__file__).parent / "frontend" / "account-workspace-card.js"),
+                    False,
+                ),
+                StaticPathConfig(
+                    "/dtek_monitor/account-ui.js",
+                    str(Path(__file__).parent / "frontend" / "account-ui.js"),
+                    False,
+                ),
+                StaticPathConfig(
+                    "/dtek_monitor/account-readback.js",
+                    str(Path(__file__).parent / "frontend" / "account-readback.js"),
+                    False,
+                ),
+                StaticPathConfig(
                     "/dtek_monitor/account-profile-card.js",
                     str(Path(__file__).parent / "frontend" / "account-profile-card.js"),
                     False,
@@ -93,6 +108,10 @@ async def async_setup_history(hass):
                 ),
             ]
         )
+        if "frontend" in hass.config.components:
+            from homeassistant.components.frontend import add_extra_js_url
+
+            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b11")
 
 
 class AccountAccessError(Exception):
@@ -128,25 +147,58 @@ def websocket_accounts(hass, connection, msg):
             if entity is not None and _can_read_account(
                 hass, connection, entry, number
             ):
+                readable = [
+                    e for e in entities
+                    if e.platform == DOMAIN
+                    and e.disabled_by is None
+                    and e.unique_id.startswith(prefix)
+                    and connection.user.permissions.check_entity(e.entity_id, POLICY_READ)
+                ]
+                # Resolve roles from registry identities, never translated names
+                # or guessed entity IDs. Each workspace chooses its own account.
+                from .account_submission_api import resolve
+
+                try:
+                    resolve(hass, connection, entity.entity_id)
+                    can_submit = True
+                except SubmissionError:
+                    can_submit = False
                 result.append(
                     {
                         "entity_id": entity.entity_id,
                         "masked": f"••••{number[-4:]}",
                         "address": address,
                         # Preserve manually configured entities for this account.
-                        "entities": [
-                            e.entity_id
-                            for e in entities
-                            if e.platform == DOMAIN
-                            and e.disabled_by is None
-                            and e.unique_id.startswith(prefix)
-                            and connection.user.permissions.check_entity(
-                                e.entity_id, POLICY_READ
-                            )
-                        ],
+                        "entities": [e.entity_id for e in readable],
+                        "roles": {
+                            e.unique_id[len(prefix):]: e.entity_id for e in readable
+                        },
+                        "can_submit": can_submit,
+                        "building_schedule": _building_schedule(hass, connection, entry, number),
                     }
                 )
     connection.send_result(msg["id"], result)
+
+
+def _building_schedule(hass, connection, entry, number):
+    """Expose only the linked public calendar entities the user can read."""
+    from .account_schedule import CONF_ACCOUNT_SCHEDULES, address_entries
+    from .helpers import build_entity_unique_id
+
+    link = entry.options.get(CONF_ACCOUNT_SCHEDULES, {}).get(number, {})
+    address = address_entries(hass, entry).get(link.get("address_entry_id"))
+    if address is None:
+        return {}
+    wanted = {
+        build_entity_unique_id(address, key): key
+        for key in ("schedule_status", "outage_schedule", "possible_schedule")
+    }
+    return {
+        wanted[e.unique_id]: e.entity_id
+        for e in er.async_entries_for_config_entry(er.async_get(hass), address.entry_id)
+        if e.platform == DOMAIN and e.disabled_by is None and e.unique_id in wanted
+        and connection.user.permissions.check_entity(e.entity_id, POLICY_READ)
+    }
 
 
 def resolve_readable_account(hass, connection, entity_id):

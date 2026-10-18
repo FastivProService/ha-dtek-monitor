@@ -11,6 +11,7 @@ import test_ha_runtime as runtime
 from component_loader import load_component_module
 
 if runtime.HAS_HA:
+    import voluptuous as vol
     from homeassistant.config_entries import ConfigEntryState, OptionsFlowManager
     from homeassistant.exceptions import ConfigEntryAuthFailed
     from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -446,6 +447,21 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("city", result["data"])
         self.assertTrue(self.flow.unique_id.startswith("account:"))
         self.assertFalse(self.flow._account_credentials)
+
+    async def test_login_retry_keeps_phone_but_never_prefills_password(self):
+        self.account_client.authenticate.side_effect = account.AccountAuthError("invalid")
+        with patch.object(flow_module, "create_account_provider", return_value=self.account_client):
+            result = await self.flow.async_step_account_login({"username": "+380500000001", "password": "synthetic-test-password"})
+        fields = {key.schema: key for key in result["data_schema"].schema}
+        self.assertEqual(fields["username"].default(), "+380500000001")
+        self.assertIs(fields["password"].default, vol.UNDEFINED)
+
+    async def test_single_account_is_preselected_but_still_requires_confirmation(self):
+        self.flow._personal_accounts = {"100001": account.PersonalAccount("100001", "Example address")}
+        result = await self.flow.async_step_accounts()
+        self.assertEqual(result["step_id"], "accounts")
+        field = next(iter(result["data_schema"].schema))
+        self.assertEqual(field.default(), ["100001"])
 
     async def test_duplicate_account_closes_transient_session(self):
         self.hass.config_entries.async_entry_for_domain_unique_id.return_value = (

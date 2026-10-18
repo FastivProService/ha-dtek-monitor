@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b11] - 2026-10-18
+
+- Add My DTEK: an account workspace with overview, personal/building schedules, readings, consumption and settings. Resolve entities from the registry and load cards automatically.
+- Keep account selection local to each card, retain drafts across tabs and HA updates, require explicit discard before switching accounts, and block switching during pending operations.
+- Remove duplicate history from the profile. Put submission read-back beside its result and split reading history from consumption views. Add a compact sensor suggestion and read-only mode.
+- Improve phone-entry retry, preselect a sole account for confirmation, and link official registration/recovery from sign-in. Include an interactive demo; native SMS flows remain planned.
+- Add mobile, theme, keyboard, permission, account isolation and submission regressions; update English/Ukrainian preview guides.
+
 ## [1.8.0b10] - 2026-10-18
 
 - Add a per-account profile card with permanent address, every EIC, current installation, contract power, meter metadata and masked/copyable identifiers. Missing optional details no longer discard valid readings.

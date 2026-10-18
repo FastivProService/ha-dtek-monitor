@@ -77,74 +77,26 @@ class ProfileCardTests(unittest.IsolatedAsyncioTestCase):
             0,
         )
 
-    async def test_readback_explicit_and_never_submits_or_touches_other_form(self):
+    async def test_profile_does_not_duplicate_history_or_touch_other_forms(self):
         await self.page.evaluate(
-            """() => {const input=document.createElement('input');input.id='draft';input.value='User edited reading';document.body.append(input);}"""
-        )
-        await self.page.get_by_role(
-            "button", name="Check reading history", exact=True
-        ).click()
-        await self.page.get_by_text(
-            "No submission recorded by this HA.", exact=False
-        ).wait_for()
-        self.assertEqual(await self.page.get_by_text("123", exact=True).count(), 1)
-        await self.page.evaluate(
-            """() => {card.hass={...hass,states:{'sensor.first':{last_updated:'new'}}};}"""
+            """() => {const input=document.createElement('input');input.id='draft';input.value='User edited reading';document.body.append(input);card.hass={...hass,states:{'sensor.first':{last_updated:'new'}}};}"""
         )
         await self.page.get_by_text("NIK example", exact=True).wait_for()
-        self.assertEqual(
-            await self.page.locator("#draft").input_value(), "User edited reading"
-        )
-        self.assertEqual(
-            await self.page.evaluate(
-                "requests.filter(m=>m.type==='dtek_monitor/account_submission').length"
-            ),
-            0,
-        )
-        self.assertEqual(
-            await self.page.evaluate(
-                "requests.filter(m=>m.type==='dtek_monitor/account_readback').length"
-            ),
-            1,
-        )
+        self.assertEqual(await self.page.locator("#draft").input_value(), "User edited reading")
+        self.assertEqual(await self.page.get_by_role("button", name="Check reading history", exact=True).count(), 0)
+        self.assertEqual(await self.page.evaluate("requests.filter(m=>['dtek_monitor/account_submission','dtek_monitor/account_readback','dtek_monitor/account_history'].includes(m.type)).length"), 0)
 
-    async def test_unmatched_attempt_displays_target_reading_and_translated_result(
-        self,
-    ):
-        await self.page.evaluate(
-            """() => {const normal=hass.callWS;hass.callWS=async msg=>msg.type==='dtek_monitor/account_readback'?{status:'not_found',fetched_at:'2026-10-18T12:00:00+03:00',attempt:{at:'2026-10-18T11:00:00+03:00',status:'unknown',readings:[{zone:'GENERAL',value:321}]},matches:[],latest:[]}:normal(msg);card.hass=hass;}"""
-        )
-        await self.page.get_by_role(
-            "button", name="Check reading history", exact=True
-        ).click()
-        await self.page.get_by_text(
-            "No matching record found yet.", exact=False
-        ).wait_for()
-        text = await self.page.locator("ha-card").inner_text()
-        self.assertIn("Submission request result: Unknown", text)
-        self.assertIn("Cumulative reading, kWh: Single zone: 321", text)
-        self.assertNotIn("GENERAL", text)
-        self.assertEqual(
-            await self.page.evaluate(
-                "requests.filter(m=>m.type==='dtek_monitor/account_submission').length"
-            ),
-            0,
-        )
-
-    async def test_late_reveal_and_readback_cannot_follow_switched_account(self):
+    async def test_late_reveal_cannot_follow_switched_account(self):
         await self.page.evaluate(
             """() => {const normal=hass.callWS;hass.callWS=msg=>((msg.type==='dtek_monitor/account_profile'&&msg.reveal)||msg.type==='dtek_monitor/account_readback')?new Promise(resolve=>pending.push({msg,resolve})):normal(msg);card.hass=hass;}"""
         )
         await self.page.get_by_role(
             "button", name="Show meter identifiers", exact=True
         ).click()
-        await self.page.get_by_role(
-            "button", name="Check reading history", exact=True
-        ).click()
         await self.page.evaluate("card.setConfig({entity:'sensor.second'})")
         await self.page.get_by_text("Second apartment", exact=True).wait_for()
         await self.page.evaluate(
-            """() => {pending[0].resolve(profile('sensor.first',true));pending[1].resolve({status:'matched',matches:[],fetched_at:'2026-10-18T12:00:00+03:00'});}"""
+            """() => {pending[0].resolve(profile('sensor.first',true));}"""
         )
         text = await self.page.locator("ha-card").inner_text()
         self.assertNotIn("PRIVATE-METER", text)
