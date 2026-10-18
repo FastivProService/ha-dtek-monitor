@@ -49,9 +49,21 @@ async def async_setup_history(hass):
     await async_setup_energy(hass)
     websocket_api.async_register_command(hass, websocket_history)
     websocket_api.async_register_command(hass, websocket_identity)
+    websocket_api.async_register_command(hass, websocket_accounts)
+    websocket_api.async_register_command(hass, websocket_checks)
     if "http" in hass.config.components:
         await hass.http.async_register_static_paths(
             [
+                StaticPathConfig(
+                    "/dtek_monitor/account-check-card.js",
+                    str(Path(__file__).parent / "frontend" / "account-check-card.js"),
+                    False,
+                ),
+                StaticPathConfig(
+                    "/dtek_monitor/account-card-editor.js",
+                    str(Path(__file__).parent / "frontend" / "account-card-editor.js"),
+                    False,
+                ),
                 StaticPathConfig(
                     "/dtek_monitor/schedule-card.js",
                     str(Path(__file__).parent / "frontend" / "schedule-card.js"),
@@ -74,6 +86,55 @@ async def async_setup_history(hass):
 class AccountAccessError(Exception):
     def __init__(self, code):
         self.code = code
+
+
+@websocket_api.websocket_command({vol.Required("type"): "dtek_monitor/accounts"})
+@callback
+def websocket_accounts(hass, connection, msg):
+    """Local choices for cards, scoped to selected, readable account devices."""
+    result = []
+    registry = er.async_get(hass)
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        if (
+            entry.data.get(CONF_ENTRY_KIND) != ENTRY_ACCOUNT
+            or entry.state != ConfigEntryState.LOADED
+        ):
+            continue
+        entities = er.async_entries_for_config_entry(registry, entry.entry_id)
+        for number, address in entry.data[CONF_ACCOUNTS].items():
+            prefix = f"account:{account_key(entry.data[CONF_PROVIDER], number)}:"
+            entity = next(
+                (
+                    e
+                    for e in entities
+                    if e.platform == DOMAIN
+                    and e.disabled_by is None
+                    and e.unique_id == prefix + "account_updated:all"
+                ),
+                None,
+            )
+            if entity is not None and _can_read_account(
+                hass, connection, entry, number
+            ):
+                result.append(
+                    {
+                        "entity_id": entity.entity_id,
+                        "masked": f"••••{number[-4:]}",
+                        "address": address,
+                        # Preserve manually configured entities for this account.
+                        "entities": [
+                            e.entity_id
+                            for e in entities
+                            if e.platform == DOMAIN
+                            and e.disabled_by is None
+                            and e.unique_id.startswith(prefix)
+                            and connection.user.permissions.check_entity(
+                                e.entity_id, POLICY_READ
+                            )
+                        ],
+                    }
+                )
+    connection.send_result(msg["id"], result)
 
 
 def resolve_readable_account(hass, connection, entity_id):
@@ -129,6 +190,23 @@ def websocket_identity(hass, connection, msg):
     if msg["reveal"]:
         result["number"] = number
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "dtek_monitor/account_checks",
+        vol.Required("entity_id"): str,
+    }
+)
+@callback
+def websocket_checks(hass, connection, msg):
+    """Read the local journal only; opening a dashboard never runs a check."""
+    try:
+        entry, number, _ = resolve_readable_account(hass, connection, msg["entity_id"])
+    except AccountAccessError as error:
+        connection.send_error(msg["id"], error.code, "Personal account is unavailable")
+        return
+    connection.send_result(msg["id"], entry.runtime_data.checks.view(number))
 
 
 @websocket_api.websocket_command(

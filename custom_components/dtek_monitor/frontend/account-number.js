@@ -1,3 +1,4 @@
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b9";
 /* Display privacy only: HA permissions, not masking, protect account access. */
 class DtekAccountNumber extends HTMLElement {
   constructor() {
@@ -73,6 +74,7 @@ class DtekAccountNumberCard extends HTMLElement {
   }
   set hass(value) {this._hass=value;if(!this._identity)this._render();else this._identity.hass=value;}
   getCardSize() {return 1;}
+  static getConfigElement() { return accountCardEditor(); }
   static getStubConfig() {return {entity:"sensor.example_account_data_updated"};}
   _render() {
     if(!this._config || !this._hass)return;

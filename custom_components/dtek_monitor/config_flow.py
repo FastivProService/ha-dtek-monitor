@@ -442,6 +442,7 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
                 "account",
                 "account_schedule",
                 "account_reminders",
+                "account_checks",
             ],
         )
 
@@ -449,6 +450,16 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
         from .account_reminder_flow import choose_account
 
         return await choose_account(self, self._config_entry, user_input)
+
+    async def async_step_account_checks(self, user_input=None):
+        from .account_check_flow import choose_account
+
+        return await choose_account(self, self._config_entry, user_input)
+
+    async def async_step_account_check_settings(self, user_input=None):
+        from .account_check_flow import configure
+
+        return await configure(self, self._config_entry, user_input)
 
     async def async_step_account_reminder_settings(self, user_input=None):
         from .account_reminder_flow import configure

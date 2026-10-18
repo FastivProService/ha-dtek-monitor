@@ -1,5 +1,6 @@
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b9";
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=1.8.0b8";
+import { accountNumber } from "./account-number.js?v=1.8.0b9";
 const words = {
   en: {
     title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
@@ -87,6 +88,7 @@ class DtekAccountHistoryCard extends HTMLElement {
   connectedCallback() { if (this._hass && this._config) this._load(false); }
   disconnectedCallback() { this._seq++; this._busy=false; }
   getCardSize() { return 12; }
+  static getConfigElement() { return accountCardEditor(); }
   static getStubConfig() { return {entity:"sensor.example_account_data_updated"}; }
   get t() { return words[this._lang || "en"]; }
   format(value) { return value === null || value === undefined ? "—" : new Intl.NumberFormat(this._lang || "en", {maximumFractionDigits:3}).format(Number(value)); }

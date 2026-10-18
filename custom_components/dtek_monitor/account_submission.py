@@ -165,7 +165,9 @@ def submission_result(payload, count):
         "status": (
             "accepted"
             if all(s == "SUCCESS" for s in statuses)
-            else "rejected" if all(s == "ERROR" for s in statuses) else "partial"
+            else "rejected"
+            if all(s == "ERROR" for s in statuses)
+            else "partial"
         )
     }
 
@@ -307,6 +309,61 @@ class SubmissionManager:
                 "date": context["date"],
                 "readings": readings,
                 "source": source,
+            }
+
+    async def check_source(self, number, authorize):
+        """Read-only scheduled inspection. Never creates a draft or a POST attempt."""
+        async with self._lock:
+            await self._load()
+            authorize()
+            if self._unresolved(number):
+                raise SubmissionError("check_cabinet")
+            context = await self.client.read_submission_context(number)
+            authorize()
+            view = await self.energy.summary(number)
+            authorize()
+            binding = view.get("binding")
+            if not binding:
+                raise SubmissionError("no_energy_source")
+            if not view.get("ready"):
+                raise SubmissionError(
+                    next(
+                        (
+                            row["error"]
+                            for row in view.get("readings", {}).values()
+                            if "error" in row
+                        ),
+                        "source_unavailable",
+                    )
+                )
+            if binding["serial"] != context["serial"] or set(binding["zones"]) != {
+                z["zone"] for z in context["zones"]
+            }:
+                raise SubmissionError("energy_changed")
+            readings = validate_values(
+                context,
+                {zone: row["send_value"] for zone, row in view["readings"].items()},
+            )
+            signature = digest(
+                {
+                    "serial": context["serial"],
+                    "date": context["date"],
+                    "readings": {r["zone"]: r["value"] for r in readings},
+                }
+            )
+            last = self._journal.get(self._key(number), {})
+            if last.get("status") == "accepted" and last.get("signature") == signature:
+                raise SubmissionError("already_sent")
+            return {
+                "binding_revision": binding["revision"],
+                "readings": [
+                    {
+                        **row,
+                        "source_entity": binding["zones"][row["zone"]]["entity_id"],
+                        "source_at": view["readings"][row["zone"]]["source"]["at"],
+                    }
+                    for row in readings
+                ],
             }
 
     async def confirm(self, number, user, token, authorize):

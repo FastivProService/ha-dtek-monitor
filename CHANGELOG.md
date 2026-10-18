@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b9] - 2026-10-18
+
+- Add visual account selection to account number, history and readings cards. Keep each card independent and preserve edits while account lists load or HA states update. List only selected accounts the current user may read.
+- Add optional per-account scheduled reading checks, a manual check button, a result sensor and a read-only journal card. Validate the bound cumulative source against the current cabinet meter without submitting readings, creating confirmation drafts or moving reference pairs.
+- Persist daily reservations and the latest 20 results. Recover interrupted checks without replay, catch up only for today, and stop on journal errors. Keep unresolved submission barriers in effect.
+- Document connecting several accounts and showing any subset on one or separate dashboards. Add account isolation, permissions, restart, source validation and browser tests.
+
 ## [1.8.0b8] - 2026-10-18
 
 - Separate successful responses with missing or disabled schedule publication from request/parsing failures. Keep live notification gates closed until schedules are verified.

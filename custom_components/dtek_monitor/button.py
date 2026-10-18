@@ -3,10 +3,12 @@
 from homeassistant.components.button import ButtonEntity
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.exceptions import ServiceValidationError
 
 from .account import CONF_ACCOUNTS, CONF_ENTRY_KIND, ENTRY_ACCOUNT, account_key
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
+from .account_submission import SubmissionError
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -18,6 +20,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
             ]
             + [
                 AccountReminderButton(entry, number)
+                for number in entry.data[CONF_ACCOUNTS]
+            ]
+            + [
+                AccountCheckButton(entry, number)
                 for number in entry.data[CONF_ACCOUNTS]
             ]
         )
@@ -52,3 +58,24 @@ class AccountReminderButton(AccountRefreshButton):
 
     async def async_press(self):
         await self.coordinator.reminders.preview(self.number)
+
+
+class AccountCheckButton(AccountRefreshButton):
+    _attr_translation_key = "account_check_now"
+    _attr_icon = "mdi:clipboard-check-outline"
+
+    def __init__(self, entry, number):
+        super().__init__(entry, number)
+        self.number = number
+        self._attr_unique_id += ":check_now"
+
+    async def async_press(self):
+        try:
+            await self.coordinator.checks.check_now(self.number)
+        except SubmissionError as error:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="check_cooldown"
+                if error.code == "check_cooldown"
+                else "check_unavailable",
+            ) from None

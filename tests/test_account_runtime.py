@@ -82,9 +82,14 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.flow.context = {"source": "user"}
 
     async def test_setup_and_unload_use_only_account_platforms(self):
-        with patch.object(
-            setup_module, "create_account_provider", return_value=self.account_client
-        ), patch.object(setup_module, "create_provider") as public:
+        with (
+            patch.object(
+                setup_module,
+                "create_account_provider",
+                return_value=self.account_client,
+            ),
+            patch.object(setup_module, "create_provider") as public,
+        ):
             self.assertTrue(await setup_module.async_setup_entry(self.hass, self.entry))
             public.assert_not_called()
             self.hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
@@ -158,7 +163,13 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         options.hass = self.hass
         self.assertEqual(
             (await options.async_step_init())["menu_options"],
-            ["account_selection", "account", "account_schedule", "account_reminders"],
+            [
+                "account_selection",
+                "account",
+                "account_schedule",
+                "account_reminders",
+                "account_checks",
+            ],
         )
         with patch.object(
             flow_module, "create_account_provider", return_value=self.account_client
@@ -189,10 +200,11 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         manager = OptionsFlowManager(self.hass)
         options = runtime.flow.DTEKMonitorOptionsFlow(self.entry)
         self.hass.config_entries.async_get_known_entry.return_value = self.entry
-        with patch.object(
-            manager, "async_create_flow", AsyncMock(return_value=options)
-        ), patch.object(
-            flow_module, "create_account_provider", return_value=self.account_client
+        with (
+            patch.object(manager, "async_create_flow", AsyncMock(return_value=options)),
+            patch.object(
+                flow_module, "create_account_provider", return_value=self.account_client
+            ),
         ):
             result = await manager.async_init(self.entry.entry_id)
             self.assertEqual(result["step_id"], "account_menu")
@@ -307,9 +319,10 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
             ),
         ]
         registry = dr.async_get(self.hass)
-        with patch.object(
-            dr, "async_entries_for_config_entry", return_value=devices
-        ), patch.object(registry, "async_remove_device") as remove_device:
+        with (
+            patch.object(dr, "async_entries_for_config_entry", return_value=devices),
+            patch.object(registry, "async_remove_device") as remove_device,
+        ):
             sensors.remove_unselected_accounts(self.hass, self.entry)
         remove_device.assert_called_once_with("remove")
 
@@ -333,9 +346,14 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self,
     ):
         self.account_client.authenticate.side_effect = account.AccountAuthError("test")
-        with patch.object(
-            setup_module, "create_account_provider", return_value=self.account_client
-        ), patch.object(setup_module, "create_provider") as public:
+        with (
+            patch.object(
+                setup_module,
+                "create_account_provider",
+                return_value=self.account_client,
+            ),
+            patch.object(setup_module, "create_provider") as public,
+        ):
             with self.assertRaises(ConfigEntryAuthFailed):
                 await setup_module.async_setup_entry(self.hass, self.entry)
             public.assert_not_called()
@@ -382,7 +400,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.account_coord.async_set_updated_data({"100001": None, "100002": None})
         discover = sensors.account_sensors(self.account_coord, self.entry)
         initial = discover()
-        self.assertEqual(len(initial), 8)
+        self.assertEqual(len(initial), 10)
         self.assertFalse(discover())
         self.account_coord.async_set_updated_data(
             {"100001": self.snapshot, "100002": None}

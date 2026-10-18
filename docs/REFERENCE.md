@@ -80,7 +80,7 @@ reference only and never establish an outage-free day.
 ### Schedule card
 
 For an explicit explanation on a dashboard, add the resource
-`/dtek_monitor/schedule-card.js?v=1.8.0b8` as a **JavaScript module** under
+`/dtek_monitor/schedule-card.js?v=1.8.0b9` as a **JavaScript module** under
 **Settings → Dashboards → Resources** (advanced mode). Add a manual card:
 
 ```yaml

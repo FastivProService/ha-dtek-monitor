@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b8`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b9`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -65,6 +65,35 @@ attempt, including automatic refreshes and failures. A failure leaves affected
 sensors unavailable; successfully refreshed accounts remain usable. The time of
 fetching data is distinct from the date of the recorded reading.
 
+## Several accounts and dashboards
+
+One phone login can contain several personal accounts. **Configure → Select personal
+accounts** determines which ones HA monitors. Each selected account has its own HA
+device, readings, calendars, energy binding, reference pairs, reminders and check
+schedule. Connecting a second account does not copy the first account’s sensor or
+calibration. Bind a cumulative grid-import source for the correct apartment.
+
+Dashboard visibility is a separate choice:
+
+- Monitor two accounts and show only one: leave both selected in the integration,
+  then add cards for the account you want to see.
+- Show both together: add a separate set of cards for each account.
+- Use two dashboards or views: select the appropriate account in each card.
+
+The visual editors for the number, history, readings and check-journal cards have
+a **Personal account** list with the masked number and address. There is no global
+active account. Changing one card never redirects another card’s readings or
+changes which accounts the integration monitors. A missing account stays selected
+until you explicitly choose another; it never falls back to the first account.
+Use **Refresh account list** after adding accounts in the integration settings.
+Only connected accounts readable by your HA user appear in this list; to connect
+another account, use the integration’s **Select personal accounts** form.
+
+Existing YAML still works: `entity` may be any enabled entity belonging to the
+intended account. You can rename HA devices to distinguish apartments. Hiding a
+card or dashboard does not revoke access to its entities; HA permissions remain
+responsible for access control.
+
 ## My apartment group and the building schedules
 
 The cabinet connection does not establish which outage group supplies an apartment.
@@ -106,7 +135,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b8` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b9` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -167,7 +196,7 @@ entity: sensor.example_account_data_updated
 ```
 
 It is loaded automatically by either DTEK custom card resource above. If you use
-neither, register `/dtek_monitor/account-number.js?v=1.8.0b8` as a JavaScript module
+neither, register `/dtek_monitor/account-number.js?v=1.8.0b9` as a JavaScript module
 in Resources. Existing entity IDs and masked device labels are unchanged.
 
 ## Send meter readings
@@ -177,7 +206,7 @@ write to your DTEK account only after you review and explicitly confirm the valu
 Opening the card, loading meter data and reviewing values do not send readings.
 Use actual meter readings or reviewed source proposals; never use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b8` as another **JavaScript module**
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b9` as another **JavaScript module**
 in dashboard Resources, then add this manual card to a private dashboard:
 
 ```yaml
@@ -343,6 +372,50 @@ This preview provides suggestions, explicit manual submissions and optional HA
 reminders. Automatic submissions are not implemented.
 These sources belong to personal accounts; they do not configure the building
 Telegram bot or its power-presence sensors.
+
+## Scheduled checks without submission
+
+Open **Configure → Scheduled reading checks**, choose an account, and enable checks.
+They are off by default. Select a time in **Europe/Kyiv** and either every day or
+each day in the reporting window (last two days of the month and first three days
+of the next month). The minute timer runs the check at the first opportunity at or
+after the selected time. HA catches up only for the current day after downtime;
+it never replays checks for earlier days.
+
+A check reads the current DTEK meter context and calculates the proposal from that
+account’s bound cumulative energy source. It checks tariff zones, meter identity,
+previous readings, source freshness, observed resets, replacement and implausible
+jumps. Pending/unknown submission outcomes block the proposal. Each tariff zone
+keeps its own source and value. An account without a source reports that it needs
+one; it does not borrow another account’s source.
+
+**Nothing is sent to DTEK.** A check does not create a submission confirmation,
+change the local reference pair, or issue Telegram messages. Automatic submission
+is not available in this version. A ready result means the estimate passed the
+checks **at the displayed time**; review the physical meter and use the normal
+readings card for an explicitly confirmed submission with fresh validation.
+
+Each account device has **Check readings without submission** and **Reading check**.
+The button works with the schedule disabled and does not consume the scheduled
+check. Manual checks share a 60-second limit within a connection. The sensor keeps
+the latest result and up to 20 checks, including original sensor report timestamps.
+The journal survives restarts. An interrupted scheduled check is marked as such,
+without repeating that day; journal errors stop checks until resolved.
+
+For a readable journal on a dashboard, add **DTEK reading checks** in the card
+picker and choose its account. Loading the readings card resource also registers
+this card. For a standalone journal, register
+`/dtek_monitor/account-check-card.js?v=1.8.0b9` as a JavaScript module. YAML example:
+
+```yaml
+type: custom:dtek-account-check-card
+entity: sensor.example_account_data_updated
+title: Apartment — reading checks
+```
+
+**Refresh journal** reads only the saved local results; it does not run a check or
+contact DTEK. Journal entries and sensor attributes contain estimates and source
+entity IDs, so grant access to this account only to the intended HA users.
 
 ## Reading reminders in Home Assistant
 

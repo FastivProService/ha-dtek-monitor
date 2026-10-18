@@ -112,12 +112,13 @@
           "account_selection": "Select personal accounts",
           "account": "Add building monitoring",
           "account_schedule": "My group and schedule",
-          "account_reminders": "Reading reminders"
+          "account_reminders": "Reading reminders",
+          "account_checks": "Scheduled reading checks"
         }
       },
       "account_selection": {
         "title": "Accounts to monitor",
-        "description": "Select at least one account. Entities for deselected accounts will be removed; independent addresses and the bot are unaffected. Changes reload this connection.",
+        "description": "Select at least one account. Entities for deselected accounts will be removed; independent addresses and the bot are unaffected. Changes reload this connection.\n\nEach selected account creates a separate HA device. Dashboards may display any subset: a card’s selection does not affect other accounts.",
         "data": {
           "accounts": "Personal accounts"
         }
@@ -157,6 +158,22 @@
           "time": "Time (Europe/Kyiv)",
           "include_estimate": "Include the linked sensor estimate"
         }
+      },
+      "account_checks": {
+        "title": "Scheduled reading checks",
+        "description": "Choose the account for local checks. Nothing is submitted to DTEK.",
+        "data": {
+          "check_account": "Personal account"
+        }
+      },
+      "account_check_settings": {
+        "title": "Reading checks · {account}",
+        "description": "A check calculates readings from the bound sensor and compares them with the cabinet. It never submits readings or changes calibration. See the result and journal in the Reading check sensor. Time zone: Europe/Kyiv. After downtime, only today’s check is performed.",
+        "data": {
+          "enabled": "Enable checks without submission",
+          "time": "Check time (Kyiv)",
+          "frequency": "Frequency"
+        }
       }
     },
     "error": {
@@ -165,7 +182,8 @@
       "invalid_schedule_address": "Select an existing address for this operator.",
       "invalid_schedule_groups": "Groups changed or the selection is invalid. Verify the address and reopen settings.",
       "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups.",
-      "invalid_reminder_settings": "Check the reminder time and switches."
+      "invalid_reminder_settings": "Check the reminder time and switches.",
+      "invalid_check_settings": "Check the time and frequency."
     },
     "abort": {
       "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
@@ -280,6 +298,17 @@
           "schedule_unsupported": "Operator not supported",
           "schedule_error": "Failed to fetch schedule"
         }
+      },
+      "account_reading_check": {
+        "name": "Reading check",
+        "state": {
+          "idle": "Not checked yet",
+          "checking": "Checking…",
+          "ready": "Ready to review — not sent",
+          "blocked": "Needs attention — not sent",
+          "error": "Check failed — not sent",
+          "interrupted": "Interrupted — not sent"
+        }
       }
     },
     "calendar": {
@@ -305,6 +334,9 @@
       },
       "account_reminder_preview": {
         "name": "Preview reading reminder"
+      },
+      "account_check_now": {
+        "name": "Check readings without submission"
       }
     }
   },
@@ -332,6 +364,20 @@
     },
     "personal_schedule_unavailable": {
       "message": "Personal schedule unavailable. Check the schedule status and group selection."
+    },
+    "check_cooldown": {
+      "message": "Wait 60 seconds between manual account checks."
+    },
+    "check_unavailable": {
+      "message": "Local checks are unavailable. Check the integration and the check journal."
+    }
+  },
+  "selector": {
+    "check_frequency": {
+      "options": {
+        "daily": "Every day",
+        "reading_window": "Each day in the reporting window (last 2 and first 3 days of the month)"
+      }
     }
   }
 }

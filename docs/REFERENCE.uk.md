@@ -78,7 +78,7 @@
 
 ### Картка графіка
 
-Додайте `/dtek_monitor/schedule-card.js?v=1.8.0b8` як **JavaScript module** у
+Додайте `/dtek_monitor/schedule-card.js?v=1.8.0b9` як **JavaScript module** у
 **Налаштування → Панелі → Ресурси** (розширений режим), потім ручну картку:
 
 ```yaml

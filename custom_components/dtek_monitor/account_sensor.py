@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .account import CONF_ACCOUNTS, account_key
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
+from .account_checks import STATUSES
 
 
 def remove_unselected_accounts(hass, entry):
@@ -49,6 +50,9 @@ def account_sensors(coordinator, entry):
     def discover():
         entities = []
         for number in entry.data[CONF_ACCOUNTS]:
+            if (number, "check") not in created:
+                created.add((number, "check"))
+                entities.append(AccountCheckSensor(coordinator, entry, number))
             snapshot = (coordinator.data or {}).get(number)
             keys = [
                 (key, None)
@@ -161,3 +165,36 @@ class AccountSensor(CoordinatorEntity, SensorEntity):
                 ),
             }
         return {}
+
+
+class AccountCheckSensor(SensorEntity):
+    """Local check result remains readable when the upstream service is offline."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_translation_key = "account_reading_check"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = STATUSES
+    _attr_icon = "mdi:clipboard-check-outline"
+
+    def __init__(self, coordinator, entry, number):
+        self.manager, self.number = coordinator.checks, number
+        identity = account_key(entry.data[CONF_PROVIDER], number)
+        self._attr_unique_id = f"account:{identity}:reading_check:all"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"account:{identity}")}
+        )
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(self.manager.listen(self.async_write_ha_state))
+
+    @property
+    def native_value(self):
+        return self.manager.view(self.number)["status"]
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            k: v for k, v in self.manager.view(self.number).items() if k != "status"
+        }

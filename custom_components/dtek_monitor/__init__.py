@@ -55,9 +55,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 entry, ACCOUNT_PLATFORMS
             )
             await coordinator.reminders.start()
+            await coordinator.checks.start()
         except BaseException:
+            await coordinator.checks.close()
             await coordinator.reminders.close()
             await coordinator.energy.close()
+            await coordinator.submissions.close()
             await client.close()
             raise
         return True
@@ -123,6 +126,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
+            await entry.runtime_data.checks.close()
             await entry.runtime_data.reminders.close()
             await entry.runtime_data.energy.close()
             await entry.runtime_data.submissions.close()
