@@ -165,6 +165,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             (await options.async_step_init())["menu_options"],
             [
+                "account_management",
                 "account_selection",
                 "account",
                 "account_schedule",
@@ -177,7 +178,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
             flow_module, "create_account_provider", return_value=self.account_client
         ):
             form = await options.async_step_account_selection()
-            for selection in [[], ["unknown"], [{}]]:
+            for selection in [["unknown"], [{}]]:
                 form = await options.async_step_account_selection(
                     {"accounts": selection}
                 )
@@ -328,10 +329,10 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
             sensors.remove_unselected_accounts(self.hass, self.entry)
         remove_device.assert_called_once_with("remove")
 
-    async def test_selection_cannot_switch_subject_or_save_an_empty_linked_list(self):
+    async def test_selection_cannot_switch_subject(self):
         for subject, linked, reason in [
             ("other", (), "account_mismatch"),
-            ("subject", (), "no_accounts"),
+
         ]:
             options = runtime.flow.DTEKMonitorOptionsFlow(self.entry)
             options.hass = self.hass
@@ -436,7 +437,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
             result = await self.flow.async_step_account_login(
                 {"username": "+380500000001", "password": "synthetic-test-password"}
             )
-        self.assertEqual(result["step_id"], "accounts")
+        self.assertEqual(result["step_id"], "account_setup")
         self.account_client.close.assert_awaited_once()
         for selection in [[], ["999999"], [{}], None]:
             result = await self.flow.async_step_accounts({"accounts": selection})

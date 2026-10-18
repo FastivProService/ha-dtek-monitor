@@ -111,7 +111,7 @@ async def async_setup_history(hass):
         if "frontend" in hass.config.components:
             from homeassistant.components.frontend import add_extra_js_url
 
-            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b11")
+            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b13")
 
 
 class AccountAccessError(Exception):

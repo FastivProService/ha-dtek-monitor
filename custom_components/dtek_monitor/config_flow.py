@@ -39,6 +39,7 @@ from .provider import Address, ProviderError
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, PROVIDERS, create_provider
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
 from .account_flow import AccountFlowMixin, account_options, select_account_options
+from .account_link_flow import AccountLinkFlowMixin
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -380,7 +381,7 @@ def _natural_sort_key(value: str) -> tuple:
     return tuple(result)
 
 
-class DTEKMonitorOptionsFlow(OptionsFlow):
+class DTEKMonitorOptionsFlow(AccountLinkFlowMixin, OptionsFlow):
     """Handle DTEK Monitor options."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
@@ -435,9 +436,12 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
         return await account_options(self, self._config_entry, user_input)
 
     async def async_step_account_menu(self, user_input=None):
+        if not self._config_entry.data.get("accounts"):
+            return await self.async_step_account_management()
         return self.async_show_menu(
             step_id="account_menu",
             menu_options=[
+                "account_management",
                 "account_selection",
                 "account",
                 "account_schedule",

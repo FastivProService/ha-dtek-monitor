@@ -127,6 +127,56 @@
           "username": "Phone number",
           "password": "Password"
         }
+      },
+      "account_setup": {
+        "title": "Choose household accounts",
+        "description": "Connect accounts already linked to your DTEK cabinet, or add one by its number and verify the address. A new cabinet may be empty.",
+        "menu_options": {
+          "accounts": "Choose accounts to monitor in HA",
+          "account_link": "Add an account to the DTEK cabinet",
+          "account_finish_empty": "Connect the cabinet without monitoring accounts yet"
+        }
+      },
+      "account_management": {
+        "title": "Household accounts",
+        "description": "DTEK cabinet links and HA monitoring are separate. Unlinking an account does not close its electricity contract.",
+        "menu_options": {
+          "account_link": "Add to the DTEK cabinet",
+          "account_selection": "Choose which accounts HA monitors",
+          "account_unlink": "Unlink from the DTEK cabinet"
+        }
+      },
+      "account_link": {
+        "title": "Find a household account",
+        "description": "Enter the modern 12-digit account number from your DTEK receipt (starting with 572 for Odesa household accounts). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_link_confirm": {
+        "title": "Add this account to DTEK?",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nConfirm that this is your account. This adds it to your DTEK cabinet. You will choose HA monitoring separately afterwards.",
+        "data": {
+          "confirm": "The account and address are correct; add it to my DTEK cabinet"
+        }
+      },
+      "account_linked": {
+        "title": "Account added to DTEK",
+        "description": "The DTEK cabinet link is saved. Continue to choose which accounts HA monitors. Closing this window keeps the DTEK link and leaves your current HA selection unchanged."
+      },
+      "account_unlink": {
+        "title": "Unlink an account from DTEK",
+        "description": "Choose an account linked to this cabinet. First deselect it under “Choose which accounts HA monitors” and wait for HA to reload. Another confirmation will follow.",
+        "data": {
+          "account_number": "Linked household account"
+        }
+      },
+      "account_unlink_confirm": {
+        "title": "Confirm unlinking from DTEK",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nThe account will disappear from this DTEK cabinet. Its electricity contract and billing history are not deleted. Stored HA sensor references are retained.",
+        "data": {
+          "confirm": "Unlink this account from my DTEK cabinet"
+        }
       }
     },
     "error": {
@@ -140,7 +190,7 @@
       "invalid_phone": "Enter a Ukrainian phone number in +380… format.",
       "invalid_auth": "Sign-in failed. Check your credentials or complete any required account update on the DTEK website.",
       "account_rate_limit": "DTEK has limited requests. Wait before trying again.",
-      "account_cannot_connect": "Cannot read the personal account service. Try again later.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
       "no_accounts": "No supported household accounts were found.",
       "select_accounts": "Select at least one available account.",
       "invalid_house": "Select a house confirmed by the public DTEK directory.",
@@ -159,7 +209,24 @@
       "access_invalid_data": "DTEK did not accept these details. Check the form and try again.",
       "access_code_format": "Enter exactly four digits from the SMS, including any leading zeros.",
       "access_attempts_exhausted": "Five code checks have been used. Wait, then explicitly request another SMS.",
-      "access_start_uncertain": "DTEK did not confirm the SMS request. An SMS may still arrive. Wait before starting again; the request was not repeated."
+      "access_start_uncertain": "DTEK did not confirm the SMS request. An SMS may still arrive. Wait before starting again; the request was not repeated.",
+      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links."
     },
     "abort": {
       "already_configured": "This address or account is already configured.",
@@ -168,7 +235,25 @@
       "reauth_successful": "Reauthentication successful.",
       "access_expired": "This SMS session has expired or is no longer valid. Start again to request a new code.",
       "access_finalize_uncertain": "DTEK did not confirm the result. Your account may have been created or your password changed. No retry was made. Try signing in with the new password, or recover access on the official DTEK website.",
-      "access_registered_no_accounts": "Your DTEK account was created. Link your household accounts on the DTEK website, then add this integration again and choose Sign in."
+      "access_registered_no_accounts": "Your DTEK account was created. Link your household accounts on the DTEK website, then add this integration again and choose Sign in.",
+      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later."
     }
   },
   "options": {
@@ -198,12 +283,13 @@
           "account_schedule": "My group and schedule",
           "account_reminders": "Reading reminders",
           "account_checks": "Scheduled reading checks",
-          "account_notices": "Meter verification and replacement"
+          "account_notices": "Meter verification and replacement",
+          "account_management": "Household accounts in the DTEK cabinet"
         }
       },
       "account_selection": {
         "title": "Accounts to monitor",
-        "description": "Select at least one account. Entities for deselected accounts will be removed; independent addresses and the bot are unaffected. Changes reload this connection.\n\nEach selected account creates a separate HA device. Dashboards may display any subset: a card’s selection does not affect other accounts.",
+        "description": "Choose the accounts HA monitors. You may deselect all: the cabinet connection remains, while its monitored entities are removed. DTEK cabinet links and stored sensor references are retained. Each dashboard card chooses its account separately.",
         "data": {
           "accounts": "Personal accounts"
         }
@@ -273,6 +359,47 @@
           "verification": "Remind about verification year",
           "replacement": "Notify when meter number changes"
         }
+      },
+      "account_management": {
+        "title": "Household accounts",
+        "description": "DTEK cabinet links and HA monitoring are separate. Unlinking an account does not close its electricity contract.",
+        "menu_options": {
+          "account_link": "Add to the DTEK cabinet",
+          "account_selection": "Choose which accounts HA monitors",
+          "account_unlink": "Unlink from the DTEK cabinet"
+        }
+      },
+      "account_link": {
+        "title": "Find a household account",
+        "description": "Enter the modern 12-digit account number from your DTEK receipt (starting with 572 for Odesa household accounts). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_link_confirm": {
+        "title": "Add this account to DTEK?",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nConfirm that this is your account. This adds it to your DTEK cabinet. You will choose HA monitoring separately afterwards.",
+        "data": {
+          "confirm": "The account and address are correct; add it to my DTEK cabinet"
+        }
+      },
+      "account_linked": {
+        "title": "Account added to DTEK",
+        "description": "The DTEK cabinet link is saved. Continue to choose which accounts HA monitors. Closing this window keeps the DTEK link and leaves your current HA selection unchanged."
+      },
+      "account_unlink": {
+        "title": "Unlink an account from DTEK",
+        "description": "Choose an account linked to this cabinet. First deselect it under “Choose which accounts HA monitors” and wait for HA to reload. Another confirmation will follow.",
+        "data": {
+          "account_number": "Linked household account"
+        }
+      },
+      "account_unlink_confirm": {
+        "title": "Confirm unlinking from DTEK",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nThe account will disappear from this DTEK cabinet. Its electricity contract and billing history are not deleted. Stored HA sensor references are retained.",
+        "data": {
+          "confirm": "Unlink this account from my DTEK cabinet"
+        }
       }
     },
     "error": {
@@ -282,15 +409,49 @@
       "invalid_schedule_groups": "Groups changed or the selection is invalid. Verify the address and reopen settings.",
       "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups.",
       "invalid_reminder_settings": "Check the reminder time and switches.",
-      "invalid_check_settings": "Check the time and frequency."
+      "invalid_check_settings": "Check the time and frequency.",
+      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later."
     },
     "abort": {
       "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
       "account_rate_limit": "DTEK has limited requests. Wait before trying again.",
-      "account_cannot_connect": "Cannot read the personal account service. Try again later.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
       "no_accounts": "No supported household accounts were found.",
       "account_mismatch": "Sign in to the same DTEK account.",
-      "account_auth_required": "Authentication is no longer valid. Reauthenticate this connection."
+      "account_auth_required": "Sign in to the same DTEK account again before managing links.",
+      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer."
     }
   },
   "entity": {
@@ -477,6 +638,12 @@
         "daily": "Every day",
         "reading_window": "Each day in the reporting window (last 2 and first 3 days of the month)"
       }
+    }
+  },
+  "issues": {
+    "account_api_changed": {
+      "title": "Check DTEK API compatibility",
+      "description": "The **{interface}** interface is unavailable or returned an incompatible response ({reason}). DTEK may have changed or disabled it.\n\nCheck [DTEK Monitor updates]({releases_url}). If you already use the latest version, [report the problem]({issues_url}) with the interface and reason shown here. Do not include passwords, tokens or full account numbers.\n\nThis issue clears automatically after successful requests resume."
     }
   }
 }

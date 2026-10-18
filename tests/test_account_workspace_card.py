@@ -159,3 +159,12 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
             await self.readings()
             await self.page.get_by_text("Reading history", exact=True).click()
             self.assertTrue(await self.page.evaluate("document.documentElement.scrollWidth<=innerWidth"))
+
+    async def test_empty_monitoring_offers_management_without_forcing_new_login(self):
+        await self.page.evaluate("""() => {
+          accounts.splice(0);card.setConfig({});card._accounts=null;card._loadAccounts();
+        }""")
+        link = self.page.get_by_role("link", name="Manage connections and notifications", exact=True)
+        await link.wait_for()
+        self.assertEqual(await link.get_attribute("href"), "/config/integrations/integration/dtek_monitor")
+        self.assertEqual(await self.page.get_by_role("tab", name="Readings", exact=True).count(), 0)

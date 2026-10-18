@@ -19,6 +19,7 @@ from .account import (
     CONF_ACCOUNTS,
     CONF_ACCOUNT_SUBJECT,
     AccountAuthError,
+    AccountAPIChanged,
     AccountError,
     AccountRateLimitError,
 )
@@ -30,6 +31,7 @@ from .providers import CONF_PROVIDER
 from .account_reminders import AccountReminders
 from .account_checks import AccountChecks
 from .account_notifications import AccountMeterNotifications
+from .account_api_health import report_api_issue, clear_api_issue, watch_api
 
 _LOGGER = logging.getLogger(__name__)
 MANUAL_REFRESH_SECONDS = 60
@@ -47,6 +49,7 @@ class AccountCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(hours=ACCOUNT_UPDATE_HOURS),
         )
         self.client = client
+        watch_api(hass, entry.data[CONF_PROVIDER], client)
         self.history = HistoryCache(client)
         self.energy = HAEnergyManager(hass, entry)
         self.submissions = SubmissionManager(
@@ -102,7 +105,9 @@ class AccountCoordinator(DataUpdateCoordinator):
                 if subject != self.entry.data[CONF_ACCOUNT_SUBJECT]:
                     raise AccountAuthError("Personal account identity changed")
                 self._authenticated = True
+                clear_api_issue(self.hass, self.entry.data[CONF_PROVIDER], "login")
             linked = {a.number for a in await self.client.list_accounts()}
+            clear_api_issue(self.hass, self.entry.data[CONF_PROVIDER], "cabinet")
             result = {}
             for number in self.entry.data[CONF_ACCOUNTS]:
                 if number not in linked:
@@ -110,14 +115,19 @@ class AccountCoordinator(DataUpdateCoordinator):
                     continue
                 try:
                     result[number] = await self.client.read_account(number)
-                except (AccountAuthError, AccountRateLimitError):
+                except (AccountAuthError, AccountRateLimitError, AccountAPIChanged):
                     raise
                 except AccountError:
                     # One inaccessible object does not invalidate the others.
                     result[number] = None
-            if not any(result.values()):
+            if self.entry.data[CONF_ACCOUNTS] and not any(result.values()):
                 raise UpdateFailed("No selected personal accounts could be updated")
             return result
+        except AccountAPIChanged as err:
+            report_api_issue(self.hass, self.entry.data[CONF_PROVIDER], err)
+            raise UpdateFailed(
+                "DTEK API is unavailable or incompatible. Open Home Assistant Repairs for updates and support."
+            ) from None
         except AccountAuthError:
             raise ConfigEntryAuthFailed(
                 "Personal account authentication required"

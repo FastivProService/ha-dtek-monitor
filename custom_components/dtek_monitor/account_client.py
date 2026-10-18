@@ -8,6 +8,7 @@ from datetime import datetime
 import hashlib
 import json
 import math
+import re
 import secrets
 import time
 from typing import Any
@@ -20,6 +21,7 @@ from curl_cffi.requests.exceptions import RequestException
 from .account import (
     ACCOUNT_PROVIDERS,
     AccountAuthError,
+    AccountAPIChanged,
     AccountError,
     AccountRateLimitError,
     AccountSnapshot,
@@ -36,6 +38,7 @@ from .account_history import (
     validate_year,
 )
 from .account_profile import parse_profile
+from .account_links import AccountLinksClientMixin
 
 AUTH_ORIGIN = "https://auth.my.dtek-oem.com.ua"
 CABINET_ORIGIN = "https://my.dtek-oem.com.ua"
@@ -52,7 +55,7 @@ def create_account_provider(provider_id: str) -> DTEKAccountClient:
     return DTEKAccountClient()
 
 
-class DTEKAccountClient:
+class DTEKAccountClient(AccountLinksClientMixin):
     """Own cookie jar, PKCE login and serialized short-lived API token renewal."""
 
     def __init__(self, session: Any = None) -> None:
@@ -65,12 +68,46 @@ class DTEKAccountClient:
         self._accounts: set[str] = set()
         self._linked_profiles: dict[str, dict] = {}
         self.subject: str | None = None
+        self.api_issue_handler = None
+        self.api_recovered_handler = None
 
     async def close(self) -> None:
         await self._session.close()
         self._token = ""
         self._accounts.clear()
         self._linked_profiles.clear()
+        self.api_issue_handler = None
+        self.api_recovered_handler = None
+
+    def _api_changed(self, interface, reason):
+        error = AccountAPIChanged(interface, reason)
+        if self.api_issue_handler:
+            self.api_issue_handler(error)
+        return error
+
+    def _api_recovered(self, interface):
+        if self.api_recovered_handler:
+            self.api_recovered_handler(interface)
+
+    @staticmethod
+    def _billing_interface(path):
+        base = BILLING + "/meters/household/"
+        if path == base + "customer-book":
+            return "meter_consumption"
+        match = re.fullmatch(
+            re.escape(base) + r"[0-9]+/(data|meters-with-readings|history|readings)",
+            path,
+        )
+        return (
+            {
+                "data": "meter_details",
+                "meters-with-readings": "meter_readings",
+                "history": "meter_history",
+                "readings": "meter_submission",
+            }.get(match[1])
+            if match
+            else None
+        )
 
     async def _request(self, method: str, path: str, *, auth=False, **kwargs):
         origin = AUTH_ORIGIN if auth else CABINET_ORIGIN
@@ -88,7 +125,7 @@ class DTEKAccountClient:
                 "Bearer " + self._token if path.startswith(BILLING) else self._token
             )
         try:
-            return await self._session.request(
+            response = await self._session.request(
                 method, origin + path, headers=headers, **kwargs
             )
         except (RequestException, TimeoutError, OSError):
@@ -96,6 +133,29 @@ class DTEKAccountClient:
             raise AccountError(
                 "Cannot connect to the personal account service"
             ) from None
+        # A lookup's 404 means "account not found", not a retired API.
+        fixed_routes = {
+            "/api/billing/joint/objects/get_advanced": "cabinet",
+            "/api/userData/api/login": "login",
+            "/api/oauth/api/auth/login": "login",
+            "/api/oauth/authorize": "login",
+            "/api/oauth/token": "login",
+            "/api/oauth/userinfo": "login",
+        }
+        family = fixed_routes.get(path)
+        if response.status_code == 410:
+            family = (
+                family
+                or {
+                    "/api/billing/joint/info/get_accounts": "link_lookup",
+                    "/api/billing/joint/objects/add": "link_add",
+                    "/api/billing/joint/objects/remove": "link_remove",
+                }.get(path)
+                or self._billing_interface(path)
+            )
+        if family and response.status_code in (404, 410):
+            raise self._api_changed(family, f"HTTP {response.status_code}")
+        return response
 
     @staticmethod
     def _check(response, *, credentials=False) -> None:
@@ -214,6 +274,7 @@ class DTEKAccountClient:
             raise AccountError("Personal account token is invalid") from None
         self._token = token
         self._token_expires = time.monotonic() + min(ttl, 900)
+        self._api_recovered("login")
 
     async def _ensure_token(self, rejected: str | None = None) -> None:
         async with self._lock:
@@ -233,7 +294,20 @@ class DTEKAccountClient:
         if response.status_code == 401:
             await self._ensure_token(rejected=token)
             response = await self._request("GET", path, **kwargs)
-        return self._decode(response)
+        self._check(response)
+        try:
+            payload = self._decode(response)
+        except AccountError:
+            if path == "/api/billing/joint/objects/get_advanced":
+                raise self._api_changed("cabinet", "response_format") from None
+            raise
+        interface = self._billing_interface(path)
+        if interface and not (
+            isinstance(payload, dict)
+            and (payload.get("error") or payload.get("status") == "error")
+        ):
+            self._api_recovered(interface)
+        return payload
 
     async def list_accounts(self) -> tuple[PersonalAccount, ...]:
         accounts: dict[str, PersonalAccount] = {}
@@ -243,6 +317,10 @@ class DTEKAccountClient:
                 "/api/billing/joint/objects/get_advanced",
                 params={"page": page, "pageSize": 200},
             )
+            if isinstance(response, dict) and (
+                response.get("status") == "error" or response.get("error")
+            ):
+                raise AccountError("Personal account service could not list accounts")
             if (
                 not isinstance(response, dict)
                 or response.get("status") != "success"
@@ -250,15 +328,17 @@ class DTEKAccountClient:
                 or not isinstance(response.get("data"), dict)
                 or not isinstance(response["data"].get("data"), list)
             ):
-                raise AccountError("Invalid personal account list")
+                raise self._api_changed("cabinet", "response_format")
             data = response["data"]
             pages = data.get("totalPages")
             if type(pages) is not int or pages < 0 or pages > 50:
-                raise AccountError("Invalid personal account pagination")
+                raise self._api_changed("cabinet", "response_format")
             for item in data["data"]:
                 if not isinstance(item, dict):
-                    raise AccountError("Invalid personal account")
-                if item.get("isLegal") is not False:
+                    raise self._api_changed("cabinet", "response_format")
+                if type(item.get("isLegal")) is not bool:
+                    raise self._api_changed("cabinet", "response_format")
+                if item["isLegal"]:
                     continue
                 number, address = item.get("accountNumber"), item.get("address")
                 if (
@@ -266,9 +346,9 @@ class DTEKAccountClient:
                     or not number.isascii()
                     or not number.isdigit()
                 ):
-                    raise AccountError("Invalid personal account identifier")
+                    raise self._api_changed("cabinet", "response_format")
                 if not isinstance(address, str) or not address.strip():
-                    raise AccountError("Personal account address is missing")
+                    raise self._api_changed("cabinet", "response_format")
                 accounts[number] = PersonalAccount(number, address)
                 profiles[number] = {
                     key: item.get(key) for key in ("address", "eic", "contractPower")
@@ -276,6 +356,7 @@ class DTEKAccountClient:
             if page >= pages:
                 self._accounts = set(accounts)
                 self._linked_profiles = profiles
+                self._api_recovered("cabinet")
                 return tuple(accounts.values())
         raise AccountError("Personal account list is too large")
 
@@ -406,4 +487,7 @@ class DTEKAccountClient:
             payload = self._decode(response)
         except AccountError:
             return {"status": "unknown"}
-        return submission_result(payload, len(readings))
+        result = submission_result(payload, len(readings))
+        if result.get("status") == "accepted":
+            self._api_recovered("meter_submission")
+        return result

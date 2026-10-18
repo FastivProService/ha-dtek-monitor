@@ -1,23 +1,23 @@
-import "./account-profile-card.js?v=1.8.0b11";
-import "./account-readings-card.js?v=1.8.0b11";
-import "./account-history-card.js?v=1.8.0b11";
-import "./schedule-card.js?v=1.8.0b11";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b11";
-import { accountNumber } from "./account-number.js?v=1.8.0b11";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b11";
+import "./account-profile-card.js?v=1.8.0b13";
+import "./account-readings-card.js?v=1.8.0b13";
+import "./account-history-card.js?v=1.8.0b13";
+import "./schedule-card.js?v=1.8.0b13";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b13";
+import { accountNumber } from "./account-number.js?v=1.8.0b13";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b13";
 
 const words = {
   en: {
     reload: "The dashboard still has an older version of the DTEK cards. Reload the page to open the new interface.", reloadAction: "Reload page", title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
     account: "Personal account", choose: "Choose an account", loading: "Loading accounts…", error: "Could not load your accounts. Try again.",
-    empty: "Connect a DTEK personal account to see your readings and consumption here.", missing: "This account is unavailable. Check the connection or choose another account.",
+    empty: "No account is selected for this card. Choose accounts to monitor in integration settings, or connect a DTEK cabinet.", missing: "This account is unavailable. Check the connection or choose another account.",
     connect: "Connect DTEK", manage: "Manage connections and notifications", retry: "Refresh account list",
     send: "Enter meter readings", history: "Reading history", latest: "Latest DTEK meter reading", usage: "Consumption reported by DTEK",
     readingNote: "Cumulative meter reading", noReading: "DTEK has not provided a reading yet.", unit: "kWh", GENERAL: "Single zone", DAY: "Day", NIGHT: "Night",
     group: "My outage group", groupEmpty: "Not selected", scheduleLink: "Open schedule", details: "Account and meter details", detailsShort: "Details",
     dated: "Account updated", unavailable: "Account data is unavailable. Retained values may be out of date.",
     sensor: "Home energy sensor", sensorNote: "Use your own cumulative energy sensor to suggest readings. You can also enter readings manually.",
-    sensorSettings: "Set up or calibrate a sensor", notifications: "Groups, accounts and notifications", notificationsNote: "Choose the apartment's group, connect another account or change reminders in the integration settings.",
+    sensorSettings: "Set up or calibrate a sensor", notifications: "Groups, accounts and notifications", notificationsNote: "Manage DTEK cabinet links, choose accounts HA monitors, set the apartment's group or change reminders in integration settings.",
     diagnostics: "Check journal", diagnosticsNote: "Local checks and technical details", viewOnly: "You have viewing access. An administrator can submit readings and configure the source.",
     mine: "My group", building: "All building groups", noSchedule: "Link a building and choose your group in the integration settings. Building schedules remain available independently of the personal account.",
     setup: "Configure DTEK", draft: "Discard the unfinished entry?", draftNote: "Your readings or sensor settings have not been saved. They will not be copied to the other account.",
@@ -31,14 +31,14 @@ const words = {
   uk: {
     reload: "На панелі залишилася попередня версія карток ДТЕК. Оновіть сторінку, щоб відкрити новий інтерфейс.", reloadAction: "Оновити сторінку", title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
     account: "Особовий рахунок", choose: "Оберіть рахунок", loading: "Завантаження рахунків…", error: "Не вдалося завантажити рахунки. Спробуйте ще раз.",
-    empty: "Підключіть особистий кабінет ДТЕК, щоб бачити тут покази та споживання.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
+    empty: "Для цієї картки не обрано рахунок. Оберіть рахунки для моніторингу в налаштуваннях інтеграції або підключіть кабінет ДТЕК.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
     connect: "Підключити ДТЕК", manage: "Керувати підключеннями та сповіщеннями", retry: "Оновити список рахунків",
     send: "Ввести покази лічильника", history: "Історія показів", latest: "Останні покази в ДТЕК", usage: "Споживання за даними ДТЕК",
     readingNote: "Накопичувальні покази лічильника", noReading: "ДТЕК ще не надав показів.", unit: "кВт·год", GENERAL: "Одна зона", DAY: "День", NIGHT: "Ніч",
     group: "Моя група відключень", groupEmpty: "Не обрана", scheduleLink: "Відкрити графік", details: "Реквізити та лічильник", detailsShort: "Реквізити",
     dated: "Рахунок оновлено", unavailable: "Дані рахунку недоступні. Збережені значення можуть бути застарілими.",
     sensor: "Домашній лічильник енергії", sensorNote: "Накопичувальний датчик енергії може підказувати покази. Їх також можна вводити вручну.",
-    sensorSettings: "Підключити або відкалібрувати датчик", notifications: "Група, рахунки та сповіщення", notificationsNote: "Оберіть групу квартири, підключіть інший рахунок або змініть нагадування в налаштуваннях інтеграції.",
+    sensorSettings: "Підключити або відкалібрувати датчик", notifications: "Група, рахунки та сповіщення", notificationsNote: "Керуйте прив’язками в ДТЕК, обирайте рахунки для моніторингу HA, групу квартири та нагадування в налаштуваннях інтеграції.",
     diagnostics: "Журнал перевірок", diagnosticsNote: "Локальні перевірки й технічні відомості", viewOnly: "Вам доступний перегляд. Передавати покази та налаштовувати джерело може адміністратор.",
     mine: "Моя група", building: "Усі групи будинку", noSchedule: "Прив’яжіть будинок та оберіть свою групу в налаштуваннях інтеграції. Графіки будинку залишаються доступними незалежно від особистого кабінету.",
     setup: "Налаштувати ДТЕК", draft: "Скасувати незавершене введення?", draftNote: "Покази або налаштування датчика ще не збережено. Вони не будуть перенесені до іншого рахунку.",
@@ -181,6 +181,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this._empty.hidden=false; this._content.hidden=true; this._nav.hidden=true;
     this._empty.replaceChildren(el("p", message));
     if (this._listError || this._accounts) this._empty.append(this._button(this.t.retry, () => this._loadAccounts()));
+    if (this._hass.user?.is_admin) this._empty.append(el("p"), this._link(this.t.manage));
     this._empty.append(el("p")); this._empty.append(this._link(this._accounts?.length ? this.t.setup : this.t.connect, this._accounts?.length ? undefined : "/config/integrations/dashboard?add_integration=dtek_monitor"));
   }
   _updateHeader() {

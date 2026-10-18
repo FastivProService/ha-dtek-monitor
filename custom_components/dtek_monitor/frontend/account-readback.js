@@ -1,4 +1,4 @@
-import { el, date, number } from "./account-ui.js?v=1.8.0b11";
+import { el, date, number } from "./account-ui.js?v=1.8.0b13";
 
 const words = {
   en: {

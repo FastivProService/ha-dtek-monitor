@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b13] - 2026-10-18
+
+- Add native Odesa household account linking and unlinking with an address review, explicit confirmation and no automatic write retries. Keep DTEK links, HA monitoring and per-card selection independent.
+- Allow empty authenticated cabinets and deselecting every monitored account. Require removing local monitoring before unlinking; retain energy references and submission records.
+- Report removed or incompatible cabinet APIs through persistent HA Repairs with release and Issues links. Distinguish connection, authentication, rate-limit and missing-account errors; clear each warning only when its operation recovers.
+- Test cabinet management, API compatibility, recovery and empty workspace access; update English and Ukrainian guides.
+
 ## [1.8.0b12] - 2026-10-18
 
 - Add native Odesa SMS registration and password recovery to HA setup and reauthentication. Separate sending a code, checking it and explicitly confirming account creation or a password change.

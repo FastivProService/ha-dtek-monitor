@@ -207,7 +207,7 @@ class AccessFlowTests(unittest.IsolatedAsyncioTestCase):
                 "confirm_change": True,
             }
         )
-        self.assertEqual(result["step_id"], "accounts")
+        self.assertEqual(result["step_id"], "account_setup")
         self.account_client.authenticate.assert_awaited_once_with(
             "+380500000001", "EXample123"
         )
@@ -276,7 +276,8 @@ class AccessFlowTests(unittest.IsolatedAsyncioTestCase):
                 "accept_terms": True,
             }
         )
-        self.assertEqual(result["reason"], "access_registered_no_accounts")
+        self.assertEqual(result["step_id"], "account_setup")
+        self.assertEqual(result["menu_options"], ["account_link", "account_finish_empty"])
         self.assertEqual(self.access.phase, "closed")
         self.hass.config_entries.async_update_entry.assert_not_called()
 
@@ -300,7 +301,7 @@ class AccessFlowTests(unittest.IsolatedAsyncioTestCase):
         result = await self.flow.async_step_account_access_login(
             {"username": "+380500000001", "password": "EXample123"}
         )
-        self.assertEqual(result["step_id"], "accounts")
+        self.assertEqual(result["step_id"], "account_setup")
         self.assertEqual(self.session.request.await_count, calls)
 
 

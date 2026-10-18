@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b12`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b13`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -23,7 +23,7 @@ requires restoring the earlier configuration backup as well as the earlier code.
    **Outage schedules by address** instead.
 4. Choose **Sign in**, **Create a DTEK account** or **Forgot your password?**.
    For sign-in, enter the phone number and password used on the DTEK website.
-5. Select the household accounts you want to monitor.
+5. Choose accounts to monitor, or add a household account to DTEK first.
 6. Open the devices created under the new personal account connection.
 
 Home Assistant stores the login credentials in its configuration; protect your
@@ -84,11 +84,38 @@ not saved in configuration. The SMS setup session closes after 15 minutes of
 inactivity. If the response to a password change is lost, HA does not repeat the
 request: try signing in with the new password or use official password recovery.
 
-**Household accounts must still be linked on the DTEK website.** A new cabinet
-may be empty: the wizard explains how to link an account on the website and return
-to HA. Integration settings select which already-linked accounts HA monitors.
-Deselecting an account in HA does not unlink it from DTEK. Choosing an account
-on a dashboard card affects only that card.
+## Manage household accounts
+
+After signing in, choose existing accounts to monitor or **Add an account to DTEK**.
+A newly registered cabinet can be empty: add an account now or finish setup and
+return later through **Configure → Household accounts in the DTEK cabinet**. No sensors are created
+until you select an account for monitoring.
+
+There are three independent choices:
+
+- **DTEK links:** add or unlink an account in the operator's cabinet.
+- **HA monitoring:** select which linked accounts create devices, sensors and calendars.
+- **Dashboard display:** choose an account on each card; different panels may show different accounts.
+
+To add an account, enter its modern 12-digit household number starting with `572`.
+HA looks up the address; verify the full number and address, then explicitly
+confirm. Only confirmation sends the linking request. Afterwards, choose whether
+HA should monitor it. Older account-number formats and business accounts must be
+managed on the DTEK website for now.
+
+To unlink, first deselect the account in **Choose personal accounts**, save and
+wait for HA to reload the connection. Then open **Household accounts in the DTEK cabinet → Unlink from the DTEK cabinet**, select the account and confirm its address. Unlinking removes
+it from your DTEK cabinet; it does not close the electricity contract. An account
+still monitored by another HA connection cannot be unlinked here.
+
+You may deselect every account: the authenticated connection remains available
+for account management. Deselecting does not unlink anything at DTEK. Stored
+energy calibration and submission records are retained, while HA entities for
+deselected accounts are removed. Existing building monitoring is independent.
+
+Confirmation expires after five minutes. A failed or uncertain linking/unlinking
+request is never retried automatically. If its result is unknown, check the
+account list in the DTEK cabinet before starting another attempt.
 
 Official [registration](https://auth.my.dtek-oem.com.ua/signup) and
 [password recovery](https://auth.my.dtek-oem.com.ua/recovery) remain available
@@ -655,6 +682,28 @@ The [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot) rema
 an address-based bot. Configure it against the address connection separately.
 The preview does not send personal readings, account information or credentials
 to Telegram, and does not change existing bot destinations.
+
+## If DTEK changes its API
+
+The cabinet currently combines `/api/billing/joint` for linked accounts and
+`/api/billing-service/api` for meter information. The official website still uses
+both; `joint` is not known to have an announced retirement date. The integration
+does not use the old account-number conversion API.
+
+If a known service route disappears (404), DTEK explicitly retires a supported
+route (410), or the account-list response no longer matches its expected format,
+HA creates a persistent **Settings → System → Repairs** notice. It identifies the
+affected interface and links to [integration releases](https://github.com/groove-max/ha-dtek-monitor/releases)
+and [Issues](https://github.com/groove-max/ha-dtek-monitor/issues). Update the
+integration; if the latest version is affected, report the interface and reason
+shown there, without passwords, tokens or full account numbers.
+
+A timeout, rate limit, failed login or missing account is not labelled as API
+retirement. The notice says the interface may have changed: an HTTP response alone
+cannot prove DTEK's intention. Repeated failures reuse the same notice, and a
+successful request to the affected operation clears it. Other working operations
+do not hide it. Detection occurs when HA uses that operation; it does not send
+extra account changes or meter readings to probe availability.
 
 ## Current limits
 

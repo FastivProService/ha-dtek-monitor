@@ -24,6 +24,7 @@ from .account import (
     CONF_ENTRY_KIND,
     ENTRY_ACCOUNT,
     AccountAuthError,
+    AccountAPIChanged,
     AccountError,
     AccountRateLimitError,
     account_key,
@@ -31,11 +32,13 @@ from .account import (
 )
 from .account_client import create_account_provider
 from .account_access_flow import AccountAccessFlowMixin
+from .account_link_flow import AccountLinkFlowMixin
+from .account_api_health import report_api_issue, watch_api
 from .const import DOMAIN
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID
 
 
-class AccountFlowMixin(AccountAccessFlowMixin):
+class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
     """Methods shared by the integration's config flow, not a separate domain."""
 
     async def async_step_connection(self, user_input=None):
@@ -62,6 +65,7 @@ class AccountFlowMixin(AccountAccessFlowMixin):
         )
         if user_input is not None:
             client = create_account_provider(self._provider_id)
+            watch_api(self.hass, self._provider_id, client)
             try:
                 phone = normalize_phone(user_input[CONF_USERNAME])
                 self._login_phone = phone
@@ -69,45 +73,43 @@ class AccountFlowMixin(AccountAccessFlowMixin):
                 if reauth_entry and subject != reauth_entry.data[CONF_ACCOUNT_SUBJECT]:
                     return self.async_abort(reason="account_mismatch")
                 accounts = await client.list_accounts()
-                if not accounts and self._access_completed == "registration":
-                    return self.async_abort(reason="access_registered_no_accounts")
-                if not accounts:
-                    errors["base"] = "no_accounts"
-                else:
-                    if reauth_entry:
+                if reauth_entry:
+                    return self.async_update_reload_and_abort(
+                        reauth_entry,
+                        data_updates={
+                            CONF_USERNAME: phone,
+                            CONF_PASSWORD: user_input[CONF_PASSWORD],
+                        },
+                    )
+                unique_id = "account:" + account_key(self._provider_id, subject)
+                if self._access_completed == "password-recovery":
+                    existing = (
+                        self.hass.config_entries.async_entry_for_domain_unique_id(
+                            DOMAIN, unique_id
+                        )
+                    )
+                    if existing and existing.data.get(CONF_USERNAME) == phone:
                         return self.async_update_reload_and_abort(
-                            reauth_entry,
+                            existing,
                             data_updates={
                                 CONF_USERNAME: phone,
                                 CONF_PASSWORD: user_input[CONF_PASSWORD],
                             },
                         )
-                    unique_id = "account:" + account_key(self._provider_id, subject)
-                    if self._access_completed == "password-recovery":
-                        existing = (
-                            self.hass.config_entries.async_entry_for_domain_unique_id(
-                                DOMAIN, unique_id
-                            )
-                        )
-                        if existing and existing.data.get(CONF_USERNAME) == phone:
-                            return self.async_update_reload_and_abort(
-                                existing,
-                                data_updates={
-                                    CONF_USERNAME: phone,
-                                    CONF_PASSWORD: user_input[CONF_PASSWORD],
-                                },
-                            )
-                    await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured()
-                    self._account_credentials = {
-                        CONF_USERNAME: phone,
-                        CONF_PASSWORD: user_input[CONF_PASSWORD],
-                        CONF_ACCOUNT_SUBJECT: subject,
-                    }
-                    self._personal_accounts = {a.number: a for a in accounts}
-                    return await self.async_step_accounts()
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
+                self._account_credentials = {
+                    CONF_USERNAME: phone,
+                    CONF_PASSWORD: user_input[CONF_PASSWORD],
+                    CONF_ACCOUNT_SUBJECT: subject,
+                }
+                self._personal_accounts = {a.number: a for a in accounts}
+                return await self.async_step_account_setup()
             except ValueError:
                 errors[CONF_USERNAME] = "invalid_phone"
+            except AccountAPIChanged as err:
+                report_api_issue(self.hass, self._provider_id, err)
+                errors["base"] = "account_api_changed"
             except AccountAuthError:
                 errors["base"] = "invalid_auth"
             except AccountRateLimitError:
@@ -151,7 +153,7 @@ class AccountFlowMixin(AccountAccessFlowMixin):
     async def async_step_accounts(self, user_input=None):
         available = getattr(self, "_personal_accounts", {})
         if not available:
-            return await self.async_step_account_login()
+            return await self.async_step_account_setup()
         errors = {}
         if user_input is not None:
             selected = user_input.get(CONF_ACCOUNTS)
@@ -277,6 +279,7 @@ async def select_account_options(flow, entry, user_input):
     available = getattr(flow, "_account_choices", None)
     if available is None:
         client = create_account_provider(entry.data[CONF_PROVIDER])
+        watch_api(flow.hass, entry.data[CONF_PROVIDER], client)
         try:
             subject = await client.authenticate(
                 entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
@@ -284,9 +287,10 @@ async def select_account_options(flow, entry, user_input):
             if subject != entry.data[CONF_ACCOUNT_SUBJECT]:
                 return flow.async_abort(reason="account_mismatch")
             available = {a.number: a for a in await client.list_accounts()}
-            if not available:
-                return flow.async_abort(reason="no_accounts")
             flow._account_choices = available
+        except AccountAPIChanged as err:
+            report_api_issue(flow.hass, entry.data[CONF_PROVIDER], err)
+            return flow.async_abort(reason="account_api_changed")
         except AccountAuthError:
             entry.async_start_reauth(flow.hass)
             return flow.async_abort(reason="account_auth_required")
@@ -298,10 +302,8 @@ async def select_account_options(flow, entry, user_input):
             await client.close()
     selected = user_input.get(CONF_ACCOUNTS) if user_input is not None else None
     if user_input is not None:
-        if (
-            not isinstance(selected, list)
-            or not selected
-            or any(not isinstance(n, str) or n not in available for n in selected)
+        if not isinstance(selected, list) or any(
+            not isinstance(n, str) or n not in available for n in selected
         ):
             errors["base"] = "select_accounts"
         else:
