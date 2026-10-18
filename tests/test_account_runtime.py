@@ -443,6 +443,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
             result = await self.flow.async_step_accounts({"accounts": selection})
             self.assertEqual(result["errors"], {"base": "select_accounts"})
         result = await self.flow.async_step_accounts({"accounts": ["100002"]})
+        self.assertEqual(result["description"], "account_connected")
         self.assertEqual(result["data"]["entry_kind"], "account")
         self.assertEqual(list(result["data"]["accounts"]), ["100002"])
         self.assertNotIn("city", result["data"])

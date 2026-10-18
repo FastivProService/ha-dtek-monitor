@@ -179,6 +179,7 @@ class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
                 self._account_credentials = {}
                 return self.async_create_entry(
                     title=f"Personal account • ••••{credentials[CONF_USERNAME][-4:]}",
+                    description="account_connected",
                     data={
                         CONF_ENTRY_KIND: ENTRY_ACCOUNT,
                         CONF_PROVIDER: self._provider_id,

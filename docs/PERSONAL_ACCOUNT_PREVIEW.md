@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b18`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b19`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -33,9 +33,21 @@ with the same DTEK account.
 
 ## My DTEK workspace
 
-After restarting HA, reload the browser and choose **My DTEK** in the dashboard
-card picker. The integration loads its cards automatically; manual resource
-registration is no longer needed. Existing standalone cards remain supported.
+The setup completion screen explains the next steps. Finish setup, reload the
+HA page, then open your dashboard → **Edit dashboard → Add card** and search for
+**My DTEK**. Choose your account in the visual editor and save. The integration
+loads its cards automatically; manual resource registration is not needed.
+Existing standalone cards remain supported.
+
+If you connected an empty cabinet, first open **Settings → Devices & services →
+DTEK Monitor → Configure** to add or select accounts. You do not need to sign in again.
+
+You can use the cabinet and enter readings **without a home energy sensor**.
+To add sensor suggestions later, open **My DTEK → Settings → Home energy meter**.
+The expandable **Getting started** section explains account selection, sensor
+references and building groups. It does not open automatically or change settings.
+
+The YAML equivalent is optional:
 
 ```yaml
 type: custom:dtek-account-workspace-card
@@ -64,6 +76,23 @@ Tabs preserve unfinished input. Switching accounts asks before discarding an edi
 while a submission is pending, switching is blocked. HA updates never insert new
 sensor readings into an edited form. Users without submission rights can view
 history without being offered a submission form.
+
+### Interface examples
+
+These screenshots use fictional accounts and readings.
+
+![My DTEK overview with separate cumulative readings and monthly consumption](images/my-dtek-overview.en.png)
+
+<details>
+<summary>Schedule, readings and settings</summary>
+
+![Operator schedule grid with building and apartment groups highlighted](images/my-dtek-schedule.en.png)
+
+![Readings form with an optional home sensor suggestion](images/my-dtek-readings.en.png)
+
+![Settings grouped by apartment, cabinet and optional energy sensor](images/my-dtek-settings.en.png)
+
+</details>
 
 ## Apartment and cabinet settings
 

@@ -1,15 +1,16 @@
-import "./account-options.js?v=1.8.0b18";
-import "./account-energy-settings.js?v=1.8.0b18";
-import "./account-profile-card.js?v=1.8.0b18";
-import "./account-readings-card.js?v=1.8.0b18";
-import "./account-history-card.js?v=1.8.0b18";
-import "./schedule-card.js?v=1.8.0b18";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b18";
-import { accountNumber } from "./account-number.js?v=1.8.0b18";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b18";
+import "./account-options.js?v=1.8.0b19";
+import "./account-energy-settings.js?v=1.8.0b19";
+import "./account-profile-card.js?v=1.8.0b19";
+import "./account-readings-card.js?v=1.8.0b19";
+import "./account-history-card.js?v=1.8.0b19";
+import "./schedule-card.js?v=1.8.0b19";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b19";
+import { accountNumber } from "./account-number.js?v=1.8.0b19";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b19";
 
 const words = {
   en: {
+    gettingStarted:"Getting started", startAccounts:"This card shows one personal account at a time. Choose another above, or add a separate My DTEK card for each apartment.", startReadings:"Readings: enter the cumulative value on the official meter, review the change, then confirm. A home energy sensor is optional and never sends readings by itself.", startSensor:"For sensor suggestions, open Home energy meter below. Use a cumulative kWh sensor for this apartment’s grid consumption and set a reference from the official meter taken at the same time.", startSchedule:"For outages, open Building and outage group below. Building groups remain available to the bot; choosing your apartment’s group only changes its personal schedule.", startPrivacy:"The eye button reveals or hides the account number. Hide it before sharing a screenshot.",
     apartmentSettings:"This apartment", groupSettings:"Building and outage group", groupNote:"Choose the building and your apartment’s group. The bot keeps every building group.", reminders:"Reading reminders", remindersNote:"Choose when HA reminds you and whether to include a sensor estimate.", notices:"Meter notifications", noticesNote:"Verification year and meter replacement notices in HA.", cabinetSettings:"DTEK cabinet", cabinetNote:"Manage linked accounts and choose which ones HA monitors. This dashboard still displays the account selected above.", accountsSettings:"Add or unlink an account", monitoringSettings:"Choose accounts to monitor", advancedSettings:"Additional settings", checksSettings:"Scheduled reading checks", draftSettingsNote:"Opening integration settings requires closing unfinished readings or sensor edits. Nothing will be sent or saved.", discardOpen:"Discard and open settings", settingsSaved:"Settings updated.", settingsPending:"Settings were saved. Refresh the account list when HA finishes loading.",
     reload: "The dashboard still has an older version of the DTEK cards. Reload the page to open the new interface.", reloadAction: "Reload page", title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
     account: "Personal account", choose: "Choose an account", loading: "Loading accounts…", error: "Could not load your accounts. Try again.",
@@ -32,6 +33,7 @@ const words = {
     state_labels_hidden: "DTEK has hidden group labels.", state_address_unavailable: "The building connection is unavailable.", state_unavailable: "Schedule data is unavailable.",
   },
   uk: {
+    gettingStarted:"З чого почати", startAccounts:"Картка показує один особовий рахунок. Оберіть інший угорі або додайте окрему картку My DTEK для кожної квартири.", startReadings:"Покази: введіть накопичувальне значення з офіційного лічильника, перевірте зміну й підтвердьте передачу. Домашній датчик енергії необов’язковий і сам нічого не передає.", startSensor:"Для підказок датчика відкрийте «Домашній лічильник енергії» нижче. Потрібен накопичувальний сенсор кВт·год міського споживання саме цієї квартири та одночасно зняті покази офіційного лічильника для прив’язки.", startSchedule:"Для відключень відкрийте «Будинок і група відключень» нижче. Усі групи будинку залишаться доступними боту; вибір групи квартири впливає лише на її особистий графік.", startPrivacy:"Кнопка з оком показує або приховує номер рахунку. Приховайте його перед поширенням знімка екрана.",
     apartmentSettings:"Ця квартира", groupSettings:"Будинок і група відключень", groupNote:"Оберіть будинок і групу квартири. Бот зберігає графіки всіх груп будинку.", reminders:"Нагадування про покази", remindersNote:"Оберіть час нагадування в HA та чи додавати підказку датчика.", notices:"Сповіщення про лічильник", noticesNote:"Рік повірки та повідомлення про заміну лічильника в HA.", cabinetSettings:"Кабінет ДТЕК", cabinetNote:"Керуйте прив’язаними рахунками та обирайте, які з них відстежує HA. На цій панелі відображається рахунок, обраний вище.", accountsSettings:"Додати або відв’язати рахунок", monitoringSettings:"Обрати рахунки для моніторингу", advancedSettings:"Додаткові налаштування", checksSettings:"Перевірки показів за розкладом", draftSettingsNote:"Перед налаштуванням інтеграції потрібно закрити незавершене введення показів або редагування датчика. Нічого не буде передано чи збережено.", discardOpen:"Скасувати зміни й відкрити налаштування", settingsSaved:"Налаштування оновлено.", settingsPending:"Налаштування збережено. Оновіть список рахунків після завантаження HA.",
     reload: "На панелі залишилася попередня версія карток ДТЕК. Оновіть сторінку, щоб відкрити новий інтерфейс.", reloadAction: "Оновити сторінку", title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
     account: "Особовий рахунок", choose: "Оберіть рахунок", loading: "Завантаження рахунків…", error: "Не вдалося завантажити рахунки. Спробуйте ще раз.",
@@ -76,6 +78,7 @@ const css = `
   .tile{display:flex;flex-direction:column}.context-action{align-self:flex-start;border:0;border-radius:6px;color:var(--primary-color,#0288d1);padding:8px 4px;margin:12px -4px 0;text-align:left;font-weight:500;line-height:1.4}.context-action:hover{background:color-mix(in srgb,var(--primary-color,#0288d1) 8%,transparent)}
   details{margin:20px 0}summary{display:flex;align-items:center;cursor:pointer;gap:10px;font-weight:600}summary::before{content:'›';font-size:1.4em}details[open]>summary::before{transform:rotate(90deg)}
   .setting{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--divider-color,#ddd)}.setting h3{margin:0 0 8px;font-size:1.05em}
+  .getting-started{padding:14px 16px;background:var(--secondary-background-color,#f4f7fa);border-radius:14px;margin-top:0}.getting-started ol{padding-left:22px;margin:12px 0 0}.getting-started li{line-height:1.6;margin:10px 0;overflow-wrap:anywhere}
   .schedule-tools{display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:16px}.schedule-scope{display:grid;gap:5px;font-size:.9em;max-width:100%}.switcher{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--secondary-background-color,#f4f7fa)}.switcher button{border-color:transparent;min-width:85px}.switcher button[aria-pressed=true]{background:var(--card-background-color,#fff);border-color:var(--divider-color,#ddd);font-weight:600}
   .notice{margin:14px 0;color:var(--secondary-text-color,#596979)}.notice:empty{display:none}.empty{padding:24px}
   dialog{max-width:min(440px,calc(100vw - 32px));border:1px solid var(--divider-color,#ddd);border-radius:16px;padding:24px;color:inherit;background:var(--card-background-color,#fff)}dialog::backdrop{background:#0008}dialog h3{margin-top:0}
@@ -348,6 +351,9 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     panel.append(row);
   }
   _create_settings(panel) {
+    const guide=el("details",undefined,"getting-started"),guideTitle=el("summary",this.t.gettingStarted),steps=el("ol");guideTitle.dataset.i18n="gettingStarted";
+    for(const key of ["startAccounts",...(this._account.can_submit?["startReadings","startSensor","startSchedule"]:[]),"startPrivacy"]){const item=el("li",this.t[key]);item.dataset.i18n=key;steps.append(item);}
+    guide.append(guideTitle,steps);panel.append(guide);
     const profile=el("details"); profile.append(el("summary", this.t.details)); this._profileDetails=profile;
     profile.addEventListener("toggle", () => { if (profile.open && !profile.querySelector("[data-child-card]")) this._child("dtek-account-profile-card", {}, profile); }); panel.append(profile);
     if (this._account.can_submit) {

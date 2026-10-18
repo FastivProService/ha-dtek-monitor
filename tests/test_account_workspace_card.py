@@ -196,6 +196,26 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.locator("dtek-schedule-grid tr.selected").count(), 1)
         self.assertEqual(await self.page.get_by_role("button", name="Grid", exact=True).get_attribute("aria-pressed"), "true")
 
+    async def test_getting_started_is_optional_and_preserves_reading_drafts(self):
+        field = await self.readings()
+        await field.fill("12503")
+        await self.page.get_by_role("tab", name="Settings", exact=True).click()
+        guide = self.page.locator(".getting-started")
+        self.assertFalse(await guide.evaluate("e=>e.open"))
+        before = await self.page.evaluate("calls.length")
+        await self.page.get_by_text("Getting started", exact=True).click()
+        await self.page.evaluate("for(let i=0;i<15;i++)card.hass={...hass}")
+        self.assertEqual(await self.page.evaluate("calls.length"), before)
+        self.assertTrue(await guide.evaluate("e=>e.open"))
+        self.assertIn("optional", await guide.inner_text())
+        self.assertIn("cumulative kWh", await guide.inner_text())
+        await self.page.evaluate("hass.language='uk';card.hass=hass")
+        self.assertIn("З чого почати", await guide.inner_text())
+        self.assertIn("саме цієї квартири", await guide.inner_text())
+        await self.page.get_by_role("tab", name="Покази", exact=True).click()
+        self.assertEqual(await self.page.locator("dtek-account-readings-card .fields input").first.input_value(), "12503")
+        self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='confirm').length"), 0)
+
     async def test_schedule_views_retain_grid_and_independent_calendars(self):
         await self.page.evaluate("""() => {
           window.created=[];window.loadCardHelpers=async()=>({createCardElement:config=>{

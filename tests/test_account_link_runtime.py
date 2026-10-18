@@ -107,6 +107,7 @@ class LinkFlowTests(unittest.IsolatedAsyncioTestCase):
             result["menu_options"], ["account_link", "account_finish_empty"]
         )
         result = await self.flow.async_step_account_finish_empty()
+        self.assertEqual(result["description"], "account_connected_empty")
         self.assertEqual(result["data"]["accounts"], {})
         self.assertEqual(result["data"]["account_subject"], "subject")
         self.assertEqual(await self.account_coord._async_update_data(), {})

@@ -137,6 +137,7 @@ class AccountLinkFlowMixin:
         credentials, self._account_credentials = self._account_credentials, {}
         return self.async_create_entry(
             title=f"Personal account • ••••{credentials['username'][-4:]}",
+            description="account_connected_empty",
             data={
                 CONF_ENTRY_KIND: ENTRY_ACCOUNT,
                 CONF_PROVIDER: self._provider_id,

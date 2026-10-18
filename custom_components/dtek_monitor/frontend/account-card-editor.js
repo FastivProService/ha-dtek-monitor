@@ -1,7 +1,7 @@
 /* Card-local account selection. No global active account or billing operations. */
 const words = {
-  en: {account:"Personal account", title:"Title (optional)", year:"Initial year (optional)", choose:"Choose an account", missing:"Current entity is unavailable", loading:"Loading accounts…", empty:"No readable accounts are connected. Select accounts in the integration settings.", error:"Could not load accounts.", retry:"Refresh account list", help:"This choice applies only to this card. Connect additional accounts in Settings → Devices & services → DTEK Monitor → Configure → Select personal accounts."},
-  uk: {account:"Особовий рахунок", title:"Заголовок (необов’язково)", year:"Початковий рік (необов’язково)", choose:"Оберіть рахунок", missing:"Поточна сутність недоступна", loading:"Завантаження рахунків…", empty:"Немає підключених доступних рахунків. Оберіть їх у налаштуваннях інтеграції.", error:"Не вдалося завантажити рахунки.", retry:"Оновити список рахунків", help:"Цей вибір стосується лише цієї картки. Додайте інші рахунки: Налаштування → Пристрої та служби → DTEK Monitor → Налаштувати → Вибрати особові рахунки."},
+  en: {workspaceHelp:"Choose the account shown in this card. For two apartments, add two My DTEK cards. The switching option below affects only this card; it does not add or remove DTEK accounts.", account:"Personal account", title:"Title (optional)", year:"Initial year (optional)", choose:"Choose an account", missing:"Current entity is unavailable", loading:"Loading accounts…", empty:"No readable accounts are connected. Select accounts in the integration settings.", error:"Could not load accounts.", retry:"Refresh account list", help:"This choice applies only to this card. Connect additional accounts in Settings → Devices & services → DTEK Monitor → Configure → Select personal accounts."},
+  uk: {workspaceHelp:"Оберіть рахунок для цієї картки. Для двох квартир додайте дві картки My DTEK. Дозвіл перемикання нижче стосується лише цієї картки; він не додає й не видаляє рахунки ДТЕК.", account:"Особовий рахунок", title:"Заголовок (необов’язково)", year:"Початковий рік (необов’язково)", choose:"Оберіть рахунок", missing:"Поточна сутність недоступна", loading:"Завантаження рахунків…", empty:"Немає підключених доступних рахунків. Оберіть їх у налаштуваннях інтеграції.", error:"Не вдалося завантажити рахунки.", retry:"Оновити список рахунків", help:"Цей вибір стосується лише цієї картки. Додайте інші рахунки: Налаштування → Пристрої та служби → DTEK Monitor → Налаштувати → Вибрати особові рахунки."},
 };
 export function accountCardEditor() { return document.createElement("dtek-account-card-editor"); }
 class DtekAccountCardEditor extends HTMLElement {
@@ -72,7 +72,7 @@ class DtekAccountCardEditor extends HTMLElement {
     if(this._scope){this._scope.checked=this._config.show_account_selector!==false;this._scopeText.textContent=this._hass.language?.startsWith("uk")?"Дозволити перемикання рахунків у цій картці":"Allow switching accounts in this card";}
     this._select.value=selected;
     this._feedback.textContent=this._pending?w.loading:this._error?w.error:this._loaded&&!accounts.length?w.empty:"";
-    this._retry.textContent=w.retry;this._retry.disabled=this._pending;this._help.textContent=w.help;
+    this._retry.textContent=w.retry;this._retry.disabled=this._pending;this._help.textContent=this._config.type==="custom:dtek-account-workspace-card"?w.workspaceHelp:w.help;
   }
 }
 if(!customElements.get("dtek-account-card-editor"))customElements.define("dtek-account-card-editor",DtekAccountCardEditor);

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b19] - 2026-10-18
+
+- Explain how to add My DTEK after connecting a cabinet, including an actionable completion message for cabinets without monitored accounts.
+- Add optional Getting started guidance in Settings and clarify per-card account selection in the visual editor. Keep energy sensors optional and preserve manual reading drafts.
+- Refresh the English/Ukrainian setup guides and add screenshots made exclusively from fictional accounts.
+- Verify completion routing, account boundaries, draft retention, responsive layouts and the full regression suite.
+
 ## [1.8.0b18] - 2026-10-18
 
 - Separate Grid/List presentation from group selection in My DTEK. Preserve independent building/personal calendars, grid dates, filters, scroll position and reading drafts across navigation and HA updates.
