@@ -92,4 +92,4 @@ class DtekAccountNumberCard extends HTMLElement {
 }
 if(!customElements.get("dtek-account-number-card"))customElements.define("dtek-account-number-card",DtekAccountNumberCard);
 window.customCards=window.customCards||[];
-window.customCards.push({type:"dtek-account-number-card",name:"DTEK account number",description:"Show or hide the account number with your HA read permissions."});
+if (!window.customCards.some(card => card.type === 'dtek-account-number-card')) window.customCards.push({type:'dtek-account-number-card',name:"DTEK account number",description:"Show or hide the account number with your HA read permissions."});

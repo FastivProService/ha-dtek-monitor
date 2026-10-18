@@ -8,6 +8,7 @@ const words = {
 const css=':host{display:block}ha-card{padding:20px;overflow:hidden}h2{font-size:1.3em;margin:0 0 12px}h3{font-size:1.08em;margin:16px 0 10px}p{line-height:1.5;overflow-wrap:anywhere}.address{font-size:1.1em;font-weight:600}.muted{color:var(--secondary-text-color);font-size:.9em}.error{color:var(--error-color,#b22)}.controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}button{font:inherit;color:var(--primary-text-color);background:transparent;border:1px solid var(--divider-color,#aaa);border-radius:7px;padding:8px;min-height:40px;cursor:pointer}button:disabled{opacity:.5}dl{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,1.3fr);gap:10px;margin:12px 0}dt{color:var(--secondary-text-color)}dd{margin:0;overflow-wrap:anywhere}dd button{margin-left:8px}summary{cursor:pointer;padding:10px 0}.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:.9em}th,td{text-align:start;vertical-align:top;padding:8px;border-bottom:1px solid var(--divider-color,#aaa)}@media(max-width:500px){ha-card{padding:14px}dl{grid-template-columns:minmax(90px,1fr) minmax(0,1.1fr)}}';
 function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;}
 class DtekAccountProfileCard extends HTMLElement{
+  static get workspaceVersion() { return 1; }
   constructor(){super();this.attachShadow({mode:'open'});this._seq=0;}
   setConfig(config){if(typeof config.entity!=='string'||!config.entity)throw new Error('Set an account entity');const changed=this._config?.entity!==config.entity;this._config={...config};this.toggleAttribute('embedded',!!config.embedded);if(changed)this._reset();this._render();if(changed&&this.isConnected&&this._hass)this._load(false);}
   _reset(){this._seq++;this._data=null;this._error=null;this._busy=false;this._revealed=false;}
@@ -50,4 +51,4 @@ class DtekAccountProfileCard extends HTMLElement{
   }
 }
 if(!customElements.get('dtek-account-profile-card'))customElements.define('dtek-account-profile-card',DtekAccountProfileCard);
-window.customCards=window.customCards||[];window.customCards.push({type:'dtek-account-profile-card',name:'DTEK account profile',description:'Address, EICs and meter details.'});
+window.customCards=window.customCards||[];if (!window.customCards.some(card => card.type === 'dtek-account-profile-card')) window.customCards.push({type:'dtek-account-profile-card',name:'DTEK account profile',description:'Address, EICs and meter details.'});

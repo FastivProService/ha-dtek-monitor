@@ -77,6 +77,7 @@ function svgElement(tag, attrs = {}, text) {
   return el;
 }
 class DtekAccountHistoryCard extends HTMLElement {
+  static get workspaceVersion() { return 1; }
   constructor() { super(); this.attachShadow({mode:"open"}); this._seq=0; this._page=0; }
   setConfig(config) {
     if (!config.entity || typeof config.entity !== "string") throw new Error("Specify an account sensor in entity.");
@@ -207,4 +208,4 @@ class DtekAccountHistoryCard extends HTMLElement {
 }
 if(!customElements.get("dtek-account-history-card")) customElements.define("dtek-account-history-card",DtekAccountHistoryCard);
 window.customCards=window.customCards||[];
-window.customCards.push({type:"dtek-account-history-card",name:"DTEK account history",description:"Dated meter readings and monthly consumption for a personal account."});
+if (!window.customCards.some(card => card.type === 'dtek-account-history-card')) window.customCards.push({type:'dtek-account-history-card',name:"DTEK account history",description:"Dated meter readings and monthly consumption for a personal account."});

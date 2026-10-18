@@ -134,6 +134,20 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         await self.page.get_by_role("tab", name="Overview", exact=True).wait_for()
         self.assertEqual(await self.page.evaluate("card._entity"), "sensor.account_2")
 
+    async def test_legacy_resource_url_does_not_duplicate_card_picker(self):
+        await self.page.add_script_tag(url="http://dtek-card.test/account-readings-card.js?v=legacy", type="module")
+        await self.page.add_script_tag(url="http://dtek-card.test/account-history-card.js?v=legacy", type="module")
+        self.assertTrue(await self.page.evaluate("new Set(customCards.map(c=>c.type)).size===customCards.length"))
+
+    async def test_old_loaded_component_requires_reload_before_showing_new_forms(self):
+        await self.page.evaluate("""() => {
+          Object.defineProperty(customElements.get('dtek-account-readings-card'),'workspaceVersion',{value:0});
+          card._applyAccounts();
+        }""")
+        await self.page.get_by_role("button", name="Reload page", exact=True).wait_for()
+        self.assertEqual(await self.page.get_by_role("tab", name="Readings", exact=True).count(), 0)
+        self.assertEqual(await self.page.evaluate("calls.filter(c=>c.type==='dtek_monitor/account_submission').length"), 0)
+
     async def test_mobile_dark_theme_keyboard_and_no_page_overflow(self):
         for width in [320, 390, 1100]:
             await self.page.set_viewport_size({"width": width, "height": 900})

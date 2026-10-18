@@ -88,4 +88,4 @@ class DtekScheduleCard extends HTMLElement {
 }
 if(!customElements.get("dtek-schedule-card"))customElements.define("dtek-schedule-card",DtekScheduleCard);
 window.customCards=window.customCards || [];
-window.customCards.push({type:"dtek-schedule-card",name:"DTEK schedule",description:"Schedule with publication and connection status"});
+if (!window.customCards.some(card => card.type === 'dtek-schedule-card')) window.customCards.push({type:'dtek-schedule-card',name:"DTEK schedule",description:"Schedule with publication and connection status"});

@@ -70,6 +70,7 @@ function node(tag, text) {
 }
 
 class DtekAccountReadingsCard extends HTMLElement {
+  static get workspaceVersion() { return 1; }
   constructor() {
     super(); this.attachShadow({mode: "open"}); this._seq = 0; this._values = {};
   }
@@ -231,7 +232,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     if (this._busy) card.append(node("p", w.loading));
     if (!this._draft && !this._uncertain) {
       if (!this._energyEditor) {
-        this._energyEditor = new DtekEnergyEditor();
+        this._energyEditor = new (customElements.get("dtek-energy-editor") || DtekEnergyEditor)();
         this._energyEditor.addEventListener("energy-proposal", event => {
           if (this._busy || this._draft || this._uncertain || this._context?.blocked) return;
           this._values = {...event.detail.values}; this._sourceToken = event.detail.token; this.render();
@@ -253,4 +254,4 @@ class DtekAccountReadingsCard extends HTMLElement {
 }
 if (!customElements.get("dtek-account-readings-card")) customElements.define("dtek-account-readings-card", DtekAccountReadingsCard);
 window.customCards = window.customCards || [];
-window.customCards.push({type: "dtek-account-readings-card", name: "DTEK meter readings", description: "Review and explicitly confirm personal meter readings (HA administrators)."});
+if (!window.customCards.some(card => card.type === 'dtek-account-readings-card')) window.customCards.push({type:'dtek-account-readings-card', name: "DTEK meter readings", description: "Review and explicitly confirm personal meter readings (HA administrators)."});

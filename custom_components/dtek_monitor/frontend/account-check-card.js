@@ -67,4 +67,4 @@ class DtekAccountCheckCard extends HTMLElement {
 }
 if(!customElements.get("dtek-account-check-card"))customElements.define("dtek-account-check-card",DtekAccountCheckCard);
 window.customCards=window.customCards||[];
-window.customCards.push({type:"dtek-account-check-card",name:"DTEK reading checks",description:"Read-only per-account check journal. Nothing is submitted to DTEK."});
+if (!window.customCards.some(card => card.type === 'dtek-account-check-card')) window.customCards.push({type:'dtek-account-check-card',name:"DTEK reading checks",description:"Read-only per-account check journal. Nothing is submitted to DTEK."});

@@ -8,7 +8,7 @@ import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b11";
 
 const words = {
   en: {
-    title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
+    reload: "The dashboard still has an older version of the DTEK cards. Reload the page to open the new interface.", reloadAction: "Reload page", title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
     account: "Personal account", choose: "Choose an account", loading: "Loading accounts…", error: "Could not load your accounts. Try again.",
     empty: "Connect a DTEK personal account to see your readings and consumption here.", missing: "This account is unavailable. Check the connection or choose another account.",
     connect: "Connect DTEK", manage: "Manage connections and notifications", retry: "Refresh account list",
@@ -29,7 +29,7 @@ const words = {
     state_labels_hidden: "DTEK has hidden group labels.", state_address_unavailable: "The building connection is unavailable.", state_unavailable: "Schedule data is unavailable.",
   },
   uk: {
-    title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
+    reload: "На панелі залишилася попередня версія карток ДТЕК. Оновіть сторінку, щоб відкрити новий інтерфейс.", reloadAction: "Оновити сторінку", title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
     account: "Особовий рахунок", choose: "Оберіть рахунок", loading: "Завантаження рахунків…", error: "Не вдалося завантажити рахунки. Спробуйте ще раз.",
     empty: "Підключіть особистий кабінет ДТЕК, щоб бачити тут покази та споживання.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
     connect: "Підключити ДТЕК", manage: "Керувати підключеннями та сповіщеннями", retry: "Оновити список рахунків",
@@ -155,6 +155,11 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   }
   _applyAccounts() {
     if (!this._hass) return;
+    if (["dtek-account-readings-card", "dtek-account-history-card", "dtek-account-profile-card", "dtek-energy-editor"].some(tag => customElements.get(tag)?.workspaceVersion !== 1)) {
+      this._resetPanels(); this._identity?.remove(); this._identity=null; this._updateHeader(); this._showEmpty(this.t.reload);
+      this._empty.replaceChildren(el("p",this.t.reload),this._button(this.t.reloadAction,()=>window.location.reload()));
+      return;
+    }
     if (!this._entity && this._accounts.length===1) this._entity=this._accounts[0].entity_id;
     const account=this._accounts.find(a => a.entity_id===this._entity || a.entities?.includes(this._entity));
     this._select.replaceChildren(...[{entity_id: "", masked: this.t.choose}, ...this._accounts].map(a => {

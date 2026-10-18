@@ -60,6 +60,7 @@ export function energyMessage(language, code) { const w = words[language?.starts
 function el(tag, text) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; return e; }
 
 export class DtekEnergyEditor extends HTMLElement {
+  static get workspaceVersion() { return 1; }
   constructor() { super(); this.attachShadow({mode: "open"}); this._seq = 0; this._fields = {mode: "offset", freshness: "reported", entities: {}, references: {}, age: "15", power: "30"}; }
   configure(hass, entity, context, compact = false) { this._compact = compact; const languageChanged = this._hass?.language !== hass?.language; this._hass = hass; this._entity = entity; const changed = languageChanged || this._context !== context; this._context = context; if (changed || !this.shadowRoot.firstChild) this.render(); }
   disconnectedCallback() { queueMicrotask(() => { if (!this.isConnected) { this._seq++; this._busy = false; this._draft = null; } }); }
