@@ -88,7 +88,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(await setup_module.async_setup_entry(self.hass, self.entry))
             public.assert_not_called()
             self.hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
-                self.entry, [Platform.SENSOR, Platform.BUTTON]
+                self.entry, [Platform.SENSOR, Platform.BUTTON, Platform.CALENDAR]
             )
             self.assertTrue(
                 await setup_module.async_unload_entry(self.hass, self.entry)
@@ -158,7 +158,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         options.hass = self.hass
         self.assertEqual(
             (await options.async_step_init())["menu_options"],
-            ["account_selection", "account"],
+            ["account_selection", "account", "account_schedule"],
         )
         with patch.object(
             flow_module, "create_account_provider", return_value=self.account_client

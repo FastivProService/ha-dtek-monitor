@@ -27,7 +27,7 @@ PLATFORMS: list[Platform] = [
     Platform.CALENDAR,
     Platform.SENSOR,
 ]
-ACCOUNT_PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
+ACCOUNT_PLATFORMS = [Platform.SENSOR, Platform.BUTTON, Platform.CALENDAR]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

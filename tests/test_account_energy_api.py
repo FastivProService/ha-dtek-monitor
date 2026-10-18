@@ -37,10 +37,11 @@ class EnergyAccessTests(unittest.IsolatedAsyncioTestCase):
         }
 
     async def invoke(self):
-        with patch.object(
-            api.er, "async_get", return_value=self.registry
-        ), patch.object(
-            api.er, "async_entries_for_config_entry", return_value=[self.entity]
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er, "async_entries_for_config_entry", return_value=[self.entity]
+            ),
         ):
             await api.websocket_energy.__wrapped__(self.hass, self.connection, self.msg)
 
@@ -144,11 +145,25 @@ class EnergySourceTests(unittest.IsolatedAsyncioTestCase):
         )
         energy = load_component_module("account_energy")
         self.assertEqual(str(energy.amount(tiny["value"])), "1E-9")
-        self.assertEqual(result["at"], state.last_updated.isoformat())
+        self.assertEqual(result["at"], state.last_reported.isoformat())
         old = datetime.now(timezone.utc) - timedelta(days=1)
         state = State(self.entity_id, "100", self.attributes, last_changed=old)
         self.assertNotEqual(
             api.source_snapshot(self.hass, self.entity_id, state)["at"], old.isoformat()
+        )
+
+    async def test_identical_real_ha_state_report_is_fresh_without_value_change(self):
+        self.hass.states.async_set(self.entity_id, "100", self.attributes)
+        state = self.hass.states.get(self.entity_id)
+        old = datetime.now(timezone.utc) - timedelta(days=30)
+        state.last_changed = state.last_updated = state.last_reported = old
+        self.hass.states.async_set(self.entity_id, "100", self.attributes)
+        current = self.hass.states.get(self.entity_id)
+        self.assertEqual(current.last_updated, old)
+        self.assertGreater(current.last_reported, old)
+        self.assertEqual(
+            api.source_snapshot(self.hass, self.entity_id)["at"],
+            current.last_reported.isoformat(),
         )
 
     async def test_invalid_unavailable_negative_and_non_energy_sources_rejected(self):

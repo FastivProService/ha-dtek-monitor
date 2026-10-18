@@ -436,8 +436,24 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
 
     async def async_step_account_menu(self, user_input=None):
         return self.async_show_menu(
-            step_id="account_menu", menu_options=["account_selection", "account"]
+            step_id="account_menu",
+            menu_options=["account_selection", "account", "account_schedule"],
         )
+
+    async def async_step_account_schedule(self, user_input=None):
+        from .account_schedule_flow import schedule_account
+
+        return await schedule_account(self, self._config_entry, user_input)
+
+    async def async_step_account_schedule_address(self, user_input=None):
+        from .account_schedule_flow import schedule_address
+
+        return await schedule_address(self, self._config_entry, user_input)
+
+    async def async_step_account_schedule_groups(self, user_input=None):
+        from .account_schedule_flow import schedule_groups
+
+        return await schedule_groups(self, self._config_entry, user_input)
 
     async def async_step_account_selection(self, user_input=None):
         return await select_account_options(self, self._config_entry, user_input)

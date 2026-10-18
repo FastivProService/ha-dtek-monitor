@@ -102,9 +102,23 @@ async def async_setup_entry(
     """Set up DTEK sensors from a config entry."""
     if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
         from .account_sensor import account_sensors
+        from .account_schedule import AccountGroupSensor, AccountScheduleStatusSensor
+        from .account import CONF_ACCOUNTS
 
         discover = account_sensors(entry.runtime_data, entry)
-        async_add_entities(discover())
+        async_add_entities(
+            [
+                *discover(),
+                *(
+                    AccountGroupSensor(entry, number)
+                    for number in entry.data[CONF_ACCOUNTS]
+                ),
+                *(
+                    AccountScheduleStatusSensor(entry, number)
+                    for number in entry.data[CONF_ACCOUNTS]
+                ),
+            ]
+        )
         entry.async_on_unload(
             entry.runtime_data.async_add_listener(
                 lambda: async_add_entities(discover())

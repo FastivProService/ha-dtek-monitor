@@ -1,5 +1,5 @@
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=1.8.0b6";
+import { accountNumber } from "./account-number.js?v=1.8.0b7";
 const words = {
   en: {
     title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",

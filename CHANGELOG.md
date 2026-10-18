@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b7] - 2026-10-18
+
+- Add explicit personal-account links to a building and user-selected outage groups, with separate personal calendars and a translated selection status. A sole verified building group can be selected automatically; multiple groups require a personal choice. Building calendars and Telegram notifications retain all groups.
+- Revalidate group membership and publication on every read; removed, hidden or unavailable groups never silently fall back to another building group.
+- Count identical HA energy reports as observations and add an explicit availability-based mode for cumulative sources that report only value changes. Preserve the original report timestamp and strict freshness for existing bindings.
+- Test zero consumption, connection loss/recovery, source resets, independent account selections, changed groups and address reloads.
+
 ## [1.8.0b6] - 2026-10-18
 
 - Add optional personal-account energy sources: direct official meter readings or estimates from a calibrated secondary cumulative meter.

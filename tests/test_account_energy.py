@@ -39,7 +39,9 @@ class EnergyTests(unittest.IsolatedAsyncioTestCase):
         }
         return self.samples[entity]
 
-    async def bind(self, mode="offset", reference="1000", zones=("GENERAL",)):
+    async def bind(
+        self, mode="offset", reference="1000", zones=("GENERAL",), freshness="reported"
+    ):
         entities = {
             zone: "sensor.grid" if zone == "GENERAL" else "sensor." + zone.lower()
             for zone in zones
@@ -51,7 +53,13 @@ class EnergyTests(unittest.IsolatedAsyncioTestCase):
             "100001",
             "user",
             context(zones),
-            {"mode": mode, "entities": entities, "max_age": 900, "max_power_kw": "30"},
+            {
+                "mode": mode,
+                "entities": entities,
+                "max_age": 900,
+                "max_power_kw": "30",
+                "freshness": freshness,
+            },
             {zone: reference for zone in zones},
             None,
             self.allow,
@@ -164,6 +172,53 @@ class EnergyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.get())["readings"]["GENERAL"]["value"], "1010")
         self.sample("110")
         self.assertTrue((await self.get())["ready"])
+
+    async def test_zero_import_with_repeated_reports_remains_ready(self):
+        await self.bind()
+        for _ in range(10):
+            self.now += timedelta(days=1)
+            self.sample("100")
+            view = await self.get()
+            self.assertTrue(view["ready"])
+            self.assertEqual(view["readings"]["GENERAL"]["value"], "1000")
+        self.now += timedelta(minutes=16)
+        self.assertFalse((await self.get())["ready"])
+
+    async def test_availability_mode_keeps_report_time_and_survives_restart(self):
+        await self.bind(freshness="availability")
+        reported = self.samples["sensor.grid"]["at"]
+        self.now += timedelta(days=30)
+        self.manager = self.new_manager()
+        view = await self.get()
+        self.assertTrue(view["ready"])
+        self.assertEqual(view["readings"]["GENERAL"]["source"]["at"], reported)
+        source = self.manager.read_source
+        self.manager.read_source = Mock(
+            side_effect=mod.SubmissionError("source_unavailable")
+        )
+        self.assertEqual(
+            (await self.get())["readings"]["GENERAL"]["error"], "source_unavailable"
+        )
+        with self.assertRaisesRegex(mod.SubmissionError, "source_unavailable"):
+            self.manager.guard_proposal("100001", "user", view["proposal"], self.allow)
+        self.manager.read_source = source
+        self.sample("100.25")
+        self.assertEqual((await self.get())["readings"]["GENERAL"]["value"], "1000.25")
+        self.sample("0")
+        self.assertEqual(
+            (await self.get())["readings"]["GENERAL"]["error"], "source_reset"
+        )
+
+    async def test_missing_policy_keeps_strict_freshness_and_invalid_policy_fails(self):
+        await self.bind()
+        del self.store.data[self.manager.key("100001")]["freshness"]
+        self.manager = self.new_manager()
+        self.now += timedelta(days=1)
+        self.assertFalse((await self.get())["ready"])
+        self.store.data[self.manager.key("100001")]["freshness"] = "ignore_everything"
+        self.manager = self.new_manager()
+        with self.assertRaisesRegex(mod.SubmissionError, "energy_store_unavailable"):
+            await self.get()
 
     async def test_observed_reset_is_latched_even_after_rebound_and_restart(self):
         await self.bind()

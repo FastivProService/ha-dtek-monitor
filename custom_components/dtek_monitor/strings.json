@@ -110,7 +110,8 @@
         "title": "Personal account settings",
         "menu_options": {
           "account_selection": "Select personal accounts",
-          "account": "Add building monitoring"
+          "account": "Add building monitoring",
+          "account_schedule": "My group and schedule"
         }
       },
       "account_selection": {
@@ -119,11 +120,35 @@
         "data": {
           "accounts": "Personal accounts"
         }
+      },
+      "account_schedule": {
+        "title": "My group and schedule",
+        "description": "Choose the apartment account. This private selection keeps every group in the building schedules and bot.",
+        "data": {
+          "schedule_account": "Personal account"
+        }
+      },
+      "account_schedule_address": {
+        "title": "Apartment building",
+        "description": "Choose the verified building for this account. If missing, add building monitoring first. “—” removes the personal link without deleting the building.",
+        "data": {
+          "schedule_address": "Building address"
+        }
+      },
+      "account_schedule_groups": {
+        "title": "My group",
+        "description": "Building: {building}. Select verified apartment groups. An empty selection enables automatic assignment only when the building has exactly one verified group. With multiple groups, the personal calendar waits for your choice. Building calendars and the bot always retain every group. Manual choices never change automatically.",
+        "data": {
+          "schedule_groups": "My apartment groups"
+        }
       }
     },
     "error": {
       "select_accounts": "Select at least one available account.",
-      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added."
+      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added.",
+      "invalid_schedule_address": "Select an existing address for this operator.",
+      "invalid_schedule_groups": "Groups changed or the selection is invalid. Verify the address and reopen settings.",
+      "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups."
     },
     "abort": {
       "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
@@ -211,6 +236,22 @@
           "unsupported": "Schedule operator not supported",
           "error": "Could not verify schedule"
         }
+      },
+      "account_schedule_groups": {
+        "name": "My group"
+      },
+      "account_schedule_status": {
+        "name": "My schedule status",
+        "state": {
+          "no_address": "No building linked",
+          "not_selected": "Select an apartment group",
+          "selected": "Group selected by user",
+          "address_unavailable": "Building unavailable",
+          "group_unavailable": "Selected group no longer verified for building",
+          "labels_hidden": "DTEK has hidden group labels",
+          "schedule_unavailable": "Schedule unavailable",
+          "auto_selected": "Automatic — only building group"
+        }
       }
     },
     "calendar": {
@@ -222,6 +263,12 @@
       },
       "last_known_schedule": {
         "name": "Last known schedule (view only)"
+      },
+      "account_outage_schedule": {
+        "name": "My outage schedule"
+      },
+      "account_possible_schedule": {
+        "name": "My possible outage schedule"
       }
     },
     "button": {

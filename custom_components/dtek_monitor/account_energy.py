@@ -77,6 +77,8 @@ class EnergyManager:
                 if not (
                     isinstance(binding["revision"], str)
                     and binding["mode"] in ("direct", "offset")
+                    and binding.get("freshness", "reported")
+                    in ("reported", "availability")
                     and isinstance(binding["serial"], str)
                     and type(binding["digits"]) is int
                     and 1 <= binding["digits"] <= 8
@@ -141,11 +143,14 @@ class EnergyManager:
             for row in binding["zones"].values()
         )
 
-    def _sample(self, entity_id, max_age, authorize):
+    def _sample(self, entity_id, max_age, authorize, freshness="reported"):
         authorize(entity_id)
         sample = self.read_source(entity_id)
         age = (self.now() - instant(sample["at"])).total_seconds()
-        if age < -5 or age > max_age:
+        # Availability is an explicit contract with the source integration: it
+        # must mark a disconnected device unavailable. Do not invent a newer
+        # sample timestamp or infer freshness from other sensors of the device.
+        if age < -5 or (freshness == "reported" and age > max_age):
             raise SubmissionError("source_stale")
         amount(sample["value"])
         return sample
@@ -204,7 +209,12 @@ class EnergyManager:
         changed = False
         for zone, row in binding["zones"].items():
             try:
-                sample = self._sample(row["entity_id"], binding["max_age"], authorize)
+                sample = self._sample(
+                    row["entity_id"],
+                    binding["max_age"],
+                    authorize,
+                    binding.get("freshness", "reported"),
+                )
                 changed |= self._track(binding, row, sample)
                 if row["fault"]:
                     raise SubmissionError(row["fault"])
@@ -296,6 +306,8 @@ class EnergyManager:
                 zones = {z["zone"] for z in context["zones"]}
                 if (
                     config.get("mode") not in ("direct", "offset")
+                    or config.get("freshness", "reported")
+                    not in ("reported", "availability")
                     or not isinstance(entities, dict)
                     or set(entities) != zones
                     or len(set(entities.values())) != len(zones)
@@ -306,6 +318,7 @@ class EnergyManager:
                     raise SubmissionError("invalid_energy")
                 binding = {
                     "mode": config["mode"],
+                    "freshness": config.get("freshness", "reported"),
                     "serial": context["serial"],
                     "digits": context["digits"],
                     "max_age": config["max_age"],
@@ -320,7 +333,12 @@ class EnergyManager:
                 raise SubmissionError("invalid_energy")
             changes = {}
             for zone, row in binding["zones"].items():
-                sample = self._sample(row["entity_id"], binding["max_age"], authorize)
+                sample = self._sample(
+                    row["entity_id"],
+                    binding["max_age"],
+                    authorize,
+                    binding.get("freshness", "reported"),
+                )
                 reference = None
                 if config is None and (
                     row["fingerprint"] != sample["fingerprint"]
@@ -381,7 +399,12 @@ class EnergyManager:
             draft = self._lookup(token, "change", number, user)
             binding = deepcopy(draft["binding"])
             for row in binding["zones"].values():
-                sample = self._sample(row["entity_id"], binding["max_age"], authorize)
+                sample = self._sample(
+                    row["entity_id"],
+                    binding["max_age"],
+                    authorize,
+                    binding.get("freshness", "reported"),
+                )
                 self._track(binding, row, sample)
                 if row["fault"]:
                     raise SubmissionError(row["fault"])
@@ -414,7 +437,12 @@ class EnergyManager:
         self._lookup(token, "proposal", number, user)
         binding = deepcopy(self._data[self.key(number)])
         for row in binding["zones"].values():
-            sample = self._sample(row["entity_id"], binding["max_age"], authorize)
+            sample = self._sample(
+                row["entity_id"],
+                binding["max_age"],
+                authorize,
+                binding.get("freshness", "reported"),
+            )
             self._track(binding, row, sample)
             if row["fault"]:
                 raise SubmissionError(row["fault"])

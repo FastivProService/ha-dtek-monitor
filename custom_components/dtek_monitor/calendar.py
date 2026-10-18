@@ -14,6 +14,7 @@ from homeassistant.util import dt as dt_util
 
 from .coordinator import DTEKDataCoordinator
 from .schedule import KYIV_TZ
+from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT, CONF_ACCOUNTS
 from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
 
 _CALENDAR_TYPES: list[tuple[str, str, str]] = [
@@ -29,6 +30,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up DTEK calendars from a config entry."""
+    if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+        from .account_schedule import AccountScheduleCalendar
+
+        async_add_entities(
+            [
+                AccountScheduleCalendar(entry, number, kind)
+                for number in entry.data[CONF_ACCOUNTS]
+                for kind in ("outage", "possible")
+            ]
+        )
+        return
     coordinator: DTEKDataCoordinator = entry.runtime_data
     async_add_entities(
         [

@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b6`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b7`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -65,6 +65,38 @@ attempt, including automatic refreshes and failures. A failure leaves affected
 sensors unavailable; successfully refreshed accounts remain usable. The time of
 fetching data is distinct from the date of the recorded reading.
 
+## My apartment group and the building schedules
+
+The cabinet connection does not establish which outage group supplies an apartment.
+The verified cabinet responses currently provide no such assignment. A building
+may have several groups; its **Primary schedule group** is a compatibility value,
+not a claim about your apartment.
+
+1. Use **Configure → Add building monitoring** and finish the discovered address
+   setup, or use an existing DTEK address for the same operator.
+2. Open **Configure → My group and schedule**, choose the account and verify its
+   building address.
+3. A building with exactly one verified group is linked automatically. With
+   multiple groups, select the group(s) verified for your apartment. You can change
+   this choice later. Clearing the selection returns to automatic mode: it works
+   only while the building has exactly one verified group.
+
+The account device exposes **My group**, **My schedule status**,
+**My outage schedule** and **My possible outage schedule**. Add the personal
+calendars to your apartment dashboard; keep the building calendars alongside them
+when you want to compare all groups. The building calendars and Telegram bot keep
+all address groups. Different accounts can select different groups in one building.
+
+The status distinguishes a manual choice from automatic use of the building’s
+sole group. Neither is an apartment assignment returned by the cabinet. If an
+automatically linked building gains a second group, only the personal calendar
+waits for a selection; the public building calendars and bot keep all groups.
+If a manually selected group disappears from the verified building groups, group
+labels are hidden, the building is removed or schedule verification fails, the
+personal calendars become unavailable. A saved manual choice remains visible for
+review; another group is never substituted for it automatically. The schedule status
+explains why. Choosing “—” for the building removes only the personal link.
+
 ## History and monthly chart
 
 The bundled **DTEK account history** card shows an account's readings and monthly
@@ -74,7 +106,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b6` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b7` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -135,7 +167,7 @@ entity: sensor.example_account_data_updated
 ```
 
 It is loaded automatically by either DTEK custom card resource above. If you use
-neither, register `/dtek_monitor/account-number.js?v=1.8.0b6` as a JavaScript module
+neither, register `/dtek_monitor/account-number.js?v=1.8.0b7` as a JavaScript module
 in Resources. Existing entity IDs and masked device labels are unchanged.
 
 ## Send meter readings
@@ -145,7 +177,7 @@ write to your DTEK account only after you review and explicitly confirm the valu
 Opening the card, loading meter data and reviewing values do not send readings.
 Use actual meter readings or reviewed source proposals; never use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b6` as another **JavaScript module**
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b7` as another **JavaScript module**
 in dashboard Resources, then add this manual card to a private dashboard:
 
 ```yaml
@@ -245,7 +277,13 @@ ongoing proportional measurement error. Repeated discrepancies need investigatio
 3. Choose the mode and source entity for each tariff zone. Day/Night requires two
    separate, correctly mapped cumulative registers; one total cannot be split
    retrospectively across a gap in HA data.
-4. Set the maximum data age and maximum plausible input power. Defaults are
+4. Choose how to check the source. **Require recent reports** is the default;
+   identical repeated HA reports count as fresh, even during zero consumption.
+   **Trust the integration’s availability status** is for sources that report
+   only counter changes: use it only when the source integration marks connection
+   loss as `unavailable`. This mode cannot detect an integration stuck on a numeric
+   value and does not apply the age limit. Set the maximum data age for report
+   mode and the maximum plausible input power. Defaults are
    15 minutes and 30 kW. The power check permits 1 kWh of reporting/quantization
    tolerance; it is an anomaly check, not a meter accuracy guarantee.
 5. In estimate mode, enter the physical official reading taken at the same time
@@ -277,7 +315,8 @@ unattempted DTEK submission. Conversely, submitting a calculated reading never
 moves the reference pair or discards fractional consumption. The panel retains
 the latest 24 reference changes; each tariff zone has its own reference.
 
-Unavailable/stale sources cannot supply a proposal. A counter decrease,
+Unavailable sources cannot supply a proposal in either mode; sources with old
+reports are also blocked in the default report mode. A counter decrease,
 unexpected increase, changed unit or changed device identity suspends proposals.
 Observed resets remain flagged after a rebound or HA restart. After a verified
 reset, create a new reference pair; after a device/unit change, replace the
@@ -287,10 +326,13 @@ kept counting without a reset. Resets or bypass consumption while HA was offline
 cannot always be detected; a physical meter check is needed when continuity is
 uncertain.
 
-The timestamp is when HA last updated the source state/attributes, not proof
+The displayed timestamp is HA's last report, including an unchanged value, not proof
 that a cloud service obtained a fresh device measurement. Configure an age limit
 appropriate for the device's reporting interval and verify its reporting behavior.
-An unchanged energy value can legitimately mean no consumption.
+An unchanged energy value can legitimately mean no consumption. Availability
+mode preserves the original report time; it does not present an old report as new.
+Both LocalTuya and Tuya Local sources work through the same standard HA energy
+sensor interface; no Tuya driver or developer-account setup is part of DTEK Monitor.
 
 References and continuity checkpoints are stored independently of Recorder in
 HA's private `.storage/dtek_monitor.energy.<entry_id>` file. Include it in backups.

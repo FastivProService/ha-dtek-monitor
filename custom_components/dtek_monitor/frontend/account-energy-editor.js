@@ -3,11 +3,13 @@ const words = {
   en: {
     title: "Home Assistant energy source", load: "Load / refresh energy source", link: "Link an energy sensor", replace: "Replace binding", cancel: "Cancel",
     mode: "Reading mode", offset: "Estimate from a secondary meter", direct: "Read the official meter directly",
+    freshness: "Source availability check", reported: "Require recent reports", availability: "Trust the integration's availability status",
+    availabilityHelp: "For sources that report only when the counter changes. Use only if the device integration marks the sensor unavailable on connection loss. A stuck numeric state cannot be detected in this mode. The age limit does not apply.",
     entity: "Cumulative energy sensor", age: "Maximum data age (minutes)", power: "Maximum plausible input power (kW)",
     actual: "Actual official meter reading (kWh)", general: "Single zone", day: "Day", night: "Night",
     review: "Review binding", calibrate: "Review new reference pair", save: "Save local reference", remove: "Remove binding",
-    checked: "The source measures this account's grid import and the correct tariff zone. For an estimate, I checked the official reading at the displayed source sample time.",
-    reviewHelp: "Check both readings and their time. This saves a local reference only; nothing is sent to DTEK. Confirmation expires after three minutes.",
+    checked: "The source measures this account's grid import and the correct tariff zone. For an estimate, I verified that both readings describe the same moment.",
+    reviewHelp: "Check both readings and their time. With availability-based checking, verify the current physical reading even when the last HA report is older. This saves a local reference only; nothing is sent to DTEK. Confirmation expires after three minutes.",
     help: "Choose a cumulative grid-import energy sensor for this apartment. A sensor after an inverter, for another apartment or for only part of the loads is unsuitable. Each tariff zone needs its own sensor.",
     use: "Use proposed readings in the form", proposal: "Proposed reading", source: "Source reading", actualLabel: "Official reading", correction: "Correction", at: "Source sample received by HA",
     reference: "Saved reference", saved: "Local reference saved. Future estimates include this correction; submission is a separate action.",
@@ -28,11 +30,13 @@ const words = {
   uk: {
     title: "Джерело енергії Home Assistant", load: "Завантажити / оновити джерело", link: "Прив’язати датчик енергії", replace: "Замінити прив’язку", cancel: "Скасувати",
     mode: "Режим показів", offset: "Розрахунок за додатковим лічильником", direct: "Пряме читання розрахункового лічильника",
+    freshness: "Перевірка доступності джерела", reported: "Вимагати свіжі повідомлення", availability: "Довіряти статусу доступності інтеграції",
+    availabilityHelp: "Для джерел, що повідомляють лише зміну лічильника. Обирайте, тільки якщо інтеграція робить датчик недоступним при втраті зв’язку. Зависле числове значення в цьому режимі не виявляється. Обмеження віку не діє.",
     entity: "Датчик накопиченої енергії", age: "Максимальний вік даних (хвилини)", power: "Максимальна правдоподібна вхідна потужність (кВт)",
     actual: "Фактичні покази основного лічильника (кВт·год)", general: "Одна зона", day: "День", night: "Ніч",
     review: "Перевірити прив’язку", calibrate: "Перевірити нову опорну пару", save: "Зберегти локальну прив’язку", remove: "Видалити прив’язку",
-    checked: "Джерело вимірює споживання з мережі саме цього рахунку та потрібної тарифної зони. Для розрахунку я звірив основний лічильник на час показаного відліку джерела.",
-    reviewHelp: "Перевірте обидва покази та час. Зберігається лише локальна прив’язка; у ДТЕК нічого не передається. Підтвердження діє три хвилини.",
+    checked: "Джерело вимірює споживання з мережі саме цього рахунку та потрібної тарифної зони. Для розрахунку я перевірив, що обидва покази відповідають одному моменту.",
+    reviewHelp: "Перевірте обидва покази та час. У режимі доступності звірте поточні фізичні покази, навіть якщо останнє повідомлення HA давніше. Зберігається лише локальна прив’язка; у ДТЕК нічого не передається. Підтвердження діє три хвилини.",
     help: "Оберіть накопичувальний датчик споживання з мережі для цієї квартири. Датчик після інвертора, іншої квартири або частини навантажень не підходить. Кожна тарифна зона потребує окремого датчика.",
     use: "Підставити запропоновані покази у форму", proposal: "Запропоновані покази", source: "Покази джерела", actualLabel: "Основний лічильник", correction: "Коригування", at: "Відлік джерела отримано HA",
     reference: "Збережена опорна пара", saved: "Локальну прив’язку збережено. Наступні розрахунки враховують коригування; передача в ДТЕК виконується окремо.",
@@ -55,7 +59,7 @@ export function energyMessage(language, code) { const w = words[language?.starts
 function el(tag, text) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; return e; }
 
 export class DtekEnergyEditor extends HTMLElement {
-  constructor() { super(); this.attachShadow({mode: "open"}); this._seq = 0; this._fields = {mode: "offset", entities: {}, references: {}, age: "15", power: "30"}; }
+  constructor() { super(); this.attachShadow({mode: "open"}); this._seq = 0; this._fields = {mode: "offset", freshness: "reported", entities: {}, references: {}, age: "15", power: "30"}; }
   configure(hass, entity, context) { const languageChanged = this._hass?.language !== hass?.language; this._hass = hass; this._entity = entity; const changed = languageChanged || this._context !== context; this._context = context; if (changed || !this.shadowRoot.firstChild) this.render(); }
   disconnectedCallback() { this._seq++; this._busy = false; this._draft = null; }
   get w() { return words[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
@@ -69,7 +73,7 @@ export class DtekEnergyEditor extends HTMLElement {
       if (action === "get") result = await this.request("get");
       else if (action === "preview") {
         const extra = {revision: binding?.revision || null, references: {...this._fields.references}};
-        if (this._editing) extra.config = {mode: this._fields.mode, entities: {...this._fields.entities}, max_age: Number(this._fields.age) * 60, max_power_kw: this._fields.power};
+        if (this._editing) extra.config = {mode: this._fields.mode, freshness: this._fields.freshness, entities: {...this._fields.entities}, max_age: Number(this._fields.age) * 60, max_power_kw: this._fields.power};
         result = await this.request("preview", extra);
       } else if (action === "save") result = await this.request("save", {confirmation: this._draft.confirmation});
       else result = await this.request("remove", {revision: binding.revision});
@@ -111,7 +115,7 @@ export class DtekEnergyEditor extends HTMLElement {
     if (this._error) { const p = el("p", w[this._error] || w.unavailable); p.setAttribute("role", "alert"); root.append(p); }
     if (this._saved) { const p = el("p", w.saved); p.setAttribute("role", "status"); root.append(p); }
     if (this._draft) {
-      root.append(el("p", w.reviewHelp), el("p", `${this._draft.binding.serial} · ${w[this._draft.binding.mode]}`));
+      root.append(el("p", w.reviewHelp), el("p", `${this._draft.binding.serial} · ${w[this._draft.binding.mode]} · ${w[this._draft.binding.freshness || "reported"]}`));
       for (const [zone, row] of Object.entries(this._draft.change.changes)) {
         root.append(el("h4", w[zone.toLowerCase()]), el("p", `${w.source}: ${row.source} kWh`), el("p", `${w.at}: ${row.source_at}`));
         if (row.actual !== null) root.append(el("p", `${w.actualLabel}: ${row.actual} kWh`));
@@ -122,7 +126,7 @@ export class DtekEnergyEditor extends HTMLElement {
     } else {
       root.append(this.button(w.load, () => this.act("get")));
       if (binding) {
-        root.append(el("p", `${binding.serial} · ${w[binding.mode]}`));
+        root.append(el("p", `${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));
         const matches = !this._context?.serial || this._context.serial === binding.serial;
         if (!matches) root.append(el("p", w.mismatch));
         for (const [zone, row] of Object.entries(binding.zones)) {
@@ -141,7 +145,7 @@ export class DtekEnergyEditor extends HTMLElement {
         root.append(history);
       }
       if (this._data && !this._editing) root.append(this.button(binding ? w.replace : w.link, () => {
-        this._editing = true; this._fields = {mode: binding?.mode || "offset", entities: Object.fromEntries(Object.entries(binding?.zones || {}).map(([z,r])=>[z,r.entity_id])), references: {}, age: String((binding?.max_age || 900)/60), power: binding?.max_power_kw || "30"}; this.render();
+        this._editing = true; this._fields = {mode: binding?.mode || "offset", freshness: binding?.freshness || "reported", entities: Object.fromEntries(Object.entries(binding?.zones || {}).map(([z,r])=>[z,r.entity_id])), references: {}, age: String((binding?.max_age || 900)/60), power: binding?.max_power_kw || "30"}; this.render();
       }));
       if (this._editing) {
         if (!this._context?.serial || this._context.blocked) root.append(el("p", w.noContext));
@@ -156,7 +160,14 @@ export class DtekEnergyEditor extends HTMLElement {
           const list = el("datalist"); list.id = "energy-sources";
           for (const [id, state] of Object.entries(this._hass.states || {})) if (state.attributes?.device_class === "energy" && ["total", "total_increasing"].includes(state.attributes.state_class)) { const option = el("option"); option.value = id; option.label = state.attributes.friendly_name || id; list.append(option); }
           root.append(list);
-          this.field(root, w.age, this._fields.age, value => {this._fields.age = value;}, "number");
+          const freshnessLabel = el("label", w.freshness), freshnessSelect = el("select");
+          freshnessSelect.disabled = this._busy; freshnessSelect.setAttribute("aria-label", w.freshness);
+          for (const mode of ["reported", "availability"]) { const option = el("option", w[mode]); option.value = mode; freshnessSelect.append(option); }
+          freshnessSelect.value = this._fields.freshness;
+          freshnessSelect.addEventListener("change", () => {this._fields.freshness = freshnessSelect.value; this.render();});
+          freshnessLabel.append(freshnessSelect); root.append(freshnessLabel);
+          if (this._fields.freshness === "availability") root.append(el("p", w.availabilityHelp));
+          else this.field(root, w.age, this._fields.age, value => {this._fields.age = value;}, "number");
           this.field(root, w.power, this._fields.power, value => {this._fields.power = value;}, "number");
           if (this._fields.mode === "offset") this.referenceFields(root, this._context.zones.map(z => z.zone));
           root.append(this.button(w.review, () => this.act("preview")));

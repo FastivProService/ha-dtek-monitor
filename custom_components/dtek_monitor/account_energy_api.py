@@ -54,12 +54,12 @@ def source_snapshot(hass, entity_id, state=None):
             raise ValueError
     except (DecimalException, ValueError):
         raise SubmissionError("source_unavailable") from None
-    # last_updated includes attribute reports, unlike last_changed. It is a HA
-    # observation timestamp, not proof of an upstream device measurement.
+    # Repeated identical reports are observations too (e.g. solar / zero import).
+    # This is a HA report timestamp, not proof of an upstream measurement.
     return {
         "value": format(value.normalize(), "f"),
         "unit": unit,
-        "at": state.last_updated.isoformat(),
+        "at": state.last_reported.isoformat(),
         "fingerprint": digest(
             [entity.platform, entity.unique_id, entity.config_entry_id]
         ),
@@ -148,6 +148,7 @@ async def async_setup_energy(hass):
             },
             vol.Required("max_age"): vol.All(int, vol.Range(min=60, max=86400)),
             vol.Required("max_power_kw"): vol.All(str, vol.Length(max=16)),
+            vol.Optional("freshness"): vol.In(("reported", "availability")),
         },
         vol.Optional("references"): {
             vol.In(("GENERAL", "DAY", "NIGHT")): vol.All(str, vol.Length(max=24))

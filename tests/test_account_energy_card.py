@@ -121,13 +121,31 @@ class EnergyCardTests(unittest.IsolatedAsyncioTestCase):
         )
         await source.fill("sensor.grid")
         await actual.fill("1000.5")
+        await self.page.get_by_label(
+            "Source availability check", exact=True
+        ).select_option("availability")
+        await self.page.get_by_text(
+            "For sources that report only when the counter changes.", exact=False
+        ).wait_for()
         for _ in range(5):
             await self.page.evaluate(
                 "card.hass={...hass,states:{...hass.states,random:{state:Math.random()}}}"
             )
         self.assertEqual(await source.input_value(), "sensor.grid")
         self.assertEqual(await actual.input_value(), "1000.5")
+        self.assertEqual(
+            await self.page.get_by_label(
+                "Source availability check", exact=True
+            ).input_value(),
+            "availability",
+        )
         await self.page.get_by_role("button", name="Review binding", exact=True).click()
+        self.assertEqual(
+            await self.page.evaluate(
+                "calls.filter(x=>x.type==='dtek_monitor/account_energy'&&x.action==='preview').at(-1).config.freshness"
+            ),
+            "availability",
+        )
         self.assertTrue(
             await self.page.get_by_role(
                 "button", name="Save local reference", exact=True
