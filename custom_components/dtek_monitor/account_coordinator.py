@@ -23,6 +23,9 @@ from .account import (
     AccountRateLimitError,
 )
 from .account_history import HistoryCache
+from .account_submission import SubmissionManager
+from .account_submission_store import SubmissionStore
+from .providers import CONF_PROVIDER
 
 _LOGGER = logging.getLogger(__name__)
 MANUAL_REFRESH_SECONDS = 60
@@ -41,6 +44,16 @@ class AccountCoordinator(DataUpdateCoordinator):
         )
         self.client = client
         self.history = HistoryCache(client)
+        self.submissions = SubmissionManager(
+            client,
+            SubmissionStore(
+                hass.config.path(
+                    ".storage", f"dtek_monitor.submissions.{entry.entry_id}"
+                ),
+                hass.async_add_executor_job,
+            ),
+            entry.data[CONF_PROVIDER],
+        )
         self.entry = entry
         self._authenticated = False
         self._last_attempt = None

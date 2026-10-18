@@ -177,6 +177,13 @@ class HistoryCache:
         self._cache = OrderedDict()
         self._attempts = OrderedDict()
         self._blocked_until = 0
+        self._generation = 0
+
+    def invalidate(self, number):
+        self._generation += 1
+        for key in list(self._cache):
+            if key[0] == number:
+                del self._cache[key]
 
     async def get(self, number, year, *, force=False):
         validate_year(year, datetime.now(KYIV).date())
@@ -197,10 +204,15 @@ class HistoryCache:
             while len(self._attempts) > 64:
                 self._attempts.popitem(last=False)
             try:
+                generation = self._generation
                 result = await self.client.read_history(number, year)
             except AccountRateLimitError:
                 self._blocked_until = monotonic() + 300
                 raise
+            if generation != self._generation:
+                raise AccountError(
+                    "Account history changed during refresh; retry later"
+                )
             # Store completion time; a failed refresh retains only an old, dated cache.
             self._cache[key] = (monotonic(), result)
             self._cache.move_to_end(key)

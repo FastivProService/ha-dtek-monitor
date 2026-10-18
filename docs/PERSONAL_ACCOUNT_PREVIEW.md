@@ -2,8 +2,8 @@
 
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
-The `feature/personal-account` branch adds an optional, read-only DTEK personal
-account connection. This is an experimental version (`1.8.0b3`), initially for
+The `feature/personal-account` branch adds an optional DTEK personal account connection with
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b4`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -74,7 +74,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b3` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b4` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -111,6 +111,69 @@ History is not stored as sensor attributes or imported into Energy statistics.
 An empty year is shown explicitly. More than 1,000 returned rows or 20 API pages,
 inconsistent pagination, or malformed data produces an error instead of a
 silently truncated history. Older years are available only when DTEK returns them.
+
+## Send meter readings
+
+This preview includes a separate **DTEK meter readings** card. It performs a real
+write to your DTEK account only after you review and explicitly confirm the values.
+Opening the card, loading meter data and reviewing values do not send readings.
+Use actual readings from your meter; do not use invented values to test the final button.
+
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b4` as another **JavaScript module**
+in dashboard Resources, then add this manual card to a private dashboard:
+
+```yaml
+type: custom:dtek-account-readings-card
+entity: sensor.example_account_data_updated
+title: Send my meter readings
+```
+
+1. Sign in as an active HA administrator with read and control access to the
+   account's entities. Regular users can still use the history card with its
+   existing read permissions, but cannot use submission commands.
+2. Choose **Load current meter**. Check the masked account number, full address
+   and meter serial number. The account must still be linked in DTEK.
+3. Enter the whole-number kWh from your meter for every tariff zone. Values must
+   fit the meter's digit limit and cannot be lower than the previous reading.
+4. Choose **Review readings**. Check the previous/new values and differences.
+5. Tick the confirmation checkbox and choose **Confirm and send to DTEK**.
+
+The confirmation is tied to your HA user and selected account, expires after
+five minutes and is usable once. Before sending, the integration checks the
+account, meter and previous readings again. Changed data requires a new review.
+Regular HA state updates do not overwrite your inputs. Drafts are held only in
+memory and disappear on connection reload; no scheduled or automatic submissions
+are provided.
+
+Initially this supports one connected household consumption meter with either
+one tariff zone or Day/Night. Generation/green tariffs, multiple meters, other
+zone schemes, current/pending readings, blocked inputs and unknown meter
+metadata require the DTEK cabinet. Use the cabinet for meter rollover,
+replacement, corrections or photo attachments. The integration does not invent
+a reading date: the observed submission endpoint assigns it on DTEK's side.
+
+A successful HTTP response alone is not treated as acceptance. The card reports
+acceptance only when DTEK explicitly confirms every submitted zone. This is
+receipt of readings, not a final billing calculation. Partial responses, network
+failures and unrecognized results require checking the cabinet. POST requests
+are never automatically retried, including after authentication errors.
+
+Before sending, HA atomically saves a private attempt record containing the time,
+values and status, keyed by a hashed account identifier. It survives restart;
+an interrupted request remains unresolved. If a result is unknown or partial,
+choose **Check submission status**, inspect every zone in the DTEK cabinet and
+only then use **Unlock new entry after checking**. Unlocking sends nothing and
+does not prove rejection. New values still require a fresh review/confirmation;
+pending DTEK readings can continue to prevent entry. Do not delete the local
+attempt record to retry an uncertain request. The latest attempt is retained
+in HA's `.storage`; include it when backing up/restoring this preview.
+
+History caches are invalidated after an attempted submission. An already open
+history card and account sensors still need their respective refresh actions;
+DTEK may take time to expose the new record. Their previous values are not proof
+that a submission failed. This feature has synthetic tests for submission
+outcomes; live verification has covered loading/preparing only, without writing
+test readings to a real account.
 
 ## Dashboard card
 
@@ -169,7 +232,7 @@ to Telegram, and does not change existing bot destinations.
 
 ## Current limits
 
-The preview cannot submit readings, make payments, create applications or edit
+The preview cannot make payments, create applications or edit
 the DTEK profile. Change the selected account set in the connection settings; existing
 independent address entries remain intact.
 Automatic address synchronization and a personal Telegram assistant are not

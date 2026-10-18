@@ -119,6 +119,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
+            await entry.runtime_data.submissions.close()
             await entry.runtime_data.client.close()
         return unload_ok
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

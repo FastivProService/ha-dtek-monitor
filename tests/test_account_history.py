@@ -205,6 +205,24 @@ class HistoryClientTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HistoryCacheTests(unittest.IsolatedAsyncioTestCase):
+    async def test_submission_invalidates_cached_and_in_flight_history(self):
+        client = SimpleNamespace(read_history=AsyncMock(return_value={"months": [1]}))
+        cache = history.HistoryCache(client)
+        with patch.object(history, "monotonic", return_value=100):
+            await cache.get("100001", 2026)
+        cache.invalidate("100001")
+        self.assertNotIn(("100001", 2026), cache._cache)
+
+        async def changed(*args):
+            cache.invalidate("100001")
+            return {"months": ["old"]}
+
+        client.read_history.side_effect = changed
+        with patch.object(history, "monotonic", return_value=161):
+            with self.assertRaises(account.AccountError):
+                await cache.get("100001", 2026)
+        self.assertNotIn(("100001", 2026), cache._cache)
+
     async def test_concurrent_reads_coalesce_and_force_corrects_previous_month(self):
         client = SimpleNamespace(read_history=AsyncMock(return_value={"months": [1]}))
         cache = history.HistoryCache(client)

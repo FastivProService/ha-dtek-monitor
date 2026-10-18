@@ -1,0 +1,201 @@
+/* Explicit readings submission. HA state updates never replace an edited form. */
+const labels = {
+  en: {
+    title: "Send DTEK meter readings", load: "Load current meter", prepare: "Review readings", confirm: "Confirm and send to DTEK",
+    back: "Back to editing", loading: "Working…", serial: "Meter", previous: "Previous", value: "New reading", increase: "Difference",
+    general: "Single zone", day: "Day", night: "Night", date: "Date (Kyiv)",
+    instructions: "Enter the whole-number kWh shown on the meter, without decimal places. All tariff zones are required. Reading submission is available to HA administrators.",
+    review: "Check the account, meter and every value. Confirmation is valid for five minutes; DTEK data is checked again before sending.",
+    checked: "I checked these readings on my meter and want to send them to DTEK.",
+    cabinet: "Open DTEK cabinet", accepted: "DTEK explicitly confirmed receipt for every tariff zone. This does not mean the billing calculation is final.",
+    rejected: "DTEK rejected the submitted readings. Check the account in the cabinet before preparing new values.",
+    unknown: "The result is not confirmed. Do not send these readings again until you check the DTEK cabinet. There is no automatic retry.",
+    partial: "Only some tariff zones may have been accepted. Check all zones in the DTEK cabinet before continuing.",
+    acknowledged: "The previous result has been checked. A new submission requires a new review and confirmation.",
+    not_sent: "The request was stopped before submission.", last: "Last attempt", recover: "Check submission status",
+    ackCheck: "I checked every tariff zone in the DTEK cabinet and understand that unlocking does not resend anything.",
+    ack: "Unlock new entry after checking", unavailable: "Could not verify account data. Try loading the meter again later.",
+    unauthorized: "This form requires an active HA administrator with read and control access to this account.",
+    not_available: "This account is no longer available. Check the integration and selected account.",
+    auth_required: "Reauthenticate the personal account in Settings → Devices & services.",
+    rate_limited: "DTEK has limited requests. Please try again later.",
+    unsupported_meter: "This meter configuration cannot be submitted here. Initially one connected consumption meter with one zone or Day/Night is supported. Use the DTEK cabinet.",
+    pending_or_blocked: "There are current/pending or blocked readings. Check the DTEK cabinet before entering more readings.",
+    invalid_readings: "Enter whole non-negative numbers for all zones, within the meter's digit limit and no lower than previous readings. Use the cabinet for meter rollover or replacement.",
+    context_changed: "The meter data changed. Load current data and review your readings again.",
+    confirmation_expired: "This confirmation expired or was already used. Check submission status before preparing another one.",
+    already_sent: "These values were already accepted today. Check the DTEK cabinet.",
+    check_cabinet: "A previous result is unresolved. Check submission status and the DTEK cabinet.",
+    journal_unavailable: "The local submission record could not be saved or read. Check submission status and the cabinet before any new attempt.",
+  },
+  uk: {
+    title: "Передати покази ДТЕК", load: "Завантажити дані лічильника", prepare: "Перевірити покази", confirm: "Підтвердити та передати в ДТЕК",
+    back: "Повернутися до редагування", loading: "Зачекайте…", serial: "Лічильник", previous: "Попередні", value: "Нові покази", increase: "Різниця",
+    general: "Одна зона", day: "День", night: "Ніч", date: "Дата (Київ)",
+    instructions: "Введіть цілі кВт·год з лічильника без знаків після коми для всіх тарифних зон. Передача доступна адміністраторам HA.",
+    review: "Перевірте рахунок, лічильник і кожне значення. Підтвердження діє п’ять хвилин; перед відправленням дані ДТЕК перевіряються повторно.",
+    checked: "Я перевірив ці покази на своєму лічильнику та хочу передати їх у ДТЕК.",
+    cabinet: "Відкрити кабінет ДТЕК", accepted: "ДТЕК явно підтвердив отримання для кожної тарифної зони. Це ще не означає остаточний розрахунок споживання.",
+    rejected: "ДТЕК відхилив передані покази. Перевірте рахунок у кабінеті перед введенням нових значень.",
+    unknown: "Результат не підтверджено. Не надсилайте ці покази повторно, доки не перевірите кабінет ДТЕК. Автоматичних повторів немає.",
+    partial: "Деякі тарифні зони могли бути прийняті. Перевірте всі зони в кабінеті ДТЕК перед продовженням.",
+    acknowledged: "Попередній результат перевірено. Для нової передачі потрібні новий перегляд і підтвердження.",
+    not_sent: "Запит зупинено до передачі показів.", last: "Остання спроба", recover: "Перевірити стан передачі",
+    ackCheck: "Я перевірив усі тарифні зони в кабінеті ДТЕК і розумію, що розблокування нічого не надсилає повторно.",
+    ack: "Дозволити нове введення після перевірки", unavailable: "Не вдалося перевірити дані рахунку. Спробуйте завантажити їх пізніше.",
+    unauthorized: "Потрібен активний адміністратор HA з правами читання та керування цим рахунком.",
+    not_available: "Рахунок більше недоступний. Перевірте інтеграцію та вибраний рахунок.",
+    auth_required: "Повторно авторизуйте кабінет у Налаштування → Пристрої та служби.",
+    rate_limited: "ДТЕК обмежив запити. Спробуйте пізніше.",
+    unsupported_meter: "Ця конфігурація не підтримує передачу тут. Наразі підтримується один підключений лічильник споживання: одна зона або День/Ніч. Скористайтеся кабінетом ДТЕК.",
+    pending_or_blocked: "Є поточні/очікувані або заблоковані покази. Перевірте кабінет ДТЕК перед новою передачею.",
+    invalid_readings: "Введіть цілі невід’ємні числа для всіх зон у межах розрядності лічильника, не менші за попередні. Для обнулення чи заміни лічильника скористайтеся кабінетом.",
+    context_changed: "Дані лічильника змінилися. Завантажте актуальні дані та перевірте покази ще раз.",
+    confirmation_expired: "Підтвердження прострочене або вже використане. Перевірте стан передачі перед новою спробою.",
+    already_sent: "Ці значення вже прийняті сьогодні. Перевірте кабінет ДТЕК.",
+    check_cabinet: "Результат попередньої спроби невідомий. Перевірте стан передачі та кабінет ДТЕК.",
+    journal_unavailable: "Не вдалося зберегти або прочитати локальний запис передачі. Перевірте стан передачі та кабінет перед новою спробою.",
+  },
+};
+function node(tag, text) {
+  const el = document.createElement(tag);
+  if (text !== undefined) el.textContent = text;
+  return el;
+}
+
+class DtekAccountReadingsCard extends HTMLElement {
+  constructor() {
+    super(); this.attachShadow({mode: "open"}); this._seq = 0; this._values = {};
+  }
+  setConfig(config) {
+    if (!config.entity || typeof config.entity !== "string") throw new Error("Set an account entity");
+    this._seq++; this._config = {...config}; this._context = null; this._draft = null;
+    this._result = null; this._values = {}; this._error = null; this._uncertain = false; this._busy = false;
+    this.render();
+  }
+  set hass(hass) {
+    const first = !this._hass;
+    this._hass = hass;
+    // hass is replaced on every state update; do not rebuild inputs or confirmation.
+    if (first || !this.shadowRoot.firstChild) this.render();
+  }
+  connectedCallback() { this.render(); }
+  disconnectedCallback() {
+    this._seq++; this._draft = null; this._busy = false;
+    if (this._sending) this._uncertain = true;
+    this._sending = false;
+  }
+  getCardSize() { return 5; }
+  static getStubConfig() { return {entity: "sensor.example_account_data_updated"}; }
+  get w() { return labels[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
+  async request(action, extra = {}) {
+    return this._hass.callWS({type: "dtek_monitor/account_submission", entity_id: this._config.entity, action, ...extra});
+  }
+  async act(action) {
+    if (this._busy || !this._hass) return;
+    const seq = ++this._seq;
+    const draft = this._draft;
+    const context = this._context;
+    this._busy = true; this._error = null; this._sending = action === "confirm";
+    this.render();
+    try {
+      let result;
+      if (action === "context") {
+        result = await this.request(action);
+        if (seq !== this._seq) return;
+        if (context?.serial !== result.serial) this._values = {};
+        this._context = result; this._draft = null; this._result = null; this._uncertain = false;
+      } else if (action === "prepare") {
+        result = await this.request(action, {revision: context.revision, values: {...this._values}});
+        if (seq !== this._seq) return;
+        this._draft = result; this._result = null;
+      } else if (action === "confirm") {
+        result = await this.request(action, {confirmation: draft.confirmation});
+        if (seq !== this._seq) return;
+        this._draft = null; this._result = result; this._uncertain = true;
+      } else {
+        result = await this.request(action, {attempt: context.last_attempt.id});
+        if (seq !== this._seq) return;
+        this._context = null; this._result = result; this._values = {};
+      }
+    } catch (error) {
+      if (seq !== this._seq) return;
+      this._error = error?.code || "unavailable";
+      if (action === "confirm") { this._draft = null; this._uncertain = true; }
+      if (["unauthorized", "not_available", "auth_required"].includes(this._error)) {
+        this._context = null; this._draft = null; this._values = {}; this._result = null;
+      }
+    } finally {
+      if (seq === this._seq) { this._busy = false; this._sending = false; this.render(); }
+    }
+  }
+  button(text, action) {
+    const b = node("button", text); b.type = "button"; b.disabled = this._busy;
+    b.addEventListener("click", action); return b;
+  }
+  gate(card, label, button) {
+    const wrap = node("label"); wrap.className = "check";
+    const check = node("input"); check.type = "checkbox"; check.disabled = this._busy;
+    check.addEventListener("change", () => {button.disabled = !check.checked || this._busy;});
+    wrap.append(check, node("span", label)); card.append(wrap); button.disabled = true; card.append(button);
+  }
+  table(card, rows) {
+    const wrap = node("div"); wrap.className = "scroll";
+    const table = node("table"), head = node("tr");
+    for (const text of ["", this.w.previous, this.w.value, this.w.increase]) head.append(node("th", text));
+    table.append(head);
+    for (const r of rows) {
+      const tr = node("tr");
+      for (const text of [this.w[r.zone.toLowerCase()] || r.zone, r.previous, r.value, r.increase]) tr.append(node("td", String(text)));
+      table.append(tr);
+    }
+    wrap.append(table); card.append(wrap);
+  }
+  render() {
+    if (!this._config) return;
+    const w = this.w, card = node("ha-card");
+    const style = node("style", `:host{display:block}ha-card{padding:20px;overflow:hidden}h2{font-size:1.2em;margin:0 0 12px}p{line-height:1.5;overflow-wrap:anywhere}button,input{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{cursor:pointer;margin:8px 8px 0 0;white-space:normal}button:disabled{opacity:.5;cursor:default}.fields label{display:block;margin:16px 0}.fields input{display:block;box-sizing:border-box;width:100%;margin-top:8px}.check{display:flex;gap:10px;align-items:flex-start;margin:16px 0}.check input{margin-top:4px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 6px;border-bottom:1px solid var(--divider-color,#ddd);white-space:nowrap}.alert{color:var(--error-color,#b22)}a{color:var(--primary-color)}small{display:block;color:var(--secondary-text-color);margin-top:6px}`);
+    card.append(node("h2", this._config.title || w.title));
+    card.append(node("p", w.instructions));
+    const a = node("a", w.cabinet); a.href = "https://my.dtek-oem.com.ua/"; a.target = "_blank"; a.rel = "noopener noreferrer"; card.append(a);
+    if (this._error) { const error = node("p", w[this._error] || w.unavailable); error.className = "alert"; error.setAttribute("role", "alert"); card.append(error); }
+    const ctx = this._context;
+    if (ctx) {
+      card.append(node("p", `${ctx.account} · ${ctx.address}`));
+      if (ctx.serial) card.append(node("p", `${w.serial}: ${ctx.serial} · ${w.date}: ${ctx.date}`));
+    }
+    const result = this._result || ctx?.last_attempt;
+    if (this._uncertain && !this._result) card.append(node("p", w.unknown));
+    if (result) {
+      const p = node("p", w[result.status] || w.unknown); p.setAttribute("role", "status"); card.append(p);
+      if (result.at) card.append(node("small", `${w.last}: ${result.at}`));
+      if (result.readings) this.table(card, result.readings);
+    }
+    if (this._draft) {
+      card.append(node("p", w.review)); this.table(card, this._draft.readings);
+      card.append(this.button(w.back, () => {this._draft = null; this.render();}));
+      this.gate(card, w.checked, this.button(w.confirm, () => this.act("confirm")));
+    } else if (ctx?.blocked && !this._uncertain) {
+      this.gate(card, w.ackCheck, this.button(w.ack, () => this.act("acknowledge")));
+    } else if (ctx && !this._uncertain) {
+      const form = node("form"); form.className = "fields";
+      for (const z of ctx.zones) {
+        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (kWh)`);
+        label.append(node("small", `${w.previous}: ${z.previous} · ${z.date}`));
+        const input = node("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]+";
+        input.maxLength = ctx.digits; input.required = true; input.disabled = this._busy;
+        input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[z.zone.toLowerCase()] || z.zone} (kWh)`);
+        input.addEventListener("input", () => {this._values[z.zone] = input.value;});
+        label.append(input); form.append(label);
+      }
+      const prepare = this.button(w.prepare, () => {}); prepare.type = "submit"; form.append(prepare);
+      form.addEventListener("submit", e => {e.preventDefault(); this.act("prepare");}); card.append(form);
+    }
+    if (!this._draft) card.append(this.button(this._uncertain ? w.recover : w.load, () => this.act("context")));
+    if (this._busy) card.append(node("p", w.loading));
+    this.shadowRoot.replaceChildren(style, card);
+  }
+}
+if (!customElements.get("dtek-account-readings-card")) customElements.define("dtek-account-readings-card", DtekAccountReadingsCard);
+window.customCards = window.customCards || [];
+window.customCards.push({type: "dtek-account-readings-card", name: "DTEK meter readings", description: "Review and explicitly confirm personal meter readings (HA administrators)."});

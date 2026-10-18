@@ -1,4 +1,4 @@
-"""Odessa household cabinet API. All billing operations are read-only."""
+"""Odessa household cabinet API with explicit, non-retried reading submissions."""
 
 from __future__ import annotations
 
@@ -354,3 +354,46 @@ class DTEKAccountClient:
             ),
             "months": months,
         }
+
+    async def read_submission_context(self, number: str) -> dict:
+        from .account_submission import submission_context
+
+        # Recheck household membership for every prepare/confirm, not just on the
+        # six-hour sensor refresh. A removed account must not remain writable.
+        await self.list_accounts()
+        if number not in self._accounts:
+            raise AccountError("Selected personal account is no longer linked")
+        path = f"{BILLING}/meters/household/{number}"
+        details = await self._get(path + "/data")
+        readings = await self._get(path + "/meters-with-readings")
+        return submission_context(
+            details, readings, number, datetime.now(ZoneInfo("Europe/Kyiv")).date()
+        )
+
+    async def submit_readings(self, number: str, readings: list, authorize) -> dict:
+        from .account_submission import SubmissionError, submission_result
+
+        await self._ensure_token()
+        authorize()
+        if number not in self._accounts:
+            raise SubmissionError("not_available")
+        body = {
+            "accountNumber": number,
+            "readings": [
+                {
+                    "deviceEnergyType": "ACTIVE",
+                    "deviceScaleType": r["zone"],
+                    "value": r["value"],
+                }
+                for r in readings
+            ],
+        }
+        # Unlike GET, never retry this POST, including a 401 or a lost response.
+        try:
+            response = await self._request(
+                "POST", f"{BILLING}/meters/household/{number}/readings", json=body
+            )
+            payload = self._decode(response)
+        except AccountError:
+            return {"status": "unknown"}
+        return submission_result(payload, len(readings))
