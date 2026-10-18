@@ -389,6 +389,8 @@ jumps. Pending/unknown submission outcomes block the proposal. Each tariff zone
 keeps its own source and value. An account without a source reports that it needs
 one; it does not borrow another account’s source.
 
+The proposed value is the **cumulative meter reading to submit**, not monthly consumption. In estimate mode it is the saved official reading plus the source counter’s increase since calibration. Whole kWh are rounded down for submission; fractions remain in the calculation. Monthly consumption requires the difference between readings at the month’s boundaries.
+
 **Nothing is sent to DTEK.** A check does not create a submission confirmation,
 change the local reference pair, or issue Telegram messages. Automatic submission
 is not available in this version. A ready result means the estimate passed the
