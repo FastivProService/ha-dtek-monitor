@@ -189,7 +189,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     for (const node of this.shadowRoot.querySelectorAll("[data-i18n]")) node.textContent=t[node.dataset.i18n];
     this._title.textContent=this._config.title || t.title; this._detailsButton.textContent=t.detailsShort; this._detailsButton.setAttribute("aria-label",t.details); this._detailsButton.hidden=!this._account;
     this._pickerLabel.textContent=t.account; this._select.setAttribute("aria-label", t.account);
-    this._picker.hidden=this._config.show_account_selector===false || !this._accounts?.length || this._accounts.length===1;
+    this._picker.hidden=(this._config.show_account_selector===false && !!this._account) || !this._accounts?.length || this._accounts.length===1;
     this._address.textContent=this._account?.address || "";
     this._nav.setAttribute("aria-label", t.title);
     for (const [key, b] of this._tabs) b.textContent=t[key];

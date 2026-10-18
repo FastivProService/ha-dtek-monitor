@@ -127,7 +127,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.locator("input").count(), 0)
 
     async def test_unconfigured_multiple_accounts_require_a_choice(self):
-        await self.page.evaluate("card.setConfig({})")
+        await self.page.evaluate("card.setConfig({show_account_selector:false})")
         self.assertIsNone(await self.page.evaluate("card._account"))
         self.assertEqual(await self.page.get_by_label("Personal account", exact=True).input_value(), "")
         await self.page.get_by_label("Personal account", exact=True).select_option("sensor.account_2")

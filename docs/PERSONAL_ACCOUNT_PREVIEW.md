@@ -248,12 +248,9 @@ consumption for a selected year. Each card belongs to one account. It uses your
 Home Assistant session and requires permission to read the configured entity
 and all sensors of that account; the browser never receives your DTEK password or API tokens.
 
-1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
-2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b11` as a **JavaScript module**.
-   When upgrading, edit this existing resource URL instead of adding another copy.
-4. Add a manual card to a private dashboard with the configuration below.
-   Replace the entity with **Account data updated** from the desired account device.
+Choose **DTEK account history** in the card picker and select its account.
+The module is loaded automatically. For manual configuration, replace the entity
+below with **Account data updated** from the desired account device.
 
 ```yaml
 type: custom:dtek-account-history-card
@@ -323,9 +320,8 @@ type: custom:dtek-account-number-card
 entity: sensor.example_account_data_updated
 ```
 
-It is loaded automatically by either DTEK custom card resource above. If you use
-neither, register `/dtek_monitor/account-number.js?v=1.8.0b11` as a JavaScript module
-in Resources. Existing entity IDs and masked device labels are unchanged.
+The integration loads this card automatically. Existing entity IDs and masked
+device labels are unchanged.
 
 ## Send meter readings
 
@@ -334,8 +330,8 @@ write to your DTEK account only after you review and explicitly confirm the valu
 Opening the card, loading meter data and reviewing values do not send readings.
 Use actual meter readings or reviewed source proposals; never use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b11` as another **JavaScript module**
-in dashboard Resources, then add this manual card to a private dashboard:
+Choose **DTEK meter readings** in the card picker, or add this manual card
+to a private dashboard. No resource registration is needed:
 
 ```yaml
 type: custom:dtek-account-readings-card
@@ -533,9 +529,8 @@ The journal survives restarts. An interrupted scheduled check is marked as such,
 without repeating that day; journal errors stop checks until resolved.
 
 For a readable journal on a dashboard, add **DTEK reading checks** in the card
-picker and choose its account. Loading the readings card resource also registers
-this card. For a standalone journal, register
-`/dtek_monitor/account-check-card.js?v=1.8.0b11` as a JavaScript module. YAML example:
+picker and choose its account. The integration loads the card automatically.
+In My DTEK, the journal is under Settings. YAML example:
 
 ```yaml
 type: custom:dtek-account-check-card
