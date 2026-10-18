@@ -2,6 +2,10 @@
 
 [English](README.md) · **Українська**
 
+> **Доступна публічна бета 2.0.0b1:** особистий кабінет Одеси, панель «Мій ДТЕК», передача показів, датчики енергії та сітка графіків.
+> [Випуск](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v2.0.0b1) · [Встановлення, оновлення й відновлення](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.uk.md) · [Посібник усіх можливостей](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.uk.md).
+> Бета встановлюється за бажанням; стабільний випуск — **1.7.0**. Нижче описано стабільну версію.
+
 [![Користувацька інтеграція HACS](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![Ліцензія PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
 

@@ -2,6 +2,10 @@
 
 **English** · [Українська](README.uk.md)
 
+> **Public beta 2.0.0b1 is available:** Odesa personal cabinet, My DTEK dashboard, meter-reading submissions, energy sensors and a schedule grid.
+> [Release](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v2.0.0b1) · [Installation, upgrade and rollback](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.md) · [Complete feature guide](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.md).
+> The beta is opt-in; **1.7.0** remains the stable release. The instructions below describe the stable version.
+
 [![HACS custom integration](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
 
