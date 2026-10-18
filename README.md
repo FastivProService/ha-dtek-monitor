@@ -109,6 +109,9 @@ Some operators, including Kyiv city, do not publish meaningful public group numb
 
 A failed verification makes the live calendars unavailable. The integration does not silently reuse old data as fresh or interpret an unpublished day as “no outages.” Address sensors can still update if only the schedule request failed.
 
+An address confirmed by DTEK can also finish its first setup without a schedule.
+Check **Schedule availability** for the reason; retries and recovery are automatic.
+
 The separate saved calendar remains viewable, including after a restart. It stores concrete events within an eight-day snapshot horizon; it does not invent dates that DTEK has not published or repeat an old weekly template indefinitely. Details: [freshness and automation rules](docs/REFERENCE.md#freshness).
 
 <a id="troubleshooting"></a>

@@ -107,6 +107,72 @@ class SnapshotRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 await setup_module.async_setup_entry(self.hass, self.entry)
             self.client.close.assert_awaited_once()
 
+    async def test_first_refresh_without_schedule_loads_address_and_recovers(self):
+        self.client.get_home_status.return_value["showTablePlan"] = False
+        self.entry.add_update_listener = Mock(return_value=lambda: None)
+        with (
+            patch.object(
+                setup_module, "_async_migrate_registry_identifiers", AsyncMock()
+            ),
+            patch.object(setup_module, "create_provider", return_value=self.provider),
+        ):
+            self.assertTrue(await setup_module.async_setup_entry(self.hass, self.entry))
+        coord = self.entry.runtime_data
+        self.hass.config_entries.async_forward_entry_setups.assert_awaited_once()
+        self.assertTrue(coord.address_success)
+        self.assertFalse(coord.notifications_ready)
+        self.assertIsNone(coord.snapshot)
+        self.assertIsNone(coord.data)
+        self.assertEqual(
+            sensors.DTEKScheduleStatusSensor(coord, self.entry).native_value, "missing"
+        )
+        self.assertTrue(binary.DTEKPowerBinarySensor(coord, self.entry).available)
+        calendar_entity = calendar.DTEKScheduleCalendar(
+            coord, self.entry, "outage", "outage_schedule", "outage_schedule"
+        )
+        self.assertFalse(calendar_entity.available)
+        now = datetime.now(coordinator.KYIV_TZ)
+        with self.assertRaises(calendar.HomeAssistantError):
+            await calendar_entity.async_get_events(
+                self.hass, now, now + timedelta(days=1)
+            )
+        # Adding an HA entity listener must restart polling after first-refresh failure.
+        unsubscribe = coord.async_add_listener(Mock())
+        try:
+            self.assertIsNotNone(coord._unsub_refresh)
+            self.client.get_home_status.return_value["data"]["12А"][
+                "sub_type_reason"
+            ] = ["GPV3.1"]
+            await coord.async_refresh()
+            self.assertEqual(coord.address_data["schedule_groups"], ["GPV3.1"])
+            self.assertFalse(coord.notifications_ready)
+            self.assertIsNone(coord.snapshot)
+            day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            self.schedule["fact"]["data"] = {
+                str(int(day.timestamp())): {
+                    "GPV3.1": {str(h): "yes" for h in range(1, 25)}
+                }
+            }
+            await coord.async_refresh()
+            self.assertTrue(calendar_entity.available)
+            self.assertEqual(coord.data["schedule_groups"], ["GPV3.1"])
+            self.assertEqual(coord.snapshot.groups, ("GPV3.1",))
+            self.assertEqual(
+                sensors.DTEKScheduleStatusSensor(coord, self.entry).native_value,
+                "current",
+            )
+            self.schedule["fact"]["data"] = []
+            await coord.async_refresh()
+            self.assertFalse(calendar_entity.available)
+            self.assertEqual(
+                sensors.DTEKScheduleStatusSensor(coord, self.entry).native_value,
+                "missing",
+            )
+            self.assertEqual(coord.snapshot_attributes["data_status"], "stale")
+            self.assertEqual(coord.snapshot_attributes["schedule_coverage"], [])
+        finally:
+            unsubscribe()
+
     async def test_schedule_failure_keeps_current_address_but_old_display_groups(self):
         saved = await self.snapshot()
         self.client.get_home_status.return_value = {

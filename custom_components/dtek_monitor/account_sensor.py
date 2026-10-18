@@ -3,11 +3,43 @@
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.const import EntityCategory, UnitOfEnergy
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .account import CONF_ACCOUNTS, account_key
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
+
+
+def remove_unselected_accounts(hass, entry):
+    """Prune only this connection's unselected cabinet entities on reload."""
+    selected = {
+        f"account:{account_key(entry.data[CONF_PROVIDER], number)}"
+        for number in entry.data[CONF_ACCOUNTS]
+    }
+    entities = er.async_get(hass)
+    for entity in er.async_entries_for_config_entry(entities, entry.entry_id):
+        identity = ":".join(entity.unique_id.split(":")[:2])
+        if (
+            entity.platform == DOMAIN
+            and identity.startswith("account:")
+            and identity not in selected
+        ):
+            entities.async_remove(entity.entity_id)
+    devices = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(devices, entry.entry_id):
+        identities = {
+            value
+            for domain, value in device.identifiers
+            if domain == DOMAIN and value.startswith("account:")
+        }
+        # Never remove a shared device or an independently imported address.
+        if (
+            identities
+            and not identities & selected
+            and device.config_entries == {entry.entry_id}
+        ):
+            devices.async_remove_device(device.id)
 
 
 def account_sensors(coordinator, entry):

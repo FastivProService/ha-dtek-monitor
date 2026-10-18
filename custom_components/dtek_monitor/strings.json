@@ -105,13 +105,33 @@
         "data": {
           "address_account": "Account address"
         }
+      },
+      "account_menu": {
+        "title": "Personal account settings",
+        "menu_options": {
+          "account_selection": "Select personal accounts",
+          "account": "Add building monitoring"
+        }
+      },
+      "account_selection": {
+        "title": "Accounts to monitor",
+        "description": "Select at least one account. Entities for deselected accounts will be removed; independent addresses and the bot are unaffected. Changes reload this connection.",
+        "data": {
+          "accounts": "Personal accounts"
+        }
       }
     },
     "error": {
-      "select_accounts": "Select at least one available account."
+      "select_accounts": "Select at least one available account.",
+      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added."
     },
     "abort": {
-      "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup."
+      "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
+      "account_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "account_cannot_connect": "Cannot read the personal account service. Try again later.",
+      "no_accounts": "No supported household accounts were found.",
+      "account_mismatch": "Sign in to the same DTEK account.",
+      "account_auth_required": "Authentication is no longer valid. Reauthenticate this connection."
     }
   },
   "entity": {
@@ -181,6 +201,16 @@
       },
       "account_reading_date_general": {
         "name": "Reading date"
+      },
+      "schedule_status": {
+        "name": "Schedule availability",
+        "state": {
+          "current": "Schedule verified",
+          "missing": "Schedule currently unavailable",
+          "unpublished": "Schedule publication disabled",
+          "unsupported": "Schedule operator not supported",
+          "error": "Could not verify schedule"
+        }
       }
     },
     "calendar": {
@@ -193,6 +223,19 @@
       "last_known_schedule": {
         "name": "Last known schedule (view only)"
       }
+    },
+    "button": {
+      "account_refresh": {
+        "name": "Refresh all accounts"
+      }
+    }
+  },
+  "exceptions": {
+    "account_refresh_cooldown": {
+      "message": "Another refresh is available in {seconds} seconds."
+    },
+    "account_refresh_failed": {
+      "message": "Not all accounts could be refreshed. Check the connection status; unavailable data is not replaced with zero."
     }
   }
 }

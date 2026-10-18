@@ -38,7 +38,7 @@ from .const import (
 from .provider import Address, ProviderError
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, PROVIDERS, create_provider
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
-from .account_flow import AccountFlowMixin, account_options
+from .account_flow import AccountFlowMixin, account_options, select_account_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -392,7 +392,7 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage runtime options for an existing entry."""
         if self._config_entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
-            return await self.async_step_account(user_input)
+            return await self.async_step_account_menu()
         if user_input is not None:
             return self.async_create_entry(
                 title="",
@@ -433,3 +433,11 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
 
     async def async_step_account(self, user_input=None):
         return await account_options(self, self._config_entry, user_input)
+
+    async def async_step_account_menu(self, user_input=None):
+        return self.async_show_menu(
+            step_id="account_menu", menu_options=["account_selection", "account"]
+        )
+
+    async def async_step_account_selection(self, user_input=None):
+        return await select_account_options(self, self._config_entry, user_input)

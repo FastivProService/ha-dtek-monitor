@@ -25,13 +25,16 @@ PLATFORMS: list[Platform] = [
     Platform.CALENDAR,
     Platform.SENSOR,
 ]
+ACCOUNT_PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up DTEK Monitor from a config entry."""
     if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
         from .account_coordinator import AccountCoordinator
+        from .account_sensor import remove_unselected_accounts
 
+        remove_unselected_accounts(hass, entry)
         client = create_account_provider(entry.data[CONF_PROVIDER])
         coordinator = AccountCoordinator(hass, entry, client)
         try:
@@ -39,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry.runtime_data = coordinator
             entry.async_on_unload(entry.add_update_listener(async_reload_entry))
             await hass.config_entries.async_forward_entry_setups(
-                entry, [Platform.SENSOR]
+                entry, ACCOUNT_PLATFORMS
             )
         except BaseException:
             await client.close()
@@ -54,10 +57,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     try:
         await coordinator.async_config_entry_first_refresh()
     except ConfigEntryNotReady:
-        if coordinator.snapshot is None:
+        if coordinator.snapshot is None and not coordinator.address_success:
             await provider.close()
             raise
-        _LOGGER.info("DTEK unavailable; exposing the last known schedule for display")
+        _LOGGER.info(
+            "DTEK schedule unavailable; setting up available address data and diagnostics"
+        )
     except Exception:
         await provider.close()
         raise
@@ -102,7 +107,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a DTEK Monitor config entry."""
     if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
         unload_ok = await hass.config_entries.async_unload_platforms(
-            entry, [Platform.SENSOR]
+            entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
             await entry.runtime_data.client.close()

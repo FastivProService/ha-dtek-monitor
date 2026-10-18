@@ -235,3 +235,82 @@ async def account_options(flow, entry, user_input: dict[str, Any] | None):
         ),
         errors=errors,
     )
+
+
+async def select_account_options(flow, entry, user_input):
+    """Fetch choices once; never overwrite an open form with background updates."""
+    errors = {}
+    available = getattr(flow, "_account_choices", None)
+    if available is None:
+        client = create_account_provider(entry.data[CONF_PROVIDER])
+        try:
+            subject = await client.authenticate(
+                entry.data[CONF_USERNAME], entry.data[CONF_PASSWORD]
+            )
+            if subject != entry.data[CONF_ACCOUNT_SUBJECT]:
+                return flow.async_abort(reason="account_mismatch")
+            available = {a.number: a for a in await client.list_accounts()}
+            if not available:
+                return flow.async_abort(reason="no_accounts")
+            flow._account_choices = available
+        except AccountAuthError:
+            entry.async_start_reauth(flow.hass)
+            return flow.async_abort(reason="account_auth_required")
+        except AccountRateLimitError:
+            return flow.async_abort(reason="account_rate_limit")
+        except AccountError:
+            return flow.async_abort(reason="account_cannot_connect")
+        finally:
+            await client.close()
+    selected = user_input.get(CONF_ACCOUNTS) if user_input is not None else None
+    if user_input is not None:
+        if (
+            not isinstance(selected, list)
+            or not selected
+            or any(not isinstance(n, str) or n not in available for n in selected)
+        ):
+            errors["base"] = "select_accounts"
+        else:
+            claimed = {
+                n
+                for other in flow.hass.config_entries.async_entries(DOMAIN)
+                if other.entry_id != entry.entry_id
+                and other.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT
+                and other.data.get(CONF_PROVIDER) == entry.data[CONF_PROVIDER]
+                for n in other.data.get(CONF_ACCOUNTS, {})
+            }
+            if claimed.intersection(selected):
+                errors["base"] = "accounts_already_configured"
+            else:
+                flow.hass.config_entries.async_update_entry(
+                    entry,
+                    data={
+                        **entry.data,
+                        CONF_ACCOUNTS: {n: available[n].address for n in selected},
+                    },
+                )
+                return flow.async_create_entry(title="", data=dict(entry.options))
+    default = (
+        selected
+        if isinstance(selected, list)
+        and all(isinstance(n, str) and n in available for n in selected)
+        else [n for n in entry.data[CONF_ACCOUNTS] if n in available]
+    )
+    return flow.async_show_form(
+        step_id="account_selection",
+        data_schema=vol.Schema(
+            {
+                vol.Required(CONF_ACCOUNTS, default=default): SelectSelector(
+                    SelectSelectorConfig(
+                        options=[
+                            {"value": a.number, "label": a.label}
+                            for a in available.values()
+                        ],
+                        multiple=True,
+                        mode=SelectSelectorMode.LIST,
+                    )
+                )
+            }
+        ),
+        errors=errors,
+    )

@@ -120,6 +120,7 @@ async def async_setup_entry(
                 for description in SENSOR_DESCRIPTIONS
             ),
             DTEKConnectionSensor(coordinator, entry),
+            DTEKScheduleStatusSensor(coordinator, entry),
         ]
     )
 
@@ -234,4 +235,34 @@ class DTEKConnectionSensor(SensorEntity):
             "last_error": c.last_error,
             "consecutive_failures": c.consecutive_failures,
             **c.provider.diagnostics,
+        }
+
+
+class DTEKScheduleStatusSensor(DTEKConnectionSensor):
+    """Explain missing schedules even before the first successful calendar fetch."""
+
+    _attr_translation_key = "schedule_status"
+    _attr_options = ["current", "missing", "unpublished", "unsupported", "error"]
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = build_entity_unique_id(entry, "schedule_status")
+        self.entity_id = suggested_entity_id(entry, "sensor", "schedule_status")
+
+    @property
+    def native_value(self):
+        if self.coordinator.notifications_ready:
+            return "current"
+        if self.coordinator.schedule_reason is not None:
+            return self.coordinator.schedule_state
+        return "error"
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "notifications_ready": self.coordinator.notifications_ready,
+            "reason": self.coordinator.schedule_reason or self.coordinator.last_error,
+            "last_verified_at": self.coordinator.snapshot_attributes[
+                "last_verified_at"
+            ],
         }

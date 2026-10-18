@@ -2,9 +2,16 @@
 
 from datetime import timedelta
 import logging
+import asyncio
+import math
+from time import monotonic
 
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .account import (
@@ -17,6 +24,7 @@ from .account import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+MANUAL_REFRESH_SECONDS = 60
 
 
 class AccountCoordinator(DataUpdateCoordinator):
@@ -33,8 +41,35 @@ class AccountCoordinator(DataUpdateCoordinator):
         self.client = client
         self.entry = entry
         self._authenticated = False
+        self._last_attempt = None
+        self._manual_refresh_lock = asyncio.Lock()
+
+    async def async_manual_refresh(self):
+        """One limit per connection, including failed attempts and all buttons."""
+        async with self._manual_refresh_lock:
+            remaining = (
+                MANUAL_REFRESH_SECONDS - (monotonic() - self._last_attempt)
+                if self._last_attempt is not None
+                else 0
+            )
+            if remaining > 0:
+                raise ServiceValidationError(
+                    translation_domain="dtek_monitor",
+                    translation_key="account_refresh_cooldown",
+                    translation_placeholders={"seconds": str(math.ceil(remaining))},
+                )
+            self._last_attempt = monotonic()
+            await self.async_refresh()
+            if not self.last_update_success or any(
+                v is None for v in (self.data or {}).values()
+            ):
+                raise HomeAssistantError(
+                    translation_domain="dtek_monitor",
+                    translation_key="account_refresh_failed",
+                )
 
     async def _async_update_data(self):
+        self._last_attempt = monotonic()
         try:
             if not self._authenticated:
                 subject = await self.client.authenticate(
