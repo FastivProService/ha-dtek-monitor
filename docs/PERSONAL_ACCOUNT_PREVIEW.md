@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b4`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b5`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -74,7 +74,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b4` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b5` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -112,6 +112,32 @@ An empty year is shown explicitly. More than 1,000 returned rows or 20 API pages
 inconsistent pagination, or malformed data produces an error instead of a
 silently truncated history. Older years are available only when DTEK returns them.
 
+## Show or hide the account number
+
+The history and submission cards include an eye button next to **Account number**.
+Numbers start masked. Choose **Show account number** to request the full number
+using your HA session; choose **Hide account number** before taking a screenshot.
+This works for users with permission to read all sensors of that selected account,
+without requiring administrator rights. Submission still requires an administrator.
+
+This is a display convenience, not password protection. The full number is not
+added to sensor states, attributes, device names or browser storage. Hiding it
+clears the displayed value; rebuilding/closing the card masks it again. Toggling
+the eye does not reset reading inputs, selection of the year or pagination.
+The eye controls the account number only; an address or meter serial shown on
+the same card is still visible.
+
+For a dashboard using standard cards, add this compact card alongside them:
+
+```yaml
+type: custom:dtek-account-number-card
+entity: sensor.example_account_data_updated
+```
+
+It is loaded automatically by either DTEK custom card resource above. If you use
+neither, register `/dtek_monitor/account-number.js?v=1.8.0b5` as a JavaScript module
+in Resources. Existing entity IDs and masked device labels are unchanged.
+
 ## Send meter readings
 
 This preview includes a separate **DTEK meter readings** card. It performs a real
@@ -119,7 +145,7 @@ write to your DTEK account only after you review and explicitly confirm the valu
 Opening the card, loading meter data and reviewing values do not send readings.
 Use actual readings from your meter; do not use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b4` as another **JavaScript module**
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b5` as another **JavaScript module**
 in dashboard Resources, then add this manual card to a private dashboard:
 
 ```yaml
@@ -152,6 +178,12 @@ metadata require the DTEK cabinet. Use the cabinet for meter rollover,
 replacement, corrections or photo attachments. The integration does not invent
 a reading date: the observed submission endpoint assigns it on DTEK's side.
 
+[DTEK's FAQ](https://www.dtek-oem.com.ua/ua/faq) explains that readings submitted
+outside the monthly reporting window are recorded on the submission date. They
+can still be used in estimated billing calculations. There is no separate
+"monthly reading" flag in the observed request. The integration does not turn
+the difference between readings into a closed month's consumption.
+
 A successful HTTP response alone is not treated as acceptance. The card reports
 acceptance only when DTEK explicitly confirms every submitted zone. This is
 receipt of readings, not a final billing calculation. Partial responses, network
@@ -171,9 +203,9 @@ in HA's `.storage`; include it when backing up/restoring this preview.
 History caches are invalidated after an attempted submission. An already open
 history card and account sensors still need their respective refresh actions;
 DTEK may take time to expose the new record. Their previous values are not proof
-that a submission failed. This feature has synthetic tests for submission
-outcomes; live verification has covered loading/preparing only, without writing
-test readings to a real account.
+that a submission failed. Submission outcomes have synthetic tests. One live submission of actual
+single-zone readings has also been verified with the owner’s authorization:
+DTEK confirmed acceptance and history contained an active record dated on submission.
 
 ## Dashboard card
 

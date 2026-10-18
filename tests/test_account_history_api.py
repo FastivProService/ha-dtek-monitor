@@ -13,6 +13,49 @@ if runtime.runtime.HAS_HA:
 
 @unittest.skipUnless(runtime.runtime.HAS_HA, "Requires Home Assistant")
 class HistoryAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def identity(self, reveal):
+        with patch.object(
+            api.er, "async_get", return_value=self.registry
+        ), patch.object(
+            api.er,
+            "async_entries_for_config_entry",
+            return_value=[self.entity, *getattr(self, "extra_entities", [])],
+        ):
+            api.websocket_identity(
+                self.hass,
+                self.connection,
+                {
+                    "id": 2,
+                    "entity_id": self.entity.entity_id,
+                    "reveal": reveal,
+                },
+            )
+
+    async def test_identity_defaults_masked_and_read_permission_allows_explicit_reveal(
+        self,
+    ):
+        self.connection.user.is_admin = False
+        await self.identity(False)
+        self.connection.send_result.assert_called_with(2, {"masked": "••••0001"})
+        await self.identity(True)
+        self.connection.send_result.assert_called_with(
+            2, {"masked": "••••0001", "number": "100001"}
+        )
+        self.account_coord.history.get.assert_not_awaited()
+
+    async def test_identity_reveal_rechecks_permissions_and_account_membership(self):
+        await self.identity(True)
+        self.connection.send_result.reset_mock()
+        self.connection.user.permissions.check_entity.return_value = False
+        await self.identity(True)
+        self.connection.send_result.assert_not_called()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "unauthorized")
+        self.connection.user.permissions.check_entity.return_value = True
+        self.entry.data = {**self.entry.data, "accounts": {}}
+        await self.identity(True)
+        self.connection.send_result.assert_not_called()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "not_available")
+
     async def asyncSetUp(self):
         await runtime.AccountRuntimeTests.asyncSetUp(self)
         self.entry.state = ConfigEntryState.LOADED

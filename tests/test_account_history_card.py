@@ -3,6 +3,7 @@
 import importlib.util
 import unittest
 from pathlib import Path
+from card_browser import install_card
 
 HAS_PLAYWRIGHT = importlib.util.find_spec("playwright") is not None
 if HAS_PLAYWRIGHT:
@@ -22,8 +23,7 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
         self.page = await self.browser.new_page(
             viewport={"width": 430, "height": 900}, timezone_id="America/Los_Angeles"
         )
-        await self.page.set_content("<main></main>")
-        await self.page.add_script_tag(path=str(SCRIPT))
+        await install_card(self.page, SCRIPT)
         await self.page.evaluate("""() => {
           window.result = (year) => ({year, fetched_at:`${year}-10-18T13:00:00+03:00`, months:Array.from({length:12},(_,i)=>({period:`${year}-${String(i+1).padStart(2,'0')}`,status:i<2?'closed':i===9?'open':'missing',value:i===0?'-12':i===1?'0':null,zones:i===0?{DAY:'-15',NIGHT:'3'}:{}})),readings:Array.from({length:12},(_,i)=>({date_time:`${year}-09-30T23:59:00+03:00`,value:String(100+i),zone:'GENERAL',energy:'ACTIVE',source:i===0?'<img src=x onerror="window.injected=true">':'Test',status:i===0?'inactive':'active'}))});
           window.requests=[];window.pending=[];
@@ -38,7 +38,7 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
 
     async def load(self, language="en"):
         await self.page.evaluate(
-            """language => { window.hass={language,callWS:async msg=>{requests.push(msg);return result(msg.year);}};card.hass=hass; }""",
+            """language => { window.hass={language,callWS:async msg=>{if(msg.type==='dtek_monitor/account_identity')return {masked:'••••0001'};requests.push(msg);return result(msg.year);}};card.hass=hass; }""",
             language,
         )
         (
@@ -68,7 +68,7 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_late_response_cannot_overwrite_user_year_choice(self):
         await self.page.evaluate(
-            """() => {card.hass={language:'en',callWS:msg=>new Promise(resolve=>{requests.push(msg);pending.push({msg,resolve});})};}"""
+            """() => {card.hass={language:'en',callWS:msg=>msg.type==='dtek_monitor/account_identity'?Promise.resolve({masked:'••••0001'}):new Promise(resolve=>{requests.push(msg);pending.push({msg,resolve});})};}"""
         )
         await self.page.get_by_label("Year", exact=True).select_option("2025")
         await self.page.evaluate("pending[1].resolve(result(2025))")
@@ -97,6 +97,31 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(await self.page.evaluate("requests.length"), 2)
 
+    async def test_eye_does_not_reset_year_or_pagination(self):
+        await self.load()
+        await self.page.get_by_label("Year", exact=True).select_option("2025")
+        await self.page.get_by_text("Monthly consumption · 2025", exact=True).wait_for()
+        await self.page.get_by_role("button", name="Next", exact=True).click()
+        await self.page.evaluate("""() => {
+          const old=hass.callWS;
+          hass.callWS=msg=>msg.type==='dtek_monitor/account_identity'
+            ? Promise.resolve({masked:'••••0001',number:'1234500001'}) : old(msg);
+        }""")
+        await self.page.get_by_role(
+            "button", name="Show account number", exact=True
+        ).click()
+        await self.page.get_by_text("Account number: 1234500001", exact=True).wait_for()
+        await self.page.get_by_role(
+            "button", name="Hide account number", exact=True
+        ).click()
+        self.assertEqual(
+            await self.page.get_by_label("Year", exact=True).input_value(), "2025"
+        )
+        self.assertEqual(
+            await self.page.get_by_text("Page 2 / 2", exact=True).count(), 1
+        )
+        self.assertEqual(await self.page.evaluate("requests.length"), 2)
+
     async def test_failed_force_refresh_marks_existing_data_and_denial_clears_it(self):
         await self.load()
         await self.page.evaluate(
@@ -105,7 +130,7 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
         await self.page.get_by_role(
             "button", name="Refresh history", exact=True
         ).click()
-        await self.page.get_by_role("alert").wait_for()
+        await self.page.locator("p.error[role=alert]").wait_for()
         self.assertEqual(
             await self.page.get_by_text(
                 "Monthly consumption · 2026", exact=True
@@ -137,7 +162,7 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_disconnect_discards_pending_result_and_reconnect_loads_again(self):
         await self.page.evaluate(
-            """() => {card.hass={language:'en',callWS:msg=>new Promise(resolve=>pending.push({msg,resolve}))};card.remove();pending[0].resolve(result(2026));document.querySelector('main').append(card);}"""
+            """() => {card.hass={language:'en',callWS:msg=>msg.type==='dtek_monitor/account_identity'?Promise.resolve({masked:'••••0001'}):new Promise(resolve=>pending.push({msg,resolve}))};card.remove();pending[0].resolve(result(2026));document.querySelector('main').append(card);}"""
         )
         self.assertEqual(await self.page.evaluate("pending.length"), 2)
         await self.page.evaluate("pending[1].resolve(result(2026))")

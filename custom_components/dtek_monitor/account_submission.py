@@ -243,7 +243,13 @@ class SubmissionManager:
             record = self._record(number)
             if self._unresolved(number):
                 return {"blocked": True, "last_attempt": record}
-            context = await self.client.read_submission_context(number)
+            try:
+                context = await self.client.read_submission_context(number)
+            except SubmissionError as error:
+                if error.code not in ("pending_or_blocked", "unsupported_meter"):
+                    raise
+                authorize()
+                return {"blocked": True, "reason": error.code, "last_attempt": record}
             authorize()
             return {**context, "blocked": False, "last_attempt": record}
 

@@ -1,4 +1,5 @@
 /* DTEK account history. No external assets or credentials in the browser. */
+import { accountNumber } from "./account-number.js?v=1.8.0b5";
 const words = {
   en: {
     title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
@@ -113,6 +114,7 @@ class DtekAccountHistoryCard extends HTMLElement {
     root.replaceChildren(element("style",css));
     const card=element("ha-card"); root.append(card);
     card.append(element("h2",this._config.title || t.title));
+    card.append(accountNumber(this._hass, this._config.entity));
     const controls=element("div",undefined,"controls"), label=element("label",t.year), select=element("select");
     select.setAttribute("aria-label",t.year);
     const current=Number(new Intl.DateTimeFormat("en",{year:"numeric",timeZone:"Europe/Kyiv"}).format(new Date()));

@@ -7,6 +7,7 @@ from homeassistant.auth.permissions.const import POLICY_READ
 from homeassistant.components import websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 
 from .account import (
@@ -45,6 +46,7 @@ async def async_setup_history(hass):
 
     await async_setup_submissions(hass)
     websocket_api.async_register_command(hass, websocket_history)
+    websocket_api.async_register_command(hass, websocket_identity)
     if "http" in hass.config.components:
         await hass.http.async_register_static_paths(
             [
@@ -52,25 +54,24 @@ async def async_setup_history(hass):
                     "/dtek_monitor/account-history-card.js",
                     str(Path(__file__).parent / "frontend" / "account-history-card.js"),
                     False,
-                )
+                ),
+                StaticPathConfig(
+                    "/dtek_monitor/account-number.js",
+                    str(Path(__file__).parent / "frontend" / "account-number.js"),
+                    False,
+                ),
             ]
         )
 
 
-@websocket_api.websocket_command(
-    {
-        vol.Required("type"): "dtek_monitor/account_history",
-        vol.Required("entity_id"): str,
-        vol.Required("year"): int,
-        vol.Optional("force", default=False): bool,
-    }
-)
-@websocket_api.async_response
-async def websocket_history(hass, connection, msg):
-    entity_id = msg["entity_id"]
+class AccountAccessError(Exception):
+    def __init__(self, code):
+        self.code = code
+
+
+def resolve_readable_account(hass, connection, entity_id):
     if not connection.user.permissions.check_entity(entity_id, POLICY_READ):
-        connection.send_error(msg["id"], "unauthorized", "History access denied")
-        return
+        raise AccountAccessError("unauthorized")
     entity = er.async_get(hass).async_get(entity_id)
     entry = (
         hass.config_entries.async_get_entry(entity.config_entry_id) if entity else None
@@ -84,10 +85,7 @@ async def websocket_history(hass, connection, msg):
         or entry.data.get(CONF_ENTRY_KIND) != ENTRY_ACCOUNT
         or entry.state != ConfigEntryState.LOADED
     ):
-        connection.send_error(
-            msg["id"], "not_available", "Personal account is unavailable"
-        )
-        return
+        raise AccountAccessError("not_available")
     number = next(
         (
             n
@@ -99,12 +97,48 @@ async def websocket_history(hass, connection, msg):
         None,
     )
     if number is None:
-        connection.send_error(
-            msg["id"], "not_available", "Personal account is unavailable"
-        )
-        return
+        raise AccountAccessError("not_available")
     if not _can_read_account(hass, connection, entry, number):
-        connection.send_error(msg["id"], "unauthorized", "History access denied")
+        raise AccountAccessError("unauthorized")
+    return entry, number, entity
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "dtek_monitor/account_identity",
+        vol.Required("entity_id"): str,
+        vol.Optional("reveal", default=False): bool,
+    }
+)
+@callback
+def websocket_identity(hass, connection, msg):
+    # Local registry/config data only: no DTEK request and no state attributes.
+    try:
+        _, number, _ = resolve_readable_account(hass, connection, msg["entity_id"])
+    except AccountAccessError as error:
+        connection.send_error(msg["id"], error.code, "Personal account is unavailable")
+        return
+    result = {"masked": f"••••{number[-4:]}"}
+    if msg["reveal"]:
+        result["number"] = number
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "dtek_monitor/account_history",
+        vol.Required("entity_id"): str,
+        vol.Required("year"): int,
+        vol.Optional("force", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def websocket_history(hass, connection, msg):
+    entity_id = msg["entity_id"]
+    try:
+        entry, number, entity = resolve_readable_account(hass, connection, entity_id)
+    except AccountAccessError as error:
+        connection.send_error(msg["id"], error.code, "Personal account is unavailable")
         return
     coordinator = entry.runtime_data
     try:

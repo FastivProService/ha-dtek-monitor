@@ -1,4 +1,5 @@
 /* Explicit readings submission. HA state updates never replace an edited form. */
+import { accountNumber } from "./account-number.js?v=1.8.0b5";
 const labels = {
   en: {
     title: "Send DTEK meter readings", load: "Load current meter", prepare: "Review readings", confirm: "Confirm and send to DTEK",
@@ -156,12 +157,13 @@ class DtekAccountReadingsCard extends HTMLElement {
     const w = this.w, card = node("ha-card");
     const style = node("style", `:host{display:block}ha-card{padding:20px;overflow:hidden}h2{font-size:1.2em;margin:0 0 12px}p{line-height:1.5;overflow-wrap:anywhere}button,input{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{cursor:pointer;margin:8px 8px 0 0;white-space:normal}button:disabled{opacity:.5;cursor:default}.fields label{display:block;margin:16px 0}.fields input{display:block;box-sizing:border-box;width:100%;margin-top:8px}.check{display:flex;gap:10px;align-items:flex-start;margin:16px 0}.check input{margin-top:4px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 6px;border-bottom:1px solid var(--divider-color,#ddd);white-space:nowrap}.alert{color:var(--error-color,#b22)}a{color:var(--primary-color)}small{display:block;color:var(--secondary-text-color);margin-top:6px}`);
     card.append(node("h2", this._config.title || w.title));
+    card.append(accountNumber(this._hass, this._config.entity));
     card.append(node("p", w.instructions));
     const a = node("a", w.cabinet); a.href = "https://my.dtek-oem.com.ua/"; a.target = "_blank"; a.rel = "noopener noreferrer"; card.append(a);
     if (this._error) { const error = node("p", w[this._error] || w.unavailable); error.className = "alert"; error.setAttribute("role", "alert"); card.append(error); }
     const ctx = this._context;
     if (ctx) {
-      card.append(node("p", `${ctx.account} · ${ctx.address}`));
+      card.append(node("p", ctx.address));
       if (ctx.serial) card.append(node("p", `${w.serial}: ${ctx.serial} · ${w.date}: ${ctx.date}`));
     }
     const result = this._result || ctx?.last_attempt;
@@ -176,7 +178,9 @@ class DtekAccountReadingsCard extends HTMLElement {
       card.append(this.button(w.back, () => {this._draft = null; this.render();}));
       this.gate(card, w.checked, this.button(w.confirm, () => this.act("confirm")));
     } else if (ctx?.blocked && !this._uncertain) {
-      this.gate(card, w.ackCheck, this.button(w.ack, () => this.act("acknowledge")));
+      if (["unknown", "partial"].includes(ctx.last_attempt?.status)) {
+        this.gate(card, w.ackCheck, this.button(w.ack, () => this.act("acknowledge")));
+      } else card.append(node("p", w[ctx.reason] || w.unsupported_meter));
     } else if (ctx && !this._uncertain) {
       const form = node("form"); form.className = "fields";
       for (const z of ctx.zones) {

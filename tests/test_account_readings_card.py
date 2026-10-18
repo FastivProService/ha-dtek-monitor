@@ -3,6 +3,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from card_browser import install_card
 
 HAS_PLAYWRIGHT = importlib.util.find_spec("playwright") is not None
 if HAS_PLAYWRIGHT:
@@ -20,12 +21,12 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
         self.p = await async_playwright().start()
         self.browser = await self.p.chromium.launch(headless=True)
         self.page = await self.browser.new_page(viewport={"width": 390, "height": 844})
-        await self.page.set_content("<main></main>")
-        await self.page.add_script_tag(path=str(SCRIPT))
+        await install_card(self.page, SCRIPT)
         await self.page.evaluate("""() => {
           window.ctx={account:'••••0001',address:'Example address',serial:'TEST',date:'2026-10-18',digits:6,revision:'revision',blocked:false,zones:[{zone:'GENERAL',previous:'100',date:'2026-09-30'}]};
           window.calls=[];window.pending=[];window.deferConfirm=false;
           window.hass={language:'en',callWS:async msg=>{
+            if(msg.type==='dtek_monitor/account_identity')return {masked:'••••0001'};
             calls.push(msg);
             if(msg.action==='context')return structuredClone(ctx);
             if(msg.action==='prepare')return {confirmation:'draft',readings:[{zone:'GENERAL',value:123,previous:'100',increase:'23'}]};
@@ -68,6 +69,119 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(
             await self.page.evaluate("calls.map(x=>x.action)"), ["context"]
+        )
+
+    async def test_eye_reveals_and_hides_without_overwriting_reading_or_storing_number(
+        self,
+    ):
+        await self.load()
+        field = self.page.get_by_label("Single zone (kWh)", exact=True)
+        await field.fill("123")
+        await self.page.evaluate("""() => {
+          const old=hass.callWS;
+          hass.callWS=msg=>msg.type==='dtek_monitor/account_identity'
+            ? Promise.resolve({masked:'••••0001',...(msg.reveal?{number:'1234500001'}:{})}) : old(msg);
+        }""")
+        self.assertEqual(
+            await self.page.get_by_text(
+                "Account number: 1234500001", exact=True
+            ).count(),
+            0,
+        )
+        await self.page.get_by_role(
+            "button", name="Show account number", exact=True
+        ).click()
+        await self.page.get_by_text("Account number: 1234500001", exact=True).wait_for()
+        await self.page.get_by_role(
+            "button", name="Hide account number", exact=True
+        ).click()
+        self.assertEqual(await field.input_value(), "123")
+        self.assertEqual(
+            await self.page.get_by_text(
+                "Account number: 1234500001", exact=True
+            ).count(),
+            0,
+        )
+        self.assertFalse(
+            await self.page.evaluate(
+                "JSON.stringify(localStorage).includes('1234500001') || JSON.stringify(sessionStorage).includes('1234500001')"
+            )
+        )
+        self.assertEqual(
+            await self.page.evaluate("calls.map(x=>x.action)"), ["context"]
+        )
+
+    async def test_late_reveal_after_hiding_cannot_expose_number(self):
+        await self.page.evaluate("""() => {
+          hass.callWS=msg=>new Promise(resolve=>pending.push({resolve}));
+        }""")
+        await self.page.get_by_role(
+            "button", name="Show account number", exact=True
+        ).click()
+        await self.page.get_by_role(
+            "button", name="Hide account number", exact=True
+        ).click()
+        await self.page.evaluate(
+            "pending[0].resolve({masked:'••••0001',number:'1234500001'})"
+        )
+        self.assertEqual(
+            await self.page.get_by_text(
+                "Account number: 1234500001", exact=True
+            ).count(),
+            0,
+        )
+
+    async def test_standalone_number_card_masks_again_after_reconnection(self):
+        await self.page.evaluate("""() => {
+          card.remove();window.numberCard=document.createElement('dtek-account-number-card');
+          numberCard.setConfig({entity:'sensor.example'});
+          numberCard.hass={language:'en',callWS:async msg=>({masked:'••••0001',...(msg.reveal?{number:'1234500001'}:{})})};
+          document.querySelector('main').append(numberCard);
+        }""")
+        await self.page.get_by_role(
+            "button", name="Show account number", exact=True
+        ).click()
+        await self.page.get_by_text("Account number: 1234500001", exact=True).wait_for()
+        await self.page.evaluate(
+            "numberCard.remove();document.querySelector('main').append(numberCard)"
+        )
+        self.assertEqual(
+            await self.page.get_by_text(
+                "Account number: 1234500001", exact=True
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            await self.page.get_by_role(
+                "button", name="Show account number", exact=True
+            ).count(),
+            1,
+        )
+
+    async def test_pending_meter_can_display_accepted_attempt_without_unlock_button(
+        self,
+    ):
+        await self.page.evaluate(
+            "ctx={...ctx,blocked:true,reason:'pending_or_blocked',last_attempt:{status:'accepted'}}"
+        )
+        await self.page.get_by_role(
+            "button", name="Load current meter", exact=True
+        ).click()
+        await self.page.get_by_text(
+            "DTEK explicitly confirmed receipt for every tariff zone. This does not mean the billing calculation is final.",
+            exact=True,
+        ).wait_for()
+        self.assertEqual(
+            await self.page.get_by_role(
+                "button", name="Unlock new entry after checking", exact=True
+            ).count(),
+            0,
+        )
+        self.assertEqual(
+            await self.page.get_by_role(
+                "button", name="Review readings", exact=True
+            ).count(),
+            0,
         )
 
     async def test_review_and_checkbox_required_and_double_click_sends_once(self):
@@ -149,7 +263,7 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_late_reply_for_changed_account_is_discarded(self):
         await self.page.evaluate(
-            "() => {hass.callWS=msg=>new Promise(resolve=>pending.push({resolve}));}"
+            "() => {hass.callWS=msg=>msg.type==='dtek_monitor/account_identity'?Promise.resolve({masked:'••••0001'}):new Promise(resolve=>pending.push({resolve}));}"
         )
         await self.page.get_by_role(
             "button", name="Load current meter", exact=True
@@ -158,9 +272,7 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
             "card.setConfig({entity:'sensor.other'});pending[0].resolve(ctx)"
         )
         self.assertEqual(
-            await self.page.get_by_text(
-                "••••0001 · Example address", exact=True
-            ).count(),
+            await self.page.get_by_text("Example address", exact=True).count(),
             0,
         )
 

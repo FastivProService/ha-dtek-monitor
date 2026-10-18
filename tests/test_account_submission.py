@@ -152,6 +152,17 @@ class MemoryStore:
 
 
 class SubmissionLifecycleTests(unittest.IsolatedAsyncioTestCase):
+    async def test_post_submission_pending_readings_do_not_hide_last_receipt(self):
+        await self.confirm(await self.prepare())
+        self.client.read_submission_context.side_effect = mod.SubmissionError(
+            "pending_or_blocked"
+        )
+        result = await self.manager.context("100001", self.allow)
+        self.assertTrue(result["blocked"])
+        self.assertEqual(result["reason"], "pending_or_blocked")
+        self.assertEqual(result["last_attempt"]["status"], "accepted")
+        self.client.submit_readings.assert_awaited_once()
+
     async def asyncSetUp(self):
         self.store = MemoryStore()
         self.client = SimpleNamespace(
