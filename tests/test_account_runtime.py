@@ -419,7 +419,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_operator_then_connection_menu_has_explicit_capability_gate(self):
         result = await self.flow.async_step_user({"provider_id": "dtek_oem"})
-        self.assertEqual(result["menu_options"], ["address", "account_login"])
+        self.assertEqual(result["menu_options"], ["address", "account_access"])
         result = await self.flow.async_step_user({"provider_id": "dtek_kem"})
         self.assertEqual(result["menu_options"], ["address"])
         self.assertEqual(

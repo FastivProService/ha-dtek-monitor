@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b11`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b12`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -21,7 +21,8 @@ requires restoring the earlier configuration backup as well as the earlier code.
 2. Select **ДТЕК Одеські електромережі**.
 3. Select **Personal account and meter readings**. For schedules without a login, select
    **Outage schedules by address** instead.
-4. Enter the phone number and password used on the DTEK website.
+4. Choose **Sign in**, **Create a DTEK account** or **Forgot your password?**.
+   For sign-in, enter the phone number and password used on the DTEK website.
 5. Select the household accounts you want to monitor.
 6. Open the devices created under the new personal account connection.
 
@@ -63,9 +64,36 @@ while a submission is pending, switching is blocked. HA updates never insert new
 sensor readings into an edited form. Users without submission rights can view
 history without being offered a submission form.
 
-The sign-in form links to DTEK registration and password recovery. Complete those
-on the official website, then return to HA. Native SMS registration/recovery is
-not implemented in this preview.
+## Registration and SMS recovery
+
+Both flows are available in the HA setup wizard after choosing a personal account.
+Opening a form sends nothing. Submitting your phone number requests a four-digit
+SMS code from DTEK. Keep any leading zeros. Another SMS is sent only when you
+explicitly request it, at least 60 seconds later; DTEK can impose a longer limit.
+
+- **Registration:** phone → SMS → name → new password and personal-data consent.
+  The account is created only at the final step.
+- **Recovery:** phone → SMS → new password and an explicit confirmation to change it.
+  Verifying the code does not change the password. Cancel the final step to keep
+  your current password. After a successful change, HA signs in with the new
+  password and updates the matching connection if one already exists.
+
+Passwords need 8–64 characters, at least two uppercase letters, one lowercase
+letter and one digit, with no spaces. SMS codes and challenge identifiers are
+not saved in configuration. The SMS setup session closes after 15 minutes of
+inactivity. If the response to a password change is lost, HA does not repeat the
+request: try signing in with the new password or use official password recovery.
+
+**Household accounts must still be linked on the DTEK website.** A new cabinet
+may be empty: the wizard explains how to link an account on the website and return
+to HA. Integration settings select which already-linked accounts HA monitors.
+Deselecting an account in HA does not unlink it from DTEK. Choosing an account
+on a dashboard card affects only that card.
+
+Official [registration](https://auth.my.dtek-oem.com.ua/signup) and
+[password recovery](https://auth.my.dtek-oem.com.ua/recovery) remain available
+if DTEK changes its API. This preview uses the official website's requests,
+not a documented public API.
 
 For a local demonstration using fictional data, serve the repository with
 `python -m http.server 8974 --bind 127.0.0.1` and open

@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b12] - 2026-10-18
+
+- Add native Odesa SMS registration and password recovery to HA setup and reauthentication. Separate sending a code, checking it and explicitly confirming account creation or a password change.
+- Bound code attempts, respect resend delays, close abandoned SMS sessions, serialize submissions and never retry an uncertain password change. Keep SMS credentials out of persistent configuration.
+- Sign in after successful completion and update a matching existing connection after recovery. Explain the website account-linking step when a new cabinet is empty.
+- Add synthetic transport and HA-flow regressions; document SMS setup and the distinction between DTEK account links, HA selection and dashboard display in English and Ukrainian.
+
 ## [1.8.0b11] - 2026-10-18
 
 - Add My DTEK: an account workspace with overview, personal/building schedules, readings, consumption and settings. Resolve entities from the registry and load cards automatically.

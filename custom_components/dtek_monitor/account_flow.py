@@ -30,17 +30,18 @@ from .account import (
     normalize_phone,
 )
 from .account_client import create_account_provider
+from .account_access_flow import AccountAccessFlowMixin
 from .const import DOMAIN
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID
 
 
-class AccountFlowMixin:
+class AccountFlowMixin(AccountAccessFlowMixin):
     """Methods shared by the integration's config flow, not a separate domain."""
 
     async def async_step_connection(self, user_input=None):
         options = ["address"]
         if self._provider_id in ACCOUNT_PROVIDERS:
-            options.append("account_login")
+            options.append("account_access")
         return self.async_show_menu(step_id="connection", menu_options=options)
 
     async def async_step_address(self, user_input=None):
@@ -63,10 +64,13 @@ class AccountFlowMixin:
             client = create_account_provider(self._provider_id)
             try:
                 phone = normalize_phone(user_input[CONF_USERNAME])
+                self._login_phone = phone
                 subject = await client.authenticate(phone, user_input[CONF_PASSWORD])
                 if reauth_entry and subject != reauth_entry.data[CONF_ACCOUNT_SUBJECT]:
                     return self.async_abort(reason="account_mismatch")
                 accounts = await client.list_accounts()
+                if not accounts and self._access_completed == "registration":
+                    return self.async_abort(reason="access_registered_no_accounts")
                 if not accounts:
                     errors["base"] = "no_accounts"
                 else:
@@ -78,9 +82,22 @@ class AccountFlowMixin:
                                 CONF_PASSWORD: user_input[CONF_PASSWORD],
                             },
                         )
-                    await self.async_set_unique_id(
-                        "account:" + account_key(self._provider_id, subject)
-                    )
+                    unique_id = "account:" + account_key(self._provider_id, subject)
+                    if self._access_completed == "password-recovery":
+                        existing = (
+                            self.hass.config_entries.async_entry_for_domain_unique_id(
+                                DOMAIN, unique_id
+                            )
+                        )
+                        if existing and existing.data.get(CONF_USERNAME) == phone:
+                            return self.async_update_reload_and_abort(
+                                existing,
+                                data_updates={
+                                    CONF_USERNAME: phone,
+                                    CONF_PASSWORD: user_input[CONF_PASSWORD],
+                                },
+                            )
+                    await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured()
                     self._account_credentials = {
                         CONF_USERNAME: phone,
@@ -100,14 +117,19 @@ class AccountFlowMixin:
             finally:
                 await client.close()
         return self.async_show_form(
-            step_id="account_login",
+            step_id="account_access_login"
+            if self._access_completed
+            else "account_login",
             data_schema=vol.Schema(
                 {
                     vol.Required(
                         CONF_USERNAME,
                         default=(
-                            user_input.get(CONF_USERNAME, "") if user_input else
-                            reauth_entry.data[CONF_USERNAME] if reauth_entry else ""
+                            user_input.get(CONF_USERNAME, "")
+                            if user_input
+                            else reauth_entry.data[CONF_USERNAME]
+                            if reauth_entry
+                            else self._login_phone
                         ),
                     ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEL)),
                     vol.Required(CONF_PASSWORD): TextSelector(
@@ -121,6 +143,10 @@ class AccountFlowMixin:
                 "recovery_url": "https://auth.my.dtek-oem.com.ua/recovery",
             },
         )
+
+    async def async_step_account_access_login(self, user_input=None):
+        """Retry sign-in without replaying a completed registration or recovery."""
+        return await self.async_step_account_login(user_input)
 
     async def async_step_accounts(self, user_input=None):
         available = getattr(self, "_personal_accounts", {})
@@ -184,7 +210,7 @@ class AccountFlowMixin:
         if entry_data.get(CONF_ENTRY_KIND) != ENTRY_ACCOUNT:
             return self.async_abort(reason="account_not_supported")
         self._provider_id = entry_data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID)
-        return await self.async_step_account_login()
+        return await self.async_step_account_access()
 
     async def async_step_integration_discovery(self, discovery_info):
         """Independent address flow: user verifies every public-directory field."""

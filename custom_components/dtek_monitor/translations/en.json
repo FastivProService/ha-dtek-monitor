@@ -44,7 +44,7 @@
         "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details; it is currently available for the Odessa region.",
         "menu_options": {
           "address": "Outage schedules by address",
-          "account_login": "Personal account and meter readings"
+          "account_access": "Personal account and meter readings"
         }
       },
       "account_login": {
@@ -60,6 +60,72 @@
         "description": "Choose the accounts to connect. Each keeps its own readings and settings. View them separately in My DTEK or add a card for each. Apartment data is not shared with the building bot. You can configure the building schedule and home sensor later.",
         "data": {
           "accounts": "Personal accounts"
+        }
+      },
+      "account_access": {
+        "title": "Connect your DTEK account",
+        "description": "Sign in, create an account or recover access by SMS. Opening a form does not send an SMS.",
+        "menu_options": {
+          "account_login": "Sign in",
+          "account_register": "Create a DTEK account",
+          "account_recover": "Forgot your password?"
+        }
+      },
+      "account_register": {
+        "title": "Create a DTEK account · phone",
+        "description": "Enter your phone number. Continuing sends an SMS from DTEK. Already registered? Choose Sign in or Forgot your password instead.",
+        "data": {
+          "username": "Phone number"
+        }
+      },
+      "account_recover": {
+        "title": "Recover access · phone",
+        "description": "Enter the phone number registered with DTEK. Continuing sends an SMS. Checking the code does not change your password; you choose a new password in a separate step.",
+        "data": {
+          "username": "Phone number"
+        }
+      },
+      "account_sms": {
+        "title": "Enter the SMS code",
+        "description": "DTEK sent a four-digit code to {phone}. Enter it and continue. To request another SMS, select Resend; leave the code empty. Allow at least 60 seconds between requests.",
+        "data": {
+          "verification_code": "Four-digit SMS code",
+          "resend": "Send another SMS instead of checking a code"
+        }
+      },
+      "account_profile": {
+        "title": "Create a DTEK account · your name",
+        "description": "DTEK needs your name to create the account. These details are sent to DTEK and are not saved in the HA connection settings.",
+        "data": {
+          "last_name": "Last name",
+          "first_name": "First name",
+          "middle_name": "Middle name (optional)"
+        }
+      },
+      "account_registration_password": {
+        "title": "Create a DTEK account · password",
+        "description": "Choose 8–64 characters, with at least two uppercase letters, one lowercase letter and one digit; no spaces. Continuing creates the account on DTEK and signs you in to HA. HA stores the password in its configuration.\n\nReview the registration information on the [official DTEK website]({signup_url}).",
+        "data": {
+          "password": "New DTEK password",
+          "confirm_password": "Repeat the password",
+          "accept_terms": "I agree to DTEK processing my personal data and to creating the account"
+        }
+      },
+      "account_recovery_password": {
+        "title": "Set a new DTEK password",
+        "description": "Your phone number is confirmed. Continuing changes your password on the DTEK website and signs you in to HA. Cancel now to keep the current password.\n\nChoose 8–64 characters, with at least two uppercase letters, one lowercase letter and one digit; no spaces. HA stores the new password in its configuration.",
+        "data": {
+          "password": "New DTEK password",
+          "confirm_password": "Repeat the password",
+          "confirm_change": "Change my DTEK password to the one entered above"
+        }
+      },
+      "account_access_login": {
+        "title": "Finish connecting your account",
+        "description": "DTEK confirmed account creation or the password change. The HA connection is not complete yet. Sign in with the new password; SMS and password changes will not be repeated.",
+        "data": {
+          "username": "Phone number",
+          "password": "Password"
         }
       }
     },
@@ -78,13 +144,31 @@
       "no_accounts": "No supported household accounts were found.",
       "select_accounts": "Select at least one available account.",
       "invalid_house": "Select a house confirmed by the public DTEK directory.",
-      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added."
+      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added.",
+      "access_password_rules": "Use 8–64 characters, at least two uppercase letters (Latin or Ukrainian), one lowercase letter and one digit; no spaces.",
+      "access_password_mismatch": "The passwords do not match.",
+      "access_consent_required": "Confirm your consent before creating a DTEK account.",
+      "access_confirm_change": "Confirm that you want to change your DTEK password.",
+      "access_phone_mismatch": "Use the phone number of this HA connection.",
+      "access_cannot_connect": "DTEK did not complete the request. Check your connection and try again later.",
+      "access_wait": "Please wait before requesting another SMS. At least 60 seconds must pass between requests; DTEK may require longer.",
+      "access_rate_limit": "DTEK has limited requests. Wait before trying again; no automatic retry will be made.",
+      "access_not_registered": "This phone number is not registered with DTEK. Choose Create a DTEK account.",
+      "access_already_registered": "This phone number is already registered. Choose Sign in or Forgot your password.",
+      "access_invalid_code": "DTEK did not accept the code. Check the most recent SMS.",
+      "access_invalid_data": "DTEK did not accept these details. Check the form and try again.",
+      "access_code_format": "Enter exactly four digits from the SMS, including any leading zeros.",
+      "access_attempts_exhausted": "Five code checks have been used. Wait, then explicitly request another SMS.",
+      "access_start_uncertain": "DTEK did not confirm the SMS request. An SMS may still arrive. Wait before starting again; the request was not repeated."
     },
     "abort": {
       "already_configured": "This address or account is already configured.",
       "account_not_supported": "Personal accounts are not supported for this operator yet.",
       "account_mismatch": "Sign in to the same DTEK account.",
-      "reauth_successful": "Reauthentication successful."
+      "reauth_successful": "Reauthentication successful.",
+      "access_expired": "This SMS session has expired or is no longer valid. Start again to request a new code.",
+      "access_finalize_uncertain": "DTEK did not confirm the result. Your account may have been created or your password changed. No retry was made. Try signing in with the new password, or recover access on the official DTEK website.",
+      "access_registered_no_accounts": "Your DTEK account was created. Link your household accounts on the DTEK website, then add this integration again and choose Sign in."
     }
   },
   "options": {
