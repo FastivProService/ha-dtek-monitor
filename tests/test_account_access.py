@@ -91,21 +91,29 @@ class AccessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.client._challenge, "")
 
     async def test_resend_is_explicit_delayed_and_replaces_challenge(self):
-        await self.start()
-        count = self.session.request.await_count
-        await self.assert_error(
-            "access_wait", self.client.start("password-recovery", "+380500000001")
-        )
-        self.assertEqual(self.session.request.await_count, count)
-        with patch.object(
-            access.time, "monotonic", return_value=self.client._retry_at + 1
-        ):
+        # Fixed exact seconds avoid host-uptime floating-point cancellation
+        # turning a frozen 120-second interval into 120.00000000001 seconds.
+        with patch.object(access.time, "monotonic", return_value=1000.0) as clock:
+            await self.start()
+            count = self.session.request.await_count
+            await self.assert_error(
+                "access_wait", self.client.start("password-recovery", "+380500000001")
+            )
+            self.assertEqual(self.session.request.await_count, count)
+            clock.return_value = 1061.0
             self.session.request.side_effect = [
                 response(200),
                 response(200, {"recovery_id": "new-challenge"}, {"Retry-After": "120"}),
             ]
             await self.client.start("password-recovery", "+380500000001")
             self.assertEqual(self.client.retry_seconds, 120)
+            clock.return_value = 1180.75
+            self.assertEqual(self.client.retry_seconds, 1)
+            await self.assert_error(
+                "access_wait", self.client.start("password-recovery", "+380500000001")
+            )
+            clock.return_value = 1181.0
+            self.assertEqual(self.client.retry_seconds, 0)
         self.assertEqual(self.client._challenge, "new-challenge")
 
     async def test_bad_code_format_never_calls_service_and_five_checks_are_bounded(
