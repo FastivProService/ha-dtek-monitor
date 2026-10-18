@@ -69,6 +69,24 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='context').length"), 1)
         self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='confirm').length"), 0)
 
+    async def test_overview_shortcuts_keep_keyboard_focus_and_existing_draft(self):
+        action = self.page.get_by_role("button", name="Enter readings", exact=True)
+        await action.focus()
+        await self.page.evaluate("""() => {
+          for(let i=0;i<15;i++)card.hass={...hass,states:{...hass.states}};
+        }""")
+        self.assertTrue(await action.evaluate("e=>e===e.getRootNode().activeElement"))
+        await action.press("Enter")
+        field = self.page.get_by_label("Single zone (kWh)", exact=True)
+        await field.fill("12503")
+        await self.page.get_by_role("tab", name="Overview", exact=True).click()
+        await self.page.get_by_role("button", name="View schedule", exact=True).click()
+        self.assertEqual(await self.page.get_by_role("tab", name="Schedule", exact=True).get_attribute("aria-selected"), "true")
+        await self.page.get_by_role("tab", name="Overview", exact=True).click()
+        await action.click()
+        self.assertEqual(await field.input_value(), "12503")
+        self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='confirm').length"), 0)
+
     async def test_account_switch_warns_discards_and_does_not_change_other_card(self):
         await self.page.evaluate("""() => {
           window.other=document.createElement('dtek-account-workspace-card');other.setConfig({entity:'sensor.account_1'});other.hass=hass;document.querySelector('main').append(other);

@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b14`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b15`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -50,7 +50,8 @@ panels, set an account on each card and disable its selector. There is no global
 active account.
 
 - **Overview:** address, latest cumulative reading, separately labelled monthly
-  consumption, and personal schedule status.
+  consumption, and personal schedule status. **Enter readings** is below the
+  latest reading; **View schedule** is inside the group block.
 - **Schedule:** your group or all building groups. These views do not change the
   building calendars used by the Telegram bot.
 - **Readings:** manual entry or an explicitly inserted sensor suggestion, review,

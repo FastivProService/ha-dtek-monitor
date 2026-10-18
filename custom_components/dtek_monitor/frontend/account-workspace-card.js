@@ -1,10 +1,10 @@
-import "./account-profile-card.js?v=1.8.0b14";
-import "./account-readings-card.js?v=1.8.0b14";
-import "./account-history-card.js?v=1.8.0b14";
-import "./schedule-card.js?v=1.8.0b14";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b14";
-import { accountNumber } from "./account-number.js?v=1.8.0b14";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b14";
+import "./account-profile-card.js?v=1.8.0b15";
+import "./account-readings-card.js?v=1.8.0b15";
+import "./account-history-card.js?v=1.8.0b15";
+import "./schedule-card.js?v=1.8.0b15";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b15";
+import { accountNumber } from "./account-number.js?v=1.8.0b15";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b15";
 
 const words = {
   en: {
@@ -12,9 +12,9 @@ const words = {
     account: "Personal account", choose: "Choose an account", loading: "Loading accounts…", error: "Could not load your accounts. Try again.",
     empty: "No account is selected for this card. Choose accounts to monitor in integration settings, or connect a DTEK cabinet.", missing: "This account is unavailable. Check the connection or choose another account.",
     connect: "Connect DTEK", manage: "Manage connections and notifications", retry: "Refresh account list",
-    send: "Enter meter readings", history: "Reading history", latest: "Latest DTEK meter reading", usage: "Consumption reported by DTEK",
+    send: "Enter readings", history: "Reading history", latest: "Latest DTEK meter reading", usage: "Consumption reported by DTEK",
     readingNote: "Cumulative meter reading", noReading: "DTEK has not provided a reading yet.", unit: "kWh", GENERAL: "Single zone", DAY: "Day", NIGHT: "Night",
-    group: "My outage group", groupEmpty: "Not selected", scheduleLink: "Open schedule", details: "Account and meter details", detailsShort: "Details",
+    group: "My outage group", groupEmpty: "Not selected", scheduleLink: "View schedule", details: "Account and meter details", detailsShort: "Details",
     dated: "Account updated", unavailable: "Account data is unavailable. Retained values may be out of date.",
     sensor: "Home energy sensor", sensorNote: "Use your own cumulative energy sensor to suggest readings. You can also enter readings manually.",
     sensorSettings: "Set up or calibrate a sensor", notifications: "Groups, accounts and notifications", notificationsNote: "Manage DTEK cabinet links, choose accounts HA monitors, set the apartment's group or change reminders in integration settings.",
@@ -33,9 +33,9 @@ const words = {
     account: "Особовий рахунок", choose: "Оберіть рахунок", loading: "Завантаження рахунків…", error: "Не вдалося завантажити рахунки. Спробуйте ще раз.",
     empty: "Для цієї картки не обрано рахунок. Оберіть рахунки для моніторингу в налаштуваннях інтеграції або підключіть кабінет ДТЕК.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
     connect: "Підключити ДТЕК", manage: "Керувати підключеннями та сповіщеннями", retry: "Оновити список рахунків",
-    send: "Ввести покази лічильника", history: "Історія показів", latest: "Останні покази в ДТЕК", usage: "Споживання за даними ДТЕК",
+    send: "Внести покази", history: "Історія показів", latest: "Останні покази в ДТЕК", usage: "Споживання за даними ДТЕК",
     readingNote: "Накопичувальні покази лічильника", noReading: "ДТЕК ще не надав показів.", unit: "кВт·год", GENERAL: "Одна зона", DAY: "День", NIGHT: "Ніч",
-    group: "Моя група відключень", groupEmpty: "Не обрана", scheduleLink: "Відкрити графік", details: "Реквізити та лічильник", detailsShort: "Реквізити",
+    group: "Моя група відключень", groupEmpty: "Не обрана", scheduleLink: "Переглянути графік", details: "Реквізити та лічильник", detailsShort: "Реквізити",
     dated: "Рахунок оновлено", unavailable: "Дані рахунку недоступні. Збережені значення можуть бути застарілими.",
     sensor: "Домашній лічильник енергії", sensorNote: "Накопичувальний датчик енергії може підказувати покази. Їх також можна вводити вручну.",
     sensorSettings: "Підключити або відкалібрувати датчик", notifications: "Група, рахунки та сповіщення", notificationsNote: "Керуйте прив’язками в ДТЕК, обирайте рахунки для моніторингу HA, групу квартири та нагадування в налаштуваннях інтеграції.",
@@ -69,6 +69,7 @@ const css = `
   .actions{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 20px}.primary{flex-grow:1}
   button,select{font:inherit;color:inherit;background:transparent;border:1px solid var(--divider-color,#aab5bf);border-radius:10px;padding:10px 14px;min-height:44px;max-width:100%}
   select{background:var(--card-background-color,#fff)}button{cursor:pointer}button:disabled{opacity:.55;cursor:default}a{color:var(--primary-color,#0288d1);line-height:1.5}
+  .tile{display:flex;flex-direction:column}.context-action{align-self:flex-start;border:0;border-radius:6px;color:var(--primary-color,#0288d1);padding:8px 4px;margin:12px -4px 0;text-align:left;font-weight:500;line-height:1.4}.context-action:hover{background:color-mix(in srgb,var(--primary-color,#0288d1) 8%,transparent)}
   details{margin:20px 0}summary{display:flex;align-items:center;cursor:pointer;gap:10px;font-weight:600}summary::before{content:'›';font-size:1.4em}details[open]>summary::before{transform:rotate(90deg)}
   .setting{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--divider-color,#ddd)}.setting h3{margin:0 0 8px;font-size:1.05em}
   .switcher{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}.switcher button[aria-pressed=true]{background:var(--secondary-background-color,#f4f7fa);border-color:var(--primary-color,#0288d1)}
@@ -225,9 +226,14 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   }
   _create_overview(panel) {
     this._overview=el("div");
-    const actions=el("div", undefined, "actions");
-    if (this._account.can_submit) actions.append(this._button(this.t.send, () => this._activate("readings"), "primary"));
-    actions.append(this._button(this.t.scheduleLink, () => this._activate("schedule"))); panel.append(actions,this._overview);
+    const tiles=el("div", undefined, "tiles"), reading=el("article", undefined, "tile"), consumption=el("article", undefined, "tile"), group=el("article", undefined, "group");
+    this._readingSummary=el("div");this._consumptionSummary=el("div");this._groupSummary=el("div");this._overviewStamp=el("p", undefined, "muted");
+    const navigate=tab=>{this._activate(tab);this._tabs.get(tab).focus();};
+    reading.append(this._readingSummary);
+    if (this._account.can_submit) reading.append(this._button(this.t.send, () => navigate("readings"), "context-action"));
+    consumption.append(this._consumptionSummary);tiles.append(reading,consumption);
+    group.append(this._groupSummary,this._button(this.t.scheduleLink, () => navigate("schedule"), "context-action"));
+    this._overview.append(tiles,group,this._overviewStamp);panel.append(this._overview);
     if (!this._account.can_submit) panel.append(el("p", this.t.viewOnly, "muted"));
     this._updateOverview();
   }
@@ -239,8 +245,8 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   _state(role) { return this._hass.states?.[this._account?.roles?.[role]]; }
   _updateOverview() {
     if (!this._overview || !this._account) return;
-    const t=this.t, lang=this._hass.language, tiles=el("div", undefined, "tiles"), reading=el("article", undefined, "tile"), consumption=el("article", undefined, "tile");
-    reading.append(el("h3", t.latest));
+    const t=this.t, lang=this._hass.language, reading=this._readingSummary, consumption=this._consumptionSummary;
+    reading.replaceChildren(el("h3", t.latest));
     const roles=Object.entries(this._account.roles || {}).filter(([key]) => key.startsWith("account_reading:"));
     if (!roles.length) reading.append(el("p", t.noReading));
     for (const [key, id] of roles) {
@@ -249,15 +255,14 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     }
     reading.append(el("small", t.readingNote));
     const usage=this._state("account_consumption:all"), usageValue=el("p", number(usage?.state, lang), "value"); usageValue.append(el("span", t.unit, "unit"));
-    consumption.append(el("h3", t.usage), usageValue, el("small", this._period(usage?.attributes?.period))); tiles.append(reading, consumption);
-    const group=el("article", undefined, "group"), state=this._state("account_schedule_status:all"), selected=this._state("account_schedule_groups:all")?.attributes?.selected_groups || [];
+    consumption.replaceChildren(el("h3", t.usage), usageValue, el("small", this._period(usage?.attributes?.period)));
+    const group=this._groupSummary, state=this._state("account_schedule_status:all"), selected=this._state("account_schedule_groups:all")?.attributes?.selected_groups || [];
     let status=state?.state || "unknown";
     if (["selected","auto_selected"].includes(status)) status=state?.attributes?.schedule_status || "current";
     if (status.startsWith("schedule_")) status=status.slice(9);
-    group.append(el("h3", t.group), el("strong", selected.length ? selected.map(g=>g.replace(/^GPV/, "")).join(", ") : t.groupEmpty), el("p", t[`state_${status}`] || t.state_unknown));
+    group.replaceChildren(el("h3", t.group), el("strong", selected.length ? selected.map(g=>g.replace(/^GPV/, "")).join(", ") : t.groupEmpty), el("p", t[`state_${status}`] || t.state_unknown));
     const updated=this._state("account_updated:all") || this._hass.states?.[this._entity];
-    const stamp=el("p", updated && !["unknown","unavailable"].includes(updated.state) ? `${t.dated}: ${date(updated.state,lang,true)}` : t.unavailable, "muted");
-    this._overview.replaceChildren(tiles, group, stamp);
+    this._overviewStamp.textContent=updated && !["unknown","unavailable"].includes(updated.state) ? `${t.dated}: ${date(updated.state,lang,true)}` : t.unavailable;
   }
   _create_readings(panel) {
     this._readings=this._child("dtek-account-readings-card", {read_only: !this._account.can_submit}, panel);

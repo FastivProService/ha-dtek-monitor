@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b15] - 2026-10-18
+
+- Place overview shortcuts beside their readings and outage-group context, with compact text actions instead of a separate button bar.
+- Keep shortcut focus during HA updates and preserve reading drafts when navigating from the overview.
+
 ## [1.8.0b14] - 2026-10-18
 
 - Add a half-hour grid of all published operator groups with building and personal-group highlights, date selection, local building filter and exact interval details. Keep personal/building calendar lists available.
