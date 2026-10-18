@@ -13,6 +13,7 @@ from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT, account_key
 from .const import DOMAIN
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID
 from .schedule import KYIV_TZ
+from .schedule_status import SCHEDULE_STATUSES, schedule_status, status_attributes
 
 CONF_ACCOUNT_SCHEDULES = "account_schedules"
 
@@ -164,6 +165,7 @@ class AccountScheduleStatusSensor(AccountScheduleEntity, SensorEntity):
         "group_unavailable",
         "labels_hidden",
         "schedule_unavailable",
+        *("schedule_" + status for status in SCHEDULE_STATUSES),
     ]
 
     def __init__(self, entry, number):
@@ -171,13 +173,20 @@ class AccountScheduleStatusSensor(AccountScheduleEntity, SensorEntity):
 
     @property
     def native_value(self):
-        _, coordinator, _, status = self.selected
-        if (
-            status in ("selected", "auto_selected")
-            and not coordinator.notifications_ready
-        ):
-            return "schedule_unavailable"
+        _, coordinator, groups, status = self.selected
+        if status in ("selected", "auto_selected"):
+            publication = schedule_status(coordinator, groups)
+            if publication != "current":
+                return "schedule_" + publication
         return status
+
+    @property
+    def extra_state_attributes(self):
+        _, coordinator, groups, _ = self.selected
+        return {
+            **super().extra_state_attributes,
+            **(status_attributes(coordinator, groups) if coordinator else {}),
+        }
 
 
 class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
@@ -191,7 +200,9 @@ class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
     def available(self):
         _, coordinator, _, status = self.selected
         return (
-            status in ("selected", "auto_selected") and coordinator.notifications_ready
+            status in ("selected", "auto_selected")
+            and coordinator.notifications_ready
+            and any(c.kind == self.kind for c in coordinator.schedule.coverage)
         )
 
     @property
@@ -214,8 +225,16 @@ class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
 
     async def async_get_events(self, hass, start_date, end_date):
         if not self.available:
+            _, coordinator, _, status = self.selected
             raise HomeAssistantError(
-                "Personal schedule unavailable; verify the building and selected groups"
+                translation_domain="dtek_monitor",
+                translation_key=(
+                    "schedule_" + schedule_status(coordinator)
+                    if coordinator
+                    and status in ("selected", "auto_selected")
+                    and not coordinator.notifications_ready
+                    else "personal_schedule_unavailable"
+                ),
             )
         _, coordinator, groups, _ = self.selected
         start = (
@@ -237,6 +256,7 @@ class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
             for group in groups
         ):
             raise HomeAssistantError(
-                "DTEK has not published this personal schedule range"
+                translation_domain="dtek_monitor",
+                translation_key="schedule_range_missing",
             )
         return coordinator.get_events_for_range(start_date, end_date, groups, self.kind)

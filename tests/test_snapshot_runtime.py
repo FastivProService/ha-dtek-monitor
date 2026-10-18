@@ -122,7 +122,9 @@ class SnapshotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(coord.address_success)
         self.assertFalse(coord.notifications_ready)
         self.assertIsNone(coord.snapshot)
-        self.assertIsNone(coord.data)
+        self.assertEqual(coord.data["schedule_groups"], ["GPV5.1"])
+        self.assertTrue(coord.last_update_success)
+        self.assertEqual(coord.connection_state, "ok")
         self.assertEqual(
             sensors.DTEKScheduleStatusSensor(coord, self.entry).native_value, "missing"
         )
@@ -159,7 +161,7 @@ class SnapshotRuntimeTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(coord.snapshot.groups, ("GPV3.1",))
             self.assertEqual(
                 sensors.DTEKScheduleStatusSensor(coord, self.entry).native_value,
-                "current",
+                "empty",
             )
             self.schedule["fact"]["data"] = []
             await coord.async_refresh()
@@ -303,4 +305,6 @@ class SnapshotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         await self.coord.async_refresh()
         self.assertFalse(self.coord.notifications_ready)
         self.assertEqual(self.coord.snapshot, saved)
-        self.assertIn("GPV9.9", self.coord.schedule_error)
+        self.assertIn("GPV9.9", self.coord.schedule_reason)
+        self.assertIsNone(self.coord.schedule_error)
+        self.assertEqual(self.coord.connection_state, "ok")

@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b7`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b8`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -106,7 +106,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b7` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b8` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -167,7 +167,7 @@ entity: sensor.example_account_data_updated
 ```
 
 It is loaded automatically by either DTEK custom card resource above. If you use
-neither, register `/dtek_monitor/account-number.js?v=1.8.0b7` as a JavaScript module
+neither, register `/dtek_monitor/account-number.js?v=1.8.0b8` as a JavaScript module
 in Resources. Existing entity IDs and masked device labels are unchanged.
 
 ## Send meter readings
@@ -177,7 +177,7 @@ write to your DTEK account only after you review and explicitly confirm the valu
 Opening the card, loading meter data and reviewing values do not send readings.
 Use actual meter readings or reviewed source proposals; never use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b7` as another **JavaScript module**
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b8` as another **JavaScript module**
 in dashboard Resources, then add this manual card to a private dashboard:
 
 ```yaml
@@ -339,10 +339,41 @@ HA's private `.storage/dtek_monitor.energy.<entry_id>` file. Include it in backu
 Storage errors disable source proposals; manual entry remains available. Removing
 a binding deletes its local calibration history and does not modify DTEK data.
 
-This preview provides suggestions and explicit manual submissions. Scheduled
-reminders and automatic submissions are planned separately and are not enabled.
+This preview provides suggestions, explicit manual submissions and optional HA
+reminders. Automatic submissions are not implemented.
 These sources belong to personal accounts; they do not configure the building
 Telegram bot or its power-presence sensors.
+
+## Reading reminders in Home Assistant
+
+Open **Configure → Reading reminders**, choose an account and enable reminders.
+They are off by default. Set the time in **Europe/Kyiv** (default 19:00) and
+whether to include a reading estimate from the linked energy sensor.
+
+One reminder is created per reporting period, on the first available day at/after
+the chosen time within the **last two days of the month and first three days of
+the next month**, following [DTEK Odesa's recommendation](https://www.dtek-oem.com.ua/ua/news/yak-shvidko-i-prosto-peredati-pokazi-lichilnika-za-svitlo-rozpovidaye-dtek-odeski-elektromerezhi). Short months,
+leap years and year boundaries are handled automatically. If HA was offline, it
+catches up within this window; it does not issue a missed reminder after it closes.
+This window does not mark an estimate or a prior reading as a final monthly value.
+
+The reminder appears in the HA notification drawer, visible to users of this HA;
+it is not a private mobile push or Telegram message. Only the last four account
+digits are displayed. An included estimate is checked against source availability,
+resets, the current meter identity and recorded reading. If it cannot be verified,
+the reminder asks you to read the meter manually. A reminder never submits data.
+Open the readings card, check/edit the values and confirm a submission yourself.
+
+Dismiss the reminder if you have already submitted through any channel. Dismissal
+is remembered for the whole period, even after a restart. An undismissed reminder
+is restored within the window; disabling reminders removes it. There is no daily
+notification campaign. Use **Preview reading reminder** on the account device to
+check its appearance at any time; a preview neither enables reminders nor consumes
+the scheduled reminder for that period.
+
+For calendar presentation, use the [schedule card](REFERENCE.md#schedule-card).
+It distinguishes verified empty days, missing publication and actual request
+errors for both the building and the optional personal calendars.
 
 ## Dashboard card
 

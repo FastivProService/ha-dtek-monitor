@@ -21,6 +21,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .coordinator import DTEKDataCoordinator
 from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
+from .schedule_status import SCHEDULE_STATUSES, schedule_status, status_attributes
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -256,7 +257,7 @@ class DTEKScheduleStatusSensor(DTEKConnectionSensor):
     """Explain missing schedules even before the first successful calendar fetch."""
 
     _attr_translation_key = "schedule_status"
-    _attr_options = ["current", "missing", "unpublished", "unsupported", "error"]
+    _attr_options = list(SCHEDULE_STATUSES)
 
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
@@ -265,17 +266,13 @@ class DTEKScheduleStatusSensor(DTEKConnectionSensor):
 
     @property
     def native_value(self):
-        if self.coordinator.notifications_ready:
-            return "current"
-        if self.coordinator.schedule_reason is not None:
-            return self.coordinator.schedule_state
-        return "error"
+        return schedule_status(self.coordinator)
 
     @property
     def extra_state_attributes(self):
         return {
+            **status_attributes(self.coordinator),
             "notifications_ready": self.coordinator.notifications_ready,
-            "reason": self.coordinator.schedule_reason or self.coordinator.last_error,
             "last_verified_at": self.coordinator.snapshot_attributes[
                 "last_verified_at"
             ],

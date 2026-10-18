@@ -16,6 +16,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 AccountRefreshButton(entry, number)
                 for number in entry.data[CONF_ACCOUNTS]
             ]
+            + [
+                AccountReminderButton(entry, number)
+                for number in entry.data[CONF_ACCOUNTS]
+            ]
         )
 
 
@@ -35,3 +39,16 @@ class AccountRefreshButton(ButtonEntity):
 
     async def async_press(self):
         await self.coordinator.async_manual_refresh()
+
+
+class AccountReminderButton(AccountRefreshButton):
+    _attr_translation_key = "account_reminder_preview"
+    _attr_icon = "mdi:bell-outline"
+
+    def __init__(self, entry, number):
+        super().__init__(entry, number)
+        self.number = number
+        self._attr_unique_id += ":reminder_preview"
+
+    async def async_press(self):
+        await self.coordinator.reminders.preview(self.number)

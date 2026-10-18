@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b8] - 2026-10-18
+
+- Separate successful responses with missing or disabled schedule publication from request/parsing failures. Keep live notification gates closed until schedules are verified.
+- Distinguish a verified outage-free day, incomplete coverage and weekly forecasts in building and personal schedule status. Add an English/Ukrainian schedule card that explains absent data without a generic calendar error.
+- Add optional per-account HA reading reminders, once per monthly reading window, with configurable Kyiv time and validated sensor estimates. Restore pending reminders and preserve dismissals across restarts; include an explicit preview button.
+- Keep building groups, personal selections and energy references independent. Reminders never submit readings or send Telegram messages.
+- Add lifecycle, publication, calendar-boundary and browser regression tests; include the schedule card in CI.
+
 ## [1.8.0b7] - 2026-10-18
 
 - Add explicit personal-account links to a building and user-selected outage groups, with separate personal calendars and a translated selection status. A sole verified building group can be selected automatically; multiple groups require a personal choice. Building calendars and Telegram notifications retain all groups.

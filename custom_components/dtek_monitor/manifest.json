@@ -8,12 +8,14 @@
     "@groove-max"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": [
+    "persistent_notification"
+  ],
   "documentation": "https://github.com/groove-max/ha-dtek-monitor",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/groove-max/ha-dtek-monitor/issues",
   "requirements": [
     "curl_cffi==0.16.3"
   ],
-  "version": "1.8.0b7"
+  "version": "1.8.0b8"
 }

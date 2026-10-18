@@ -111,7 +111,8 @@
         "menu_options": {
           "account_selection": "Select personal accounts",
           "account": "Add building monitoring",
-          "account_schedule": "My group and schedule"
+          "account_schedule": "My group and schedule",
+          "account_reminders": "Reading reminders"
         }
       },
       "account_selection": {
@@ -141,6 +142,21 @@
         "data": {
           "schedule_groups": "My apartment groups"
         }
+      },
+      "account_reminders": {
+        "title": "Reading reminders",
+        "data": {
+          "reminder_account": "Personal account"
+        }
+      },
+      "account_reminder_settings": {
+        "title": "Home Assistant reminders",
+        "description": "One reminder per period: the last two days of the month and the first three of the next, in Kyiv time. Dismissing it stops reminders for that period. Notifications are visible to users of this HA; the account number is masked. No readings are submitted automatically. Use the account device button to preview.",
+        "data": {
+          "enabled": "Enable HA reminders",
+          "time": "Time (Europe/Kyiv)",
+          "include_estimate": "Include the linked sensor estimate"
+        }
       }
     },
     "error": {
@@ -148,7 +164,8 @@
       "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added.",
       "invalid_schedule_address": "Select an existing address for this operator.",
       "invalid_schedule_groups": "Groups changed or the selection is invalid. Verify the address and reopen settings.",
-      "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups."
+      "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups.",
+      "invalid_reminder_settings": "Check the reminder time and switches."
     },
     "abort": {
       "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
@@ -230,11 +247,14 @@
       "schedule_status": {
         "name": "Schedule availability",
         "state": {
-          "current": "Schedule verified",
-          "missing": "Schedule currently unavailable",
-          "unpublished": "Schedule publication disabled",
-          "unsupported": "Schedule operator not supported",
-          "error": "Could not verify schedule"
+          "current": "Schedule available today",
+          "empty": "No planned outages today (verified)",
+          "partial": "Incomplete schedule today",
+          "forecast": "Forecast only; planned outages unconfirmed",
+          "missing": "No verified schedule for today",
+          "unpublished": "DTEK paused schedule publication",
+          "unsupported": "Operator not supported",
+          "error": "Failed to fetch schedule"
         }
       },
       "account_schedule_groups": {
@@ -250,7 +270,15 @@
           "group_unavailable": "Selected group no longer verified for building",
           "labels_hidden": "DTEK has hidden group labels",
           "schedule_unavailable": "Schedule unavailable",
-          "auto_selected": "Automatic — only building group"
+          "auto_selected": "Automatic — only building group",
+          "schedule_current": "Schedule available today",
+          "schedule_empty": "No planned outages today (verified)",
+          "schedule_partial": "Incomplete schedule today",
+          "schedule_forecast": "Forecast only; planned outages unconfirmed",
+          "schedule_missing": "No verified schedule for today",
+          "schedule_unpublished": "DTEK paused schedule publication",
+          "schedule_unsupported": "Operator not supported",
+          "schedule_error": "Failed to fetch schedule"
         }
       }
     },
@@ -274,6 +302,9 @@
     "button": {
       "account_refresh": {
         "name": "Refresh all accounts"
+      },
+      "account_reminder_preview": {
+        "name": "Preview reading reminder"
       }
     }
   },
@@ -283,6 +314,24 @@
     },
     "account_refresh_failed": {
       "message": "Not all accounts could be refreshed. Check the connection status; unavailable data is not replaced with zero."
+    },
+    "schedule_missing": {
+      "message": "No verified schedule for today."
+    },
+    "schedule_unpublished": {
+      "message": "DTEK paused schedule publication."
+    },
+    "schedule_unsupported": {
+      "message": "Operator not supported."
+    },
+    "schedule_error": {
+      "message": "Failed to fetch schedule."
+    },
+    "schedule_range_missing": {
+      "message": "DTEK has not published a schedule for all selected groups in this range."
+    },
+    "personal_schedule_unavailable": {
+      "message": "Personal schedule unavailable. Check the schedule status and group selection."
     }
   }
 }

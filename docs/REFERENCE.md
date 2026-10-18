@@ -54,6 +54,49 @@ A calendar can be available while some future dates remain unpublished. `coverag
 
 All schedule calculations use the Kyiv timezone; HA accepts timezone-aware query boundaries, including UTC. Possible windows are shown only when applicable published data exists. Old weekly presets are not projected indefinitely.
 
+### Publication status is different from a request error
+
+**DTEK connection = OK** means the requests and response validation succeeded.
+The **Schedule availability** sensor describes today's planned schedule separately:
+
+| State | Meaning |
+| --- | --- |
+| `current` | A complete verified schedule contains planned outages today. |
+| `empty` | Every group has complete dated coverage and no planned outages today. |
+| `forecast` | Only a forecast is available; it does not confirm planned outages. |
+| `partial` | Coverage is incomplete; missing intervals are not an all-clear. |
+| `missing` | No complete applicable schedule was verified. |
+| `unpublished` | DTEK explicitly disabled publication. |
+| `unsupported` | The address belongs to an unsupported operator. |
+| `error` | An address/schedule request failed or returned invalid data. |
+
+`status_date` and `status_timezone` scope the description to a day in Europe/Kyiv.
+This describes a schedule, not actual power presence. Publication gaps do not
+increase the network failure count or trigger error backoff. Actual failures do.
+Live calendar entities still use HA's `unavailable` state when there is no usable
+calendar; the separate status explains why. Previously saved events remain for
+reference only and never establish an outage-free day.
+
+### Schedule card
+
+For an explicit explanation on a dashboard, add the resource
+`/dtek_monitor/schedule-card.js?v=1.8.0b8` as a **JavaScript module** under
+**Settings → Dashboards → Resources** (advanced mode). Add a manual card:
+
+```yaml
+type: custom:dtek-schedule-card
+title: Building — all groups
+status_entity: sensor.example_schedule_availability
+entities:
+  - calendar.example_outage_schedule
+  - calendar.example_possible_outage_schedule
+```
+
+Use your device's actual entity IDs. For an apartment, use its **My schedule
+status** sensor and its personal calendars in a second card. The building card
+retains all groups for the bot. This card uses English/Ukrainian UI text and the
+built-in HA calendar; it does not change your automations or personal selection.
+
 ### Saved schedules
 
 A successful, complete verification stores concrete events in Home Assistant storage for an eight-day horizon. An unchanged successful result refreshes the verification time; a failed request does not. Restoring this snapshot after a restart never makes the live sensors/calendars current. There is no “45-minute fresh data” exception.
@@ -82,7 +125,7 @@ When reporting a problem, include versions, operator, timestamps with timezone a
 2. Read the [changelog](../CHANGELOG.md), update via HACS or replace the integration folder, then restart HA.
 3. Verify the connection, address and calendars after the restart. Update the companion bot when its release requires newer integration attributes.
 
-Existing entries migrate automatically; current config-entry schema version is 3. Address-based identity is designed to preserve entity IDs across upgrades. Manual renames still take precedence. Do not delete and re-add entries as a normal upgrade step.
+Existing entries migrate automatically; the personal-account preview uses config-entry schema version 4. Address-based identity is designed to preserve entity IDs across upgrades. Manual renames still take precedence. Do not delete and re-add entries as a normal upgrade step.
 
 A full HA backup preserves configuration entries, entity registries and saved snapshots. Do not edit files under `.storage` manually. Removing an integration entry removes its active entities from use; update dependent dashboards, automations and bot addresses accordingly.
 

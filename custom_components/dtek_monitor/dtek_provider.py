@@ -353,8 +353,9 @@ class DTEKWebProvider:
             checked = datetime.now(timezone.utc)
             if reading is not None:
                 schedule = normalize_schedule(reading, candidate, start, end, checked)
-                if schedule.state != "current":
-                    schedule_error = schedule.reason
+                # Publication/coverage is data, not a transport failure.
+                # Keep the reason on ScheduleReading; errors mean failed requests
+                # or an invalid response, never a legitimate absent schedule.
             self._raw = candidate
         except ProviderError as err:
             schedule_error = str(err)

@@ -53,6 +53,11 @@ async def async_setup_history(hass):
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
+                    "/dtek_monitor/schedule-card.js",
+                    str(Path(__file__).parent / "frontend" / "schedule-card.js"),
+                    False,
+                ),
+                StaticPathConfig(
                     "/dtek_monitor/account-history-card.js",
                     str(Path(__file__).parent / "frontend" / "account-history-card.js"),
                     False,

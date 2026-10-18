@@ -54,7 +54,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await hass.config_entries.async_forward_entry_setups(
                 entry, ACCOUNT_PLATFORMS
             )
+            await coordinator.reminders.start()
         except BaseException:
+            await coordinator.reminders.close()
             await coordinator.energy.close()
             await client.close()
             raise
@@ -121,6 +123,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
+            await entry.runtime_data.reminders.close()
             await entry.runtime_data.energy.close()
             await entry.runtime_data.submissions.close()
             await entry.runtime_data.client.close()

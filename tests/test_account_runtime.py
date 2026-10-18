@@ -158,7 +158,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         options.hass = self.hass
         self.assertEqual(
             (await options.async_step_init())["menu_options"],
-            ["account_selection", "account", "account_schedule"],
+            ["account_selection", "account", "account_schedule", "account_reminders"],
         )
         with patch.object(
             flow_module, "create_account_provider", return_value=self.account_client

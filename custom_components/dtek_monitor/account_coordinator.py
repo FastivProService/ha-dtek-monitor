@@ -27,6 +27,7 @@ from .account_energy_api import HAEnergyManager
 from .account_submission import SubmissionManager
 from .account_submission_store import SubmissionStore
 from .providers import CONF_PROVIDER
+from .account_reminders import AccountReminders
 
 _LOGGER = logging.getLogger(__name__)
 MANUAL_REFRESH_SECONDS = 60
@@ -58,6 +59,7 @@ class AccountCoordinator(DataUpdateCoordinator):
             self.energy,
         )
         self.entry = entry
+        self.reminders = AccountReminders(hass, entry, self)
         self._authenticated = False
         self._last_attempt = None
         self._manual_refresh_lock = asyncio.Lock()

@@ -270,6 +270,12 @@ class EnergyManager:
             raise SubmissionError("energy_changed")
         return draft
 
+    async def summary(self, number):
+        """Local scheduled display only; no interactive confirmation token."""
+        async with self._lock:
+            await self._load()
+            return await self._view(number, lambda *_: None)
+
     async def get(self, number, user, authorize):
         async with self._lock:
             await self._load()

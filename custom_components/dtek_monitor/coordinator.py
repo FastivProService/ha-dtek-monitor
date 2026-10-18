@@ -171,6 +171,11 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_error = None
             self.consecutive_failures = 0
             self.update_interval = self._normal_interval
+            if self.schedule is None or self.schedule.state != "current":
+                # A verified address without a published schedule is a successful
+                # poll. Preserve only the separate display snapshot; no live
+                # calendar or notification may use it as a confirmed empty day.
+                return data
             start = self.last_success.astimezone(KYIV_TZ).replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
@@ -244,8 +249,10 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self.address_error or self.schedule_error:
             raise ProviderError(self.address_error or self.schedule_error)
         schedule = result.schedule
-        if result.address is None or schedule is None or schedule.state != "current":
+        if result.address is None or schedule is None:
             raise ProviderError("Provider could not verify address and schedule")
+        if schedule.state not in ("current", "missing", "unpublished", "unsupported"):
+            raise ProviderError("Unknown schedule publication state")
         if (
             schedule.address != self.address
             or tuple(g.id for g in schedule.groups) != result.address.groups

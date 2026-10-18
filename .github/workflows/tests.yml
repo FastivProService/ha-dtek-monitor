@@ -24,7 +24,7 @@ jobs:
           python -m pip install playwright==1.58.0
           python -m playwright install --with-deps chromium
       - name: Test account cards
-        run: python -m unittest discover -s tests -p 'test_account_*card.py' -v
+        run: python -m unittest discover -s tests -p 'test_*card.py' -v
 
   unit-tests:
     runs-on: ubuntu-latest

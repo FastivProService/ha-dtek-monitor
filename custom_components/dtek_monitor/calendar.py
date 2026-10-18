@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util
 from .coordinator import DTEKDataCoordinator
 from .schedule import KYIV_TZ
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT, CONF_ACCOUNTS
+from .schedule_status import status_attributes, schedule_status
 from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
 
 _CALENDAR_TYPES: list[tuple[str, str, str]] = [
@@ -79,11 +80,17 @@ class DTEKScheduleCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntit
 
     @property
     def available(self) -> bool:
-        return self.coordinator.notifications_ready
+        return self.coordinator.notifications_ready and any(
+            c.kind == self._event_type for c in self.coordinator.schedule.coverage
+        )
 
     @property
     def extra_state_attributes(self) -> dict:
-        return {**self.coordinator.snapshot_attributes, "usage": "automations"}
+        return {
+            **self.coordinator.snapshot_attributes,
+            **status_attributes(self.coordinator),
+            "usage": "automations",
+        }
 
     @property
     def event(self) -> CalendarEvent | None:
@@ -110,7 +117,8 @@ class DTEKScheduleCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntit
         """Return calendar events within a datetime range."""
         if not self.coordinator.notifications_ready or self.coordinator.data is None:
             raise HomeAssistantError(
-                "DTEK schedule is unavailable: last refresh failed"
+                translation_domain="dtek_monitor",
+                translation_key="schedule_" + schedule_status(self.coordinator),
             )
 
         groups = self.coordinator.data.get("schedule_groups", [])
@@ -124,11 +132,20 @@ class DTEKScheduleCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntit
             else start_date
         )
         end = end_date.replace(tzinfo=KYIV_TZ) if end_date.tzinfo is None else end_date
-        if schedule is None or not any(
-            c.kind == self._event_type and c.end > start and c.start < end
-            for c in schedule.coverage
+        if schedule is None or not all(
+            any(
+                c.group_id == group
+                and c.kind == self._event_type
+                and c.end > start
+                and c.start < end
+                for c in schedule.coverage
+            )
+            for group in groups
         ):
-            raise HomeAssistantError("DTEK has not published a schedule for this range")
+            raise HomeAssistantError(
+                translation_domain="dtek_monitor",
+                translation_key="schedule_range_missing",
+            )
 
         return self.coordinator.get_events_for_range(
             start_date,

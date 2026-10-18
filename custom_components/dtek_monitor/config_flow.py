@@ -437,8 +437,23 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
     async def async_step_account_menu(self, user_input=None):
         return self.async_show_menu(
             step_id="account_menu",
-            menu_options=["account_selection", "account", "account_schedule"],
+            menu_options=[
+                "account_selection",
+                "account",
+                "account_schedule",
+                "account_reminders",
+            ],
         )
+
+    async def async_step_account_reminders(self, user_input=None):
+        from .account_reminder_flow import choose_account
+
+        return await choose_account(self, self._config_entry, user_input)
+
+    async def async_step_account_reminder_settings(self, user_input=None):
+        from .account_reminder_flow import configure
+
+        return await configure(self, self._config_entry, user_input)
 
     async def async_step_account_schedule(self, user_input=None):
         from .account_schedule_flow import schedule_account
