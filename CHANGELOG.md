@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b18] - 2026-10-18
+
+- Separate Grid/List presentation from group selection in My DTEK. Preserve independent building/personal calendars, grid dates, filters, scroll position and reading drafts across navigation and HA updates.
+- Show one grid publication notice for the selected date; distinguish setup, unsupported operators, paused publication, partial coverage, forecasts and connection errors.
+- Display only relevant legend entries and move update timestamps into expandable details. Keep all operator groups and building/apartment highlights.
+- Add browser regressions for view changes, publication recovery, focus and separate account/building schedules; update English/Ukrainian guidance.
+
 ## [1.8.0b17] - 2026-10-18
 
 - Open apartment group, reading reminder and meter notification forms directly from My DTEK Settings, with the selected account already resolved.

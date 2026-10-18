@@ -1,4 +1,4 @@
-import {el} from "./account-ui.js?v=1.8.0b17";
+import {el} from "./account-ui.js?v=1.8.0b18";
 
 // A small host for HA's existing options schemas. The backend owns validation,
 // confirmation steps and persistence; ordinary hass updates only reach ha-form.

@@ -1,5 +1,5 @@
-import "./account-energy-editor.js?v=1.8.0b17";
-import {el, embeddedCSS} from "./account-ui.js?v=1.8.0b17";
+import "./account-energy-editor.js?v=1.8.0b18";
+import {el, embeddedCSS} from "./account-ui.js?v=1.8.0b18";
 
 // Owns the settings lifecycle; source proposals stay in the readings card.
 class DtekEnergySettings extends HTMLElement {

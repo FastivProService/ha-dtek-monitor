@@ -1,5 +1,5 @@
-import { embeddedCSS } from "./account-ui.js?v=1.8.0b17";
-import "./schedule-grid.js?v=1.8.0b17";
+import { embeddedCSS } from "./account-ui.js?v=1.8.0b18";
+import "./schedule-grid.js?v=1.8.0b18";
 /* Publication status remains visible when HA's calendar cannot show events. */
 class DtekScheduleCard extends HTMLElement {
   constructor() {
@@ -9,7 +9,8 @@ class DtekScheduleCard extends HTMLElement {
       .status{padding:16px;line-height:1.5;overflow-wrap:anywhere}
       .error{color:var(--error-color,#b22)}small{display:block;color:var(--secondary-text-color);margin-top:4px}
     .views{display:flex;gap:8px;padding:0 16px 14px}.views button{font:inherit;min-height:40px;padding:8px 14px;border-radius:9px;border:1px solid var(--divider-color,#bcc);color:var(--primary-text-color);background:var(--card-background-color);cursor:pointer}.views button[aria-pressed=true]{background:var(--primary-color,#1685a6);color:var(--text-primary-color,#fff)}[hidden]{display:none!important}
-    ${embeddedCSS}</style><ha-card><h2></h2><div class="status" role="status"></div><div class="views"><button class="grid-view" type="button"></button><button class="list-view" type="button"></button></div><dtek-schedule-grid></dtek-schedule-grid><div class="calendar"></div></ha-card>`;
+    :host([embedded]) .status{padding:0 0 16px}:host([embedded]) dtek-schedule-grid{--dtek-grid-padding:0}
+    ${embeddedCSS}</style><ha-card><h2 class="card-title"></h2><div class="status" role="status"></div><div class="views"><button class="grid-view" type="button"></button><button class="list-view" type="button"></button></div><dtek-schedule-grid></dtek-schedule-grid><div class="calendar"></div></ha-card>`;
     this._view="grid";
     for(const view of ["grid","list"])this.shadowRoot.querySelector(`.${view}-view`).onclick=()=>{this._view=view;this._render();};
   }
@@ -60,6 +61,8 @@ class DtekScheduleCard extends HTMLElement {
     };
     this.shadowRoot.querySelector("h2").textContent=this._config.title || (uk?"Графік ДТЕК":"DTEK schedule");
     const feedback=this.shadowRoot.querySelector(".status");
+    // The grid reports its selected date, independently of today's list status.
+    feedback.hidden=this._view==="grid";
     feedback.textContent=words[status] || words.unknown;
     feedback.classList.toggle("error",status==="error");
     if(state?.attributes.status_date) {

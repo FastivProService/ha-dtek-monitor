@@ -194,4 +194,51 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.locator("dtek-schedule-grid tbody tr").count(), 12)
         self.assertEqual(await self.page.locator("dtek-schedule-grid tr.home").count(), 2)
         self.assertEqual(await self.page.locator("dtek-schedule-grid tr.selected").count(), 1)
-        self.assertEqual(await self.page.get_by_role("button", name="All operator groups", exact=True).get_attribute("aria-pressed"), "true")
+        self.assertEqual(await self.page.get_by_role("button", name="Grid", exact=True).get_attribute("aria-pressed"), "true")
+
+    async def test_schedule_views_retain_grid_and_independent_calendars(self):
+        await self.page.evaluate("""() => {
+          window.created=[];window.loadCardHelpers=async()=>({createCardElement:config=>{
+            created.push(config);const e=document.createElement('div');e.className='test-calendar';e.textContent='Calendar';return e;
+          }});
+          for(const e of ['calendar.personal_1','calendar.building_1'])hass.states[e]={state:'off'};
+        }""")
+        await self.page.get_by_role("tab", name="Schedule", exact=True).click()
+        await self.page.locator("tbody tr").first.wait_for()
+        await self.page.get_by_label("Date", exact=True).select_option("2026-10-19")
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
+        await self.page.evaluate("window.grid=card.shadowRoot.querySelector('dtek-schedule-card').shadowRoot.querySelector('dtek-schedule-grid');grid.q('.scroll').scrollLeft=200")
+        await self.page.get_by_role("button", name="List", exact=True).click()
+        await self.page.locator(".test-calendar").wait_for()
+        await self.page.get_by_label("Show schedule for", exact=True).select_option("building")
+        await self.page.locator(".test-calendar:visible").wait_for()
+        self.assertEqual(await self.page.evaluate("created.map(c=>c.entities)"), [["calendar.personal_1"], ["calendar.building_1"]])
+        await self.page.get_by_label("Show schedule for", exact=True).focus()
+        await self.page.evaluate("for(let i=0;i<20;i++)card.hass={...hass,states:{...hass.states}}")
+        self.assertTrue(await self.page.get_by_label("Show schedule for", exact=True).evaluate("e=>e===e.getRootNode().activeElement"))
+        await self.page.get_by_role("tab", name="Overview", exact=True).click()
+        await self.page.get_by_role("tab", name="Schedule", exact=True).click()
+        self.assertEqual(await self.page.get_by_label("Show schedule for", exact=True).input_value(), "building")
+        await self.page.get_by_role("button", name="Grid", exact=True).click()
+        self.assertEqual(await self.page.get_by_label("Date", exact=True).input_value(), "2026-10-19")
+        self.assertEqual(await self.page.locator("tbody tr:visible").count(), 2)
+        self.assertEqual(await self.page.evaluate("grid.q('.scroll').scrollLeft"), 200)
+        self.assertEqual(await self.page.locator(".status:visible").count(), 0)
+        await self.page.get_by_role("button", name="List", exact=True).click()
+        self.assertEqual(await self.page.get_by_label("Show schedule for", exact=True).input_value(), "building")
+        self.assertEqual(await self.page.locator(".status:visible").count(), 1)
+        self.assertEqual(await self.page.evaluate("created.length"), 2)
+
+    async def test_missing_personal_choice_keeps_building_list_and_full_grid(self):
+        await self.page.evaluate("""() => {
+          hass.states['sensor.schedule_1']={state:'not_selected',attributes:{}};
+          window.loadCardHelpers=async()=>({createCardElement:()=>{const e=document.createElement('div');e.className='test-calendar';e.textContent='Calendar';return e;}});
+          hass.states['calendar.building_1']={state:'off'};
+        }""")
+        await self.page.get_by_role("tab", name="Schedule", exact=True).click()
+        await self.page.locator("tbody tr").first.wait_for()
+        self.assertEqual(await self.page.locator("tbody tr").count(), 12)
+        await self.page.get_by_role("button", name="List", exact=True).click()
+        await self.page.locator(".status:visible").filter(has_text="Choose yours in settings.").wait_for()
+        await self.page.get_by_label("Show schedule for", exact=True).select_option("building")
+        await self.page.locator(".test-calendar").wait_for()

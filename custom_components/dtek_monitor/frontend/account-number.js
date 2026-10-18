@@ -1,4 +1,4 @@
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b17";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b18";
 export async function copyValue(value){
   if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);return;}
   const input=document.createElement('textarea');input.value=value;input.style.cssText='position:fixed;left:-10000px';document.body.append(input);

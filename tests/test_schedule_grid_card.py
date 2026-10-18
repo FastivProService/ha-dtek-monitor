@@ -47,14 +47,14 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
             await self.page.evaluate("calls.map(x=>x.type)"),
             ["dtek_monitor/schedule_grid"],
         )
-        await self.page.get_by_role("button", name="My building", exact=True).click()
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
         self.assertEqual(await self.page.locator("tbody tr").count(), 2)
-        await self.page.get_by_role("button", name="All groups", exact=True).click()
+        await self.page.get_by_label("Groups", exact=True).select_option("all")
         self.assertEqual(await self.page.locator("tbody tr").count(), 12)
 
     async def test_date_filter_focus_and_scroll_survive_unrelated_ha_updates(self):
         await self.page.get_by_label("Date", exact=True).select_option("2026-10-19")
-        await self.page.get_by_role("button", name="My building", exact=True).click()
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
         await self.page.get_by_label("Date", exact=True).focus()
         await self.page.evaluate(
             """() => {const g=card.shadowRoot.querySelector('dtek-schedule-grid');g.q('.scroll').scrollLeft=200;window.table=g.q('table');window.row=table.querySelector('tr[data-group]');for(let i=0;i<10;i++)card.hass={...hass,states:{...hass.states}};}"""
@@ -96,13 +96,13 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
         await self.page.evaluate(
             "() => {hass.callWS=()=>new Promise(resolve=>window.reply=resolve);}"
         )
-        await self.page.get_by_role("button", name="Refresh grid").click()
+        await self.page.get_by_role("button", name="Refresh").click()
         await self.page.get_by_label("Date", exact=True).select_option("2026-10-19")
-        await self.page.get_by_role("button", name="My building", exact=True).click()
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
         group = self.page.get_by_role("button", name="GPV3.1: Intervals", exact=True)
         await group.focus()
         await self.page.evaluate("reply({...data,verified_at:'2026-10-18T09:06:00Z'})")
-        await self.page.get_by_role("button", name="Refresh grid").wait_for()
+        await self.page.get_by_role("button", name="Refresh").wait_for()
         self.assertEqual(
             await self.page.get_by_label("Date", exact=True).input_value(), "2026-10-19"
         )
@@ -122,6 +122,64 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(int.from_bytes(raw[16:20], "big"), 1280)
             self.assertGreater(len(raw), 10000)
 
+    async def test_selected_day_has_one_notice_and_relevant_legend(self):
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
+        self.assertFalse(await self.page.locator(".status").is_visible())
+        self.assertEqual(await self.page.locator(".feedback").inner_text(), "")
+        self.assertEqual(await self.page.locator(".legend .key").count(), 3)
+        self.assertNotIn("Purple", await self.page.locator(".note").inner_text())
+        await self.page.get_by_label("Date", exact=True).select_option("2026-10-20")
+        self.assertIn("weekly forecast", await self.page.locator(".feedback").inner_text())
+        self.assertEqual(await self.page.locator(".legend .key").count(), 2)
+        self.assertIn("Purple", await self.page.locator(".note").inner_text())
+        await self.page.get_by_label("Date", exact=True).select_option("2026-10-24")
+        self.assertIn("No schedule is published", await self.page.locator(".feedback").inner_text())
+        self.assertNotIn("No planned outages today", await self.page.locator(".feedback").inner_text())
+
+    async def test_status_changes_keep_controls_and_recover_selected_date(self):
+        await self.page.get_by_label("Date", exact=True).select_option("2026-10-19")
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
+        await self.page.get_by_label("Date", exact=True).focus()
+        await self.page.evaluate("""() => {
+          hass.callWS=()=>new Promise(resolve=>window.reply=resolve);
+          hass.states['sensor.status']={state:'current',attributes:{updated:2}};card.hass=hass;
+        }""")
+        self.assertTrue(await self.page.get_by_label("Date", exact=True).evaluate("e=>e===e.getRootNode().activeElement"))
+        self.assertFalse(await self.page.get_by_label("Date", exact=True).is_disabled())
+        await self.page.evaluate("reply({status:'unpublished',days:[]})")
+        await self.page.get_by_text("DTEK has paused schedule publication.", exact=True).wait_for()
+        self.assertFalse(await self.page.locator("table").is_visible())
+        self.assertTrue(await self.page.get_by_role("button", name="Save PNG").is_disabled())
+        await self.page.get_by_role("button", name="Refresh").click()
+        await self.page.evaluate("reply(structuredClone(data))")
+        await self.page.locator("table").wait_for()
+        self.assertEqual(await self.page.get_by_label("Date", exact=True).input_value(), "2026-10-19")
+        self.assertEqual(await self.page.locator("tbody tr").count(), 2)
+
+    async def test_grid_does_not_mislabel_connection_setup_or_provider_errors(self):
+        for status, text in [
+            ("error", "The grid is unavailable"),
+            ("no_address", "Link a building"),
+            ("address_unavailable", "The building connection is unavailable"),
+            ("unsupported", "is not supported"),
+            ("unpublished", "paused schedule publication"),
+            ("missing", "has not published a grid"),
+        ]:
+            await self.page.evaluate("status=>{hass.callWS=async()=>({status,days:[]})}", status)
+            await self.page.get_by_role("button", name="Refresh").click()
+            await self.page.get_by_text(text, exact=False).wait_for()
+            self.assertFalse(await self.page.locator("table").is_visible())
+            self.assertEqual(await self.page.locator(".feedback.error").count(), int(status == "error"))
+
+    async def test_partial_grid_keeps_unknown_cells_visible(self):
+        self.assertIn("Only part", await self.page.locator(".feedback").inner_text())
+        self.assertEqual(await self.page.locator("td.unknown").count(), 48)
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
+        self.assertEqual(await self.page.locator(".feedback").inner_text(), "")
+        await self.page.get_by_text("Update details", exact=True).click()
+        await self.page.evaluate("card.hass={...hass}")
+        self.assertTrue(await self.page.locator(".meta").is_visible())
+
     async def test_pending_export_does_not_save_a_previous_account_or_date(self):
         await self.page.evaluate(
             "() => {HTMLCanvasElement.prototype.toBlob=function(cb){window.finishPNG=()=>cb(new Blob(['demo'],{type:'image/png'}));};window.downloads=0;HTMLAnchorElement.prototype.click=function(){downloads++;};}"
@@ -135,7 +193,7 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
         await self.page.evaluate(
             "() => {hass.callWS=()=>new Promise(resolve=>window.old=resolve);}"
         )
-        await self.page.get_by_role("button", name="Refresh grid").click()
+        await self.page.get_by_role("button", name="Refresh").click()
         await self.page.evaluate(
             "hass.callWS=async()=>{throw new Error('gone')};card.setConfig({...card._config,status_entity:'sensor.other'});card.hass=hass;"
         )
@@ -166,4 +224,8 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
                     "document.documentElement.scrollWidth<=innerWidth"
                 )
             )
+            self.assertTrue(await self.page.locator(".tools").evaluate("""e=>{
+              const rects=[...e.querySelectorAll('button,select')].map(n=>n.getBoundingClientRect());
+              return rects.every((a,i)=>rects.every((b,j)=>i===j || a.right<=b.left || b.right<=a.left || a.bottom<=b.top || b.bottom<=a.top));
+            }"""))
         self.assertEqual(await self.page.locator("img").count(), 0)

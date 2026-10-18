@@ -1,12 +1,12 @@
-import "./account-options.js?v=1.8.0b17";
-import "./account-energy-settings.js?v=1.8.0b17";
-import "./account-profile-card.js?v=1.8.0b17";
-import "./account-readings-card.js?v=1.8.0b17";
-import "./account-history-card.js?v=1.8.0b17";
-import "./schedule-card.js?v=1.8.0b17";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b17";
-import { accountNumber } from "./account-number.js?v=1.8.0b17";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b17";
+import "./account-options.js?v=1.8.0b18";
+import "./account-energy-settings.js?v=1.8.0b18";
+import "./account-profile-card.js?v=1.8.0b18";
+import "./account-readings-card.js?v=1.8.0b18";
+import "./account-history-card.js?v=1.8.0b18";
+import "./schedule-card.js?v=1.8.0b18";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b18";
+import { accountNumber } from "./account-number.js?v=1.8.0b18";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b18";
 
 const words = {
   en: {
@@ -22,7 +22,7 @@ const words = {
     sensor: "Home energy sensor", sensorNote: "Use your own cumulative energy sensor to suggest readings. You can also enter readings manually.",
     sensorSettings: "Set up or calibrate a sensor", notifications: "Groups, accounts and notifications", notificationsNote: "Manage DTEK cabinet links, choose accounts HA monitors, set the apartment's group or change reminders in integration settings.",
     diagnostics: "Check journal", diagnosticsNote: "Local checks and technical details", viewOnly: "You have viewing access. An administrator can submit readings and configure the source.",
-    grid: "All operator groups", mine: "My group · list", building: "Building · list", noSchedule: "Link a building and choose your group in the integration settings. Building schedules remain available independently of the personal account.",
+    grid: "Grid", list: "List", scheduleView: "Schedule view", listScope: "Show schedule for", mine: "My group", building: "My building · all groups", noSchedule: "Link a building in Settings to see its schedules. Choosing your apartment’s group does not remove the other building groups.",
     setup: "Configure DTEK", draft: "Discard the unfinished entry?", draftNote: "Your readings or sensor settings have not been saved. They will not be copied to the other account.",
     stay: "Keep editing", discard: "Discard and switch", wait: "Wait for the current operation to finish before switching accounts.",
     state_current: "Today's schedule is published.", state_empty: "No planned outages today — the schedule is verified.", state_missing: "Today's schedule is not fully published yet.",
@@ -44,7 +44,7 @@ const words = {
     sensor: "Домашній лічильник енергії", sensorNote: "Накопичувальний датчик енергії може підказувати покази. Їх також можна вводити вручну.",
     sensorSettings: "Підключити або відкалібрувати датчик", notifications: "Група, рахунки та сповіщення", notificationsNote: "Керуйте прив’язками в ДТЕК, обирайте рахунки для моніторингу HA, групу квартири та нагадування в налаштуваннях інтеграції.",
     diagnostics: "Журнал перевірок", diagnosticsNote: "Локальні перевірки й технічні відомості", viewOnly: "Вам доступний перегляд. Передавати покази та налаштовувати джерело може адміністратор.",
-    grid: "Усі групи оператора", mine: "Моя група · список", building: "Будинок · список", noSchedule: "Прив’яжіть будинок та оберіть свою групу в налаштуваннях інтеграції. Графіки будинку залишаються доступними незалежно від особистого кабінету.",
+    grid: "Сітка", list: "Список", scheduleView: "Вигляд графіка", listScope: "Показати графік для", mine: "Моя група", building: "Мій будинок · усі групи", noSchedule: "Прив’яжіть будинок у налаштуваннях, щоб переглядати його графіки. Вибір групи квартири не прибирає інші групи будинку.",
     setup: "Налаштувати ДТЕК", draft: "Скасувати незавершене введення?", draftNote: "Покази або налаштування датчика ще не збережено. Вони не будуть перенесені до іншого рахунку.",
     stay: "Продовжити введення", discard: "Скасувати та змінити рахунок", wait: "Дочекайтеся завершення поточної операції перед зміною рахунку.",
     state_current: "Графік на сьогодні опубліковано.", state_empty: "Сьогодні планових відключень немає — графік перевірено.", state_missing: "Графік на сьогодні ще не повністю опубліковано.",
@@ -76,7 +76,7 @@ const css = `
   .tile{display:flex;flex-direction:column}.context-action{align-self:flex-start;border:0;border-radius:6px;color:var(--primary-color,#0288d1);padding:8px 4px;margin:12px -4px 0;text-align:left;font-weight:500;line-height:1.4}.context-action:hover{background:color-mix(in srgb,var(--primary-color,#0288d1) 8%,transparent)}
   details{margin:20px 0}summary{display:flex;align-items:center;cursor:pointer;gap:10px;font-weight:600}summary::before{content:'›';font-size:1.4em}details[open]>summary::before{transform:rotate(90deg)}
   .setting{padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--divider-color,#ddd)}.setting h3{margin:0 0 8px;font-size:1.05em}
-  .switcher{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}.switcher button[aria-pressed=true]{background:var(--secondary-background-color,#f4f7fa);border-color:var(--primary-color,#0288d1)}
+  .schedule-tools{display:flex;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:16px}.schedule-scope{display:grid;gap:5px;font-size:.9em;max-width:100%}.switcher{display:flex;gap:4px;padding:4px;border-radius:12px;background:var(--secondary-background-color,#f4f7fa)}.switcher button{border-color:transparent;min-width:85px}.switcher button[aria-pressed=true]{background:var(--card-background-color,#fff);border-color:var(--divider-color,#ddd);font-weight:600}
   .notice{margin:14px 0;color:var(--secondary-text-color,#596979)}.notice:empty{display:none}.empty{padding:24px}
   dialog{max-width:min(440px,calc(100vw - 32px));border:1px solid var(--divider-color,#ddd);border-radius:16px;padding:24px;color:inherit;background:var(--card-background-color,#fff)}dialog::backdrop{background:#0008}dialog h3{margin-top:0}
   @container(max-width:520px){.header{padding:18px 16px}.panel{padding:18px 16px}.address{font-size:1.25em}.tiles{gap:10px}.tile{padding:12px}.tile h3{font-size:.85em}.value{font-size:1.45em}.unit{display:block;margin:4px 0 0;font-size:.6em}nav{padding:0 6px;flex-wrap:wrap}nav button{flex:1 1 auto;font-size:.85em;padding:10px 9px}.actions button{width:100%}}
@@ -193,6 +193,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     if (!this._shell) return;
     const t=this.t;
     for (const node of this.shadowRoot.querySelectorAll("[data-i18n]")) node.textContent=t[node.dataset.i18n];
+    for (const node of this.shadowRoot.querySelectorAll("[data-i18n-label]")) node.setAttribute("aria-label",t[node.dataset.i18nLabel]);
     this._title.textContent=this._config.title || t.title; this._detailsButton.textContent=t.detailsShort; this._detailsButton.setAttribute("aria-label",t.details); this._detailsButton.hidden=!this._account;
     this._pickerLabel.textContent=t.account; this._select.setAttribute("aria-label", t.account);
     this._picker.hidden=(this._config.show_account_selector===false && !!this._account) || !this._accounts?.length || this._accounts.length===1;
@@ -278,21 +279,27 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   }
   _create_consumption(panel) { this._child("dtek-account-history-card", {view:"consumption"}, panel); }
   _create_schedule(panel) {
-    const buttons=el("div", undefined, "switcher"), slots=el("div"), mounted=new Map();
+    const toolbar=el("div",undefined,"schedule-tools"),buttons=el("div", undefined, "switcher"), slots=el("div"), mounted=new Map();
+    buttons.setAttribute("role","group");buttons.setAttribute("aria-label",this.t.scheduleView);buttons.dataset.i18nLabel="scheduleView";
+    const scope=el("label",undefined,"schedule-scope"),caption=el("span",this.t.listScope),select=el("select");caption.dataset.i18n="listScope";
+    select.setAttribute("aria-label",this.t.listScope);select.dataset.i18nLabel="listScope";
+    for(const mode of ["mine","building"]){const option=el("option",this.t[mode]);option.value=mode;option.dataset.i18n=mode;select.append(option);}
+    scope.append(caption,select);let view="grid";
     const modes={mine:{status_entity:this._account.roles?.["account_schedule_status:all"], entities:[this._account.roles?.["account_outage_schedule:all"],this._account.roles?.["account_possible_schedule:all"]].filter(Boolean)},
       building:{status_entity:this._account.building_schedule?.schedule_status, entities:[this._account.building_schedule?.outage_schedule,this._account.building_schedule?.possible_schedule].filter(Boolean)}};
     modes.grid=modes.mine.status_entity ? {...modes.mine} : {...modes.building};
-    const show=mode => {
-      for (const b of buttons.children) b.setAttribute("aria-pressed", String(b.dataset.mode===mode));
+    const show=() => {
+      const mode=view==="grid"?"grid":select.value;scope.hidden=view!=="list";
+      for (const b of buttons.children) b.setAttribute("aria-pressed", String(b.dataset.mode===view));
       if (!mounted.has(mode)) {
         const box=el("div"), config=modes[mode]; mounted.set(mode,box); slots.append(box);
         if (config.status_entity && config.entities.length) this._child("dtek-schedule-card", {...config, title:this.t[mode],view:mode==="grid"?"grid":"list",hide_view_switcher:true}, box);
-        else box.append(el("p", this.t.noSchedule), this._link(this.t.setup));
+        else {box.append(el("p", this.t.noSchedule));if(this._hass.user?.is_admin && this._account.can_submit)this._settingsAction(box,"groupSettings","group");}
       }
       for (const [key, box] of mounted) box.hidden=key!==mode;
     };
-    for (const mode of ["grid","mine","building"]) { const b=this._button(this.t[mode], () => show(mode)); b.dataset.mode=mode; buttons.append(b); }
-    panel.append(buttons,slots); show("grid");
+    for (const mode of ["grid","list"]) { const b=this._button(this.t[mode], () => {view=mode;show();}); b.dataset.mode=mode;b.dataset.i18n=mode; buttons.append(b); }
+    select.onchange=show;toolbar.append(buttons,scope);panel.append(toolbar,slots); show();
   }
   _syncEnergyLocks(){
     if(this._energySettings)this._energySettings.locked=!!this._readings?._busy;

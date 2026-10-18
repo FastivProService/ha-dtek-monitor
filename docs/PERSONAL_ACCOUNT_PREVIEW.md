@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b17`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b18`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -129,9 +129,12 @@ your confirmed personal group also has **My group**. Choosing a row shows its
 exact intervals below the grid. This display does not change building groups,
 personal selection, calendars or Telegram notifications.
 
-Use the date selector for today and the next six days. **My building** filters
-the grid locally; **All groups** restores the overview. **My group · list** and
-**Building · list** retain the calendar views. On a phone, scroll the grid
+Use **Grid / List** to choose the format. In the grid, choose today or one of the
+next six days, then **Groups → My building** to filter rows or **All groups** to
+see every group. In **List**, choose **My group** or **My building · all groups**.
+Each calendar keeps its own navigation; returning to the grid retains the date,
+filter and scroll position. These controls do not change your apartment's group.
+On a phone, scroll the grid
 horizontally; group labels stay visible. Dates and hours use Europe/Kyiv,
 including repeated or skipped hours at daylight-saving changes.
 
@@ -139,7 +142,9 @@ The legend distinguishes planned outages, possible outages, no scheduled
 outage, weekly forecasts and missing data. A white cell does not prove the house
 has power. Missing, hidden or failed publication never produces a reassuring
 empty schedule. Unpublished dates show unknown cells; a connection failure hides
-the old grid. The grid reads HA's local snapshot without extra DTEK requests.
+the old grid. The notice above the grid describes the selected date and visible
+groups. Only relevant legend entries appear; expand **Update details** for the
+source and verification times. The grid reads HA's local snapshot without extra DTEK requests.
 
 **Save PNG** exports the selected date and visible groups with the building
 highlights, legend and update times. It contains the building address, not the
