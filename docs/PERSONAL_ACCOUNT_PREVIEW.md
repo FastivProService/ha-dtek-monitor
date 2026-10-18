@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b5`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b6`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -74,7 +74,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b5` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b6` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -135,7 +135,7 @@ entity: sensor.example_account_data_updated
 ```
 
 It is loaded automatically by either DTEK custom card resource above. If you use
-neither, register `/dtek_monitor/account-number.js?v=1.8.0b5` as a JavaScript module
+neither, register `/dtek_monitor/account-number.js?v=1.8.0b6` as a JavaScript module
 in Resources. Existing entity IDs and masked device labels are unchanged.
 
 ## Send meter readings
@@ -143,9 +143,9 @@ in Resources. Existing entity IDs and masked device labels are unchanged.
 This preview includes a separate **DTEK meter readings** card. It performs a real
 write to your DTEK account only after you review and explicitly confirm the values.
 Opening the card, loading meter data and reviewing values do not send readings.
-Use actual readings from your meter; do not use invented values to test the final button.
+Use actual meter readings or reviewed source proposals; never use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b5` as another **JavaScript module**
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b6` as another **JavaScript module**
 in dashboard Resources, then add this manual card to a private dashboard:
 
 ```yaml
@@ -206,6 +206,101 @@ DTEK may take time to expose the new record. Their previous values are not proof
 that a submission failed. Submission outcomes have synthetic tests. One live submission of actual
 single-zone readings has also been verified with the owner’s authorization:
 DTEK confirmed acceptance and history contained an active record dated on submission.
+
+## Use an energy sensor from Home Assistant
+
+The readings card includes an optional **Home Assistant energy source** panel.
+It supports registered cumulative energy sensors (`total` or `total_increasing`)
+in Wh, kWh or MWh. Connect the device to HA using its existing integration first;
+DTEK Monitor does not add a device driver. An active HA administrator needs access
+to the account and each source sensor.
+
+Choose the sensor for **this apartment and this meter**. A secondary meter must
+measure the same grid-import energy as the official meter, including all loads.
+Do not bind another apartment's sensor, inverter output, net import/export energy,
+or a sensor that counts only selected appliances. The integration cannot detect
+incorrect wiring or an unreported bypass. Daily/monthly resetting counters and
+energy derived only from power samples are not suitable for this initial feature.
+
+Two modes are available:
+
+| Mode | Proposed cumulative reading |
+| --- | --- |
+| Read the official meter directly | The corresponding meter register from HA |
+| Estimate from a secondary meter | Official reference + current source − source reference |
+
+For example, an official reading of `1000` paired with a source reading of `100`
+produces an estimate of `1025` when the source reaches `125`. If you check the
+official meter and it actually shows `1030`, save the new pair `1030 / 125`.
+At source reading `135`, the next estimate is `1040`. The previous 5 kWh gap is
+already included; it is not added again. This corrects a past difference, not an
+ongoing proportional measurement error. Repeated discrepancies need investigation.
+
+### Create a binding
+
+1. Load the current DTEK meter in the readings card and verify its account,
+   address and serial number.
+2. In the energy panel, choose **Load / refresh energy source**, then
+   **Link an energy sensor**.
+3. Choose the mode and source entity for each tariff zone. Day/Night requires two
+   separate, correctly mapped cumulative registers; one total cannot be split
+   retrospectively across a gap in HA data.
+4. Set the maximum data age and maximum plausible input power. Defaults are
+   15 minutes and 30 kW. The power check permits 1 kWh of reporting/quantization
+   tolerance; it is an anomaly check, not a meter accuracy guarantee.
+5. In estimate mode, enter the physical official reading taken at the same time
+   as the source sample. Decimal kWh are allowed here, using a dot.
+6. Choose **Review binding**, check the displayed readings and source timestamp,
+   tick the confirmation and choose **Save local reference**.
+
+A new/replaced binding verifies the available meter with DTEK. If the cabinet
+blocks meter input, try creating the binding later. An existing reference can
+still be viewed and calibrated locally while DTEK is unavailable.
+
+### Use a proposal or correct a reference
+
+**Load / refresh energy source** refreshes the proposal without changing your
+submission inputs. **Use proposed readings in the form** deliberately inserts
+it. Decimal kWh remain in the calculation; only the whole-number part is inserted
+for submission. Review and confirm the DTEK submission separately. Source-based
+proposals expire after three minutes and are checked again before sending.
+Editing the inserted number changes it to a manual reading.
+
+To correct an estimate, enter the actual official readings in the main form and
+choose **Use entered readings for local calibration**, or enter them in the
+energy panel and choose **Review new reference pair**. Check the proposed pair,
+sample time and correction, then confirm the local save. The captured source
+reference is kept even if the sensor advances while you review it.
+
+Saving a reference never submits readings. It survives a rejected, failed or
+unattempted DTEK submission. Conversely, submitting a calculated reading never
+moves the reference pair or discards fractional consumption. The panel retains
+the latest 24 reference changes; each tariff zone has its own reference.
+
+Unavailable/stale sources cannot supply a proposal. A counter decrease,
+unexpected increase, changed unit or changed device identity suspends proposals.
+Observed resets remain flagged after a rebound or HA restart. After a verified
+reset, create a new reference pair; after a device/unit change, replace the
+binding. Direct reading mode requires replacing the binding after a reset.
+A communication gap can be recovered from cumulative endpoints if the device
+kept counting without a reset. Resets or bypass consumption while HA was offline
+cannot always be detected; a physical meter check is needed when continuity is
+uncertain.
+
+The timestamp is when HA last updated the source state/attributes, not proof
+that a cloud service obtained a fresh device measurement. Configure an age limit
+appropriate for the device's reporting interval and verify its reporting behavior.
+An unchanged energy value can legitimately mean no consumption.
+
+References and continuity checkpoints are stored independently of Recorder in
+HA's private `.storage/dtek_monitor.energy.<entry_id>` file. Include it in backups.
+Storage errors disable source proposals; manual entry remains available. Removing
+a binding deletes its local calibration history and does not modify DTEK data.
+
+This preview provides suggestions and explicit manual submissions. Scheduled
+reminders and automatic submissions are planned separately and are not enabled.
+These sources belong to personal accounts; they do not configure the building
+Telegram bot or its power-presence sensors.
 
 ## Dashboard card
 

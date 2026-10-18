@@ -23,6 +23,7 @@ from .account import (
     AccountRateLimitError,
 )
 from .account_history import HistoryCache
+from .account_energy_api import HAEnergyManager
 from .account_submission import SubmissionManager
 from .account_submission_store import SubmissionStore
 from .providers import CONF_PROVIDER
@@ -44,6 +45,7 @@ class AccountCoordinator(DataUpdateCoordinator):
         )
         self.client = client
         self.history = HistoryCache(client)
+        self.energy = HAEnergyManager(hass, entry)
         self.submissions = SubmissionManager(
             client,
             SubmissionStore(
@@ -53,6 +55,7 @@ class AccountCoordinator(DataUpdateCoordinator):
                 hass.async_add_executor_job,
             ),
             entry.data[CONF_PROVIDER],
+            self.energy,
         )
         self.entry = entry
         self._authenticated = False

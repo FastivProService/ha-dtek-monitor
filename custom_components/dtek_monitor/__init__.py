@@ -49,11 +49,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             await coordinator.async_config_entry_first_refresh()
             entry.runtime_data = coordinator
+            await coordinator.energy.start()
             entry.async_on_unload(entry.add_update_listener(async_reload_entry))
             await hass.config_entries.async_forward_entry_setups(
                 entry, ACCOUNT_PLATFORMS
             )
         except BaseException:
+            await coordinator.energy.close()
             await client.close()
             raise
         return True
@@ -119,6 +121,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
+            await entry.runtime_data.energy.close()
             await entry.runtime_data.submissions.close()
             await entry.runtime_data.client.close()
         return unload_ok

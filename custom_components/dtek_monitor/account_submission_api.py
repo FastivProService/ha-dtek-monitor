@@ -97,6 +97,7 @@ async def async_setup_submissions(hass):
         },
         vol.Optional("confirmation"): vol.All(str, vol.Length(max=64)),
         vol.Optional("attempt"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("source_token"): vol.All(str, vol.Length(max=64)),
     }
 )
 @websocket_api.async_response
@@ -105,10 +106,14 @@ async def websocket_submission(hass, connection, msg):
     try:
         entry, number, coordinator = resolve(hass, connection, msg["entity_id"])
 
-        def authorize():
+        def authorize(source=None):
             current, selected, runtime = resolve(hass, connection, msg["entity_id"])
             if current is not entry or selected != number or runtime is not coordinator:
                 raise SubmissionError("not_available")
+            if source and not connection.user.permissions.check_entity(
+                source, POLICY_READ
+            ):
+                raise SubmissionError("unauthorized")
 
         manager = coordinator.submissions
         action = msg["action"]
@@ -124,6 +129,7 @@ async def websocket_submission(hass, connection, msg):
                 msg.get("revision"),
                 msg.get("values"),
                 authorize,
+                source_token=msg.get("source_token"),
             )
         elif action == "confirm":
             result = await manager.confirm(

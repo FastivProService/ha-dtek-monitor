@@ -173,8 +173,9 @@ def submission_result(payload, count):
 class SubmissionManager:
     """Drafts are short-lived and user-bound. An attempted POST is never replayed."""
 
-    def __init__(self, client, store, provider):
+    def __init__(self, client, store, provider, energy=None):
         self.client, self.store, self.provider = client, store, provider
+        self.energy = energy
         self._lock = asyncio.Lock()
         self._journal = None
         self._drafts = OrderedDict()
@@ -253,7 +254,9 @@ class SubmissionManager:
             authorize()
             return {**context, "blocked": False, "last_attempt": record}
 
-    async def prepare(self, number, user, revision, values, authorize):
+    async def prepare(
+        self, number, user, revision, values, authorize, source_token=None
+    ):
         async with self._lock:
             await self._load()
             authorize()
@@ -264,6 +267,13 @@ class SubmissionManager:
             if context["revision"] != revision:
                 raise SubmissionError("context_changed")
             readings = validate_values(context, values)
+            source = None
+            if source_token:
+                if self.energy is None:
+                    raise SubmissionError("energy_changed")
+                source = await self.energy.validate_proposal(
+                    number, user, source_token, context, values, authorize
+                )
             signature = digest(
                 {
                     "serial": context["serial"],
@@ -288,6 +298,7 @@ class SubmissionManager:
                 "readings": readings,
                 "signature": signature,
                 "expires": now + 300,
+                "source_token": source_token,
             }
             return {
                 "confirmation": token,
@@ -295,6 +306,7 @@ class SubmissionManager:
                 "serial": context["serial"],
                 "date": context["date"],
                 "readings": readings,
+                "source": source,
             }
 
     async def confirm(self, number, user, token, authorize):
@@ -317,6 +329,16 @@ class SubmissionManager:
             authorize()
             if context != draft["context"]:
                 raise SubmissionError("context_changed")
+            source = None
+            if draft.get("source_token"):
+                source = await self.energy.validate_proposal(
+                    number,
+                    user,
+                    draft["source_token"],
+                    context,
+                    {r["zone"]: str(r["value"]) for r in draft["readings"]},
+                    authorize,
+                )
             last = self._journal.get(self._key(number), {})
             if (
                 last.get("status") == "accepted"
@@ -329,14 +351,23 @@ class SubmissionManager:
                 "at": datetime.now(KYIV).isoformat(),
                 "signature": draft["signature"],
                 "readings": draft["readings"],
+                "source": source,
             }
             key = self._key(number)
             await self._save(key, record)
+
             # Storage yields too; recheck authorization immediately before transport.
-            try:
+            def authorize_send():
                 authorize()
+                if draft.get("source_token"):
+                    self.energy.guard_proposal(
+                        number, user, draft["source_token"], authorize
+                    )
+
+            try:
+                authorize_send()
                 result = await self.client.submit_readings(
-                    number, draft["readings"], authorize
+                    number, draft["readings"], authorize_send
                 )
             except SubmissionError:
                 await self._save(key, {**record, "status": "not_sent"})

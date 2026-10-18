@@ -43,8 +43,10 @@ def _can_read_account(hass, connection, entry, number):
 
 async def async_setup_history(hass):
     from .account_submission_api import async_setup_submissions
+    from .account_energy_api import async_setup_energy
 
     await async_setup_submissions(hass)
+    await async_setup_energy(hass)
     websocket_api.async_register_command(hass, websocket_history)
     websocket_api.async_register_command(hass, websocket_identity)
     if "http" in hass.config.components:

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b6] - 2026-10-18
+
+- Add optional personal-account energy sources: direct official meter readings or estimates from a calibrated secondary cumulative meter.
+- Save independently confirmed reference pairs and correction history, including fractional kWh, separately from DTEK submission outcomes.
+- Add explicit source proposal insertion and local calibration to the English/Ukrainian readings card without overwriting user edits.
+- Suspend source proposals on stale data, observed resets, device/unit changes or implausible increases; recheck proposals before submitting.
+- Cover corrections, restarts, tariff zones, source permissions and browser interactions with synthetic tests. Scheduled/automatic submissions remain outside this preview.
+
 ## [1.7.0] - 2026-10-17
 
 - License new releases under PolyForm Noncommercial 1.0.0; earlier MIT releases keep their original terms.
