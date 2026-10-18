@@ -393,6 +393,10 @@ class DTEKMonitorOptionsFlow(AccountLinkFlowMixin, OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage runtime options for an existing entry."""
         if self._config_entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+            from .account_options_api import CONTEXT_KEY, open_workspace_step
+
+            if context := self.context.get(CONTEXT_KEY):
+                return await open_workspace_step(self, self._config_entry, context)
             return await self.async_step_account_menu()
         if user_input is not None:
             return self.async_create_entry(

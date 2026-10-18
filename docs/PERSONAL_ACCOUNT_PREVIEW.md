@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b16`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b17`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -64,6 +64,35 @@ Tabs preserve unfinished input. Switching accounts asks before discarding an edi
 while a submission is pending, switching is blocked. HA updates never insert new
 sensor readings into an edited form. Users without submission rights can view
 history without being offered a submission form.
+
+## Apartment and cabinet settings
+
+In **My DTEK → Settings**, choose the action you need:
+
+- **Building and outage group** opens the building/group selection for the
+  apartment shown at the top of the panel. Every building group remains available
+  to the building calendars and Telegram bot.
+- **Reading reminders** controls the reminder time and optional sensor estimate
+  for this account. **Meter notifications** controls verification/replacement
+  notices. Both appear in Home Assistant.
+- Under **DTEK cabinet**, **Add or unlink an account** manages links in the
+  cabinet. **Choose accounts to monitor** selects the accounts HA loads.
+  These actions apply to the cabinet, not just the apartment on this panel.
+- **Additional settings → Scheduled reading checks** configures local checks
+  without submitting readings.
+
+Forms open over the panel and retain edits during HA updates. Opening a form
+never saves settings. If readings or sensor setup are unfinished, choose to keep
+editing or explicitly discard that draft first. Canceling an edited settings form
+also asks before discarding it. A lost save response is not retried automatically:
+close the form and check its settings before trying again.
+
+Choosing an account on a card only changes that card. Selecting accounts for HA
+monitoring controls which entities HA loads; deselecting an account removes its
+monitored entities but keeps the DTEK cabinet link and local sensor references.
+Unlinking from the cabinet is a separate confirmed action. These settings require
+an HA administrator. If a form cannot load, its fallback link opens the integration
+settings separately.
 
 ## Home energy sensor settings
 

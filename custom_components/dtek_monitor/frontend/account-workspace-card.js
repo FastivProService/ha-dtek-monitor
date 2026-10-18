@@ -1,14 +1,16 @@
-import "./account-energy-settings.js?v=1.8.0b16";
-import "./account-profile-card.js?v=1.8.0b16";
-import "./account-readings-card.js?v=1.8.0b16";
-import "./account-history-card.js?v=1.8.0b16";
-import "./schedule-card.js?v=1.8.0b16";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b16";
-import { accountNumber } from "./account-number.js?v=1.8.0b16";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b16";
+import "./account-options.js?v=1.8.0b17";
+import "./account-energy-settings.js?v=1.8.0b17";
+import "./account-profile-card.js?v=1.8.0b17";
+import "./account-readings-card.js?v=1.8.0b17";
+import "./account-history-card.js?v=1.8.0b17";
+import "./schedule-card.js?v=1.8.0b17";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b17";
+import { accountNumber } from "./account-number.js?v=1.8.0b17";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b17";
 
 const words = {
   en: {
+    apartmentSettings:"This apartment", groupSettings:"Building and outage group", groupNote:"Choose the building and your apartment’s group. The bot keeps every building group.", reminders:"Reading reminders", remindersNote:"Choose when HA reminds you and whether to include a sensor estimate.", notices:"Meter notifications", noticesNote:"Verification year and meter replacement notices in HA.", cabinetSettings:"DTEK cabinet", cabinetNote:"Manage linked accounts and choose which ones HA monitors. This dashboard still displays the account selected above.", accountsSettings:"Add or unlink an account", monitoringSettings:"Choose accounts to monitor", advancedSettings:"Additional settings", checksSettings:"Scheduled reading checks", draftSettingsNote:"Opening integration settings requires closing unfinished readings or sensor edits. Nothing will be sent or saved.", discardOpen:"Discard and open settings", settingsSaved:"Settings updated.", settingsPending:"Settings were saved. Refresh the account list when HA finishes loading.",
     reload: "The dashboard still has an older version of the DTEK cards. Reload the page to open the new interface.", reloadAction: "Reload page", title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
     account: "Personal account", choose: "Choose an account", loading: "Loading accounts…", error: "Could not load your accounts. Try again.",
     empty: "No account is selected for this card. Choose accounts to monitor in integration settings, or connect a DTEK cabinet.", missing: "This account is unavailable. Check the connection or choose another account.",
@@ -30,6 +32,7 @@ const words = {
     state_labels_hidden: "DTEK has hidden group labels.", state_address_unavailable: "The building connection is unavailable.", state_unavailable: "Schedule data is unavailable.",
   },
   uk: {
+    apartmentSettings:"Ця квартира", groupSettings:"Будинок і група відключень", groupNote:"Оберіть будинок і групу квартири. Бот зберігає графіки всіх груп будинку.", reminders:"Нагадування про покази", remindersNote:"Оберіть час нагадування в HA та чи додавати підказку датчика.", notices:"Сповіщення про лічильник", noticesNote:"Рік повірки та повідомлення про заміну лічильника в HA.", cabinetSettings:"Кабінет ДТЕК", cabinetNote:"Керуйте прив’язаними рахунками та обирайте, які з них відстежує HA. На цій панелі відображається рахунок, обраний вище.", accountsSettings:"Додати або відв’язати рахунок", monitoringSettings:"Обрати рахунки для моніторингу", advancedSettings:"Додаткові налаштування", checksSettings:"Перевірки показів за розкладом", draftSettingsNote:"Перед налаштуванням інтеграції потрібно закрити незавершене введення показів або редагування датчика. Нічого не буде передано чи збережено.", discardOpen:"Скасувати зміни й відкрити налаштування", settingsSaved:"Налаштування оновлено.", settingsPending:"Налаштування збережено. Оновіть список рахунків після завантаження HA.",
     reload: "На панелі залишилася попередня версія карток ДТЕК. Оновіть сторінку, щоб відкрити новий інтерфейс.", reloadAction: "Оновити сторінку", title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
     account: "Особовий рахунок", choose: "Оберіть рахунок", loading: "Завантаження рахунків…", error: "Не вдалося завантажити рахунки. Спробуйте ще раз.",
     empty: "Для цієї картки не обрано рахунок. Оберіть рахунки для моніторингу в налаштуваннях інтеграції або підключіть кабінет ДТЕК.", missing: "Цей рахунок недоступний. Перевірте підключення або оберіть інший рахунок.",
@@ -139,7 +142,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this.shadowRoot.append(el("style", css + embeddedCSS), this._shell);
   }
   _resetPanels() {
-    this._panels.clear(); this._content?.replaceChildren(); this._readings = null; this._energySettings=null; this._sensorDetails=null; this._overview = null; this._account = null; this._tab = "overview";
+    this._panels.clear(); this._content?.replaceChildren(); this._readings = null; this._options=null; this._energySettings=null; this._sensorDetails=null; this._overview = null; this._account = null; this._tab = "overview";
     if (this._dialog?.open) this._dialog.close();
   }
   async _loadAccounts() {
@@ -203,7 +206,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   _choose(entity) {
     this._select.value=this._entity || "";
     if (!entity || entity===this._entity) return;
-    if (this._readings?.busy || this._energySettings?.busy) { this._notice.textContent=this.t.wait; return; }
+    if (this._readings?.busy || this._energySettings?.busy || this._options?.active) { this._notice.textContent=this.t.wait; return; }
     const switchAccount=() => { this._entity=entity; this._notice.textContent=""; this._applyAccounts(); };
     if (!this._readings?.hasDraft && !this._energySettings?.hasDraft) { switchAccount(); return; }
     const title=el("h3", this.t.draft); title.id="switch-title";
@@ -309,6 +312,34 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this._sensorDetails.open=true;this._mountEnergySettings();
     this._sensorDetails.querySelector("summary").focus();this._sensorDetails.scrollIntoView({block:"nearest"});
   }
+  _openOptions(action,button) {
+    if(!this._hass.user?.is_admin || !this._account?.can_submit || this._options?.active)return;
+    if(this._readings?.busy || this._energySettings?.busy){this._notice.textContent=this.t.wait;return;}
+    const open=()=>{
+      this._activate("settings");
+      if(!this._options){
+        this._options=this._child("dtek-account-options",{},this._panels.get("settings"));
+        this._options.addEventListener("options-closed",async e=>{
+          if(e.detail.saved){
+            this._notice.textContent=e.detail.ready?this.t.settingsSaved:this.t.settingsPending;
+            if(e.detail.ready)await this._loadAccounts();
+          }
+          if(button?.isConnected)button.focus();
+        });
+      }
+      this._options.open(action,this._account);
+    };
+    if(!this._readings?.hasDraft && !this._energySettings?.hasDraft){open();return;}
+    const title=el("h3",this.t.draft);title.id="switch-title";
+    this._dialog.replaceChildren(title,el("p",this.t.draftSettingsNote),this._button(this.t.stay,()=>{this._dialog.close();button?.focus();}),this._button(this.t.discardOpen,()=>{this._dialog.close();this._resetPanels();this._applyAccounts();open();}));
+    this._dialog.showModal();
+  }
+  _settingsAction(panel,label,action,note) {
+    const row=el("div",undefined,"setting");
+    const button=this._button(this.t[label],()=>this._openOptions(action,button));row.append(button);
+    if(note){const p=el("p",this.t[note],"muted");p.dataset.i18n=note;row.append(p);}
+    panel.append(row);
+  }
   _create_settings(panel) {
     const profile=el("details"); profile.append(el("summary", this.t.details)); this._profileDetails=profile;
     profile.addEventListener("toggle", () => { if (profile.open && !profile.querySelector("[data-child-card]")) this._child("dtek-account-profile-card", {}, profile); }); panel.append(profile);
@@ -316,7 +347,15 @@ class DtekAccountWorkspaceCard extends HTMLElement {
       const sensor=el("details");this._sensorDetails=sensor;const summary=el("summary",this.t.sensor);summary.dataset.i18n="sensor";sensor.append(summary,el("p",this.t.sensorNote));
       sensor.addEventListener("toggle",()=>{if(sensor.open)this._mountEnergySettings();});panel.append(sensor);
     }
-    const settings=el("section", undefined, "setting"); settings.append(el("h3", this.t.notifications), el("p", this.t.notificationsNote)); if(this._hass.user?.is_admin)settings.append(this._link(this.t.manage)); panel.append(settings);
+    if(this._hass.user?.is_admin && this._account.can_submit){
+      const apartment=el("section"), heading=el("h3",this.t.apartmentSettings);heading.dataset.i18n="apartmentSettings";apartment.append(heading);
+      this._settingsAction(apartment,"groupSettings","group","groupNote");
+      this._settingsAction(apartment,"reminders","reminders","remindersNote");
+      this._settingsAction(apartment,"notices","notices","noticesNote");panel.append(apartment);
+      const cabinet=el("section"), title=el("h3",this.t.cabinetSettings), note=el("p",this.t.cabinetNote,"muted");title.dataset.i18n="cabinetSettings";note.dataset.i18n="cabinetNote";cabinet.append(title,note);
+      this._settingsAction(cabinet,"accountsSettings","accounts");this._settingsAction(cabinet,"monitoringSettings","monitoring");panel.append(cabinet);
+      const advanced=el("details"), summary=el("summary",this.t.advancedSettings);summary.dataset.i18n="advancedSettings";advanced.append(summary);this._settingsAction(advanced,"checksSettings","checks");advanced.append(this._link(this.t.setup));panel.append(advanced);
+    }
     const diagnostics=el("details"); diagnostics.append(el("summary", this.t.diagnostics), el("p", this.t.diagnosticsNote, "muted"));
     diagnostics.addEventListener("toggle", () => { if (diagnostics.open && !diagnostics.querySelector("[data-child-card]")) this._child("dtek-account-check-card", {}, diagnostics); }); panel.append(diagnostics);
     panel.append(this._button(this.t.retry, () => this._loadAccounts()));

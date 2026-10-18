@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b17] - 2026-10-18
+
+- Open apartment group, reading reminder and meter notification forms directly from My DTEK Settings, with the selected account already resolved.
+- Separate apartment preferences from cabinet links and HA monitoring; retain HA's existing validation and explicit confirmation steps.
+- Protect unfinished readings and sensor edits, retain settings fields through HA updates, and block automatic retries when a save response is lost.
+- Delay automatic card registration until HA initializes its element registry, preventing missing dependencies on fast or cached page loads.
+- Add account access, native-flow routing and browser regressions, plus English/Ukrainian guidance.
+
 ## [1.8.0b16] - 2026-10-18
 
 - Move sensor binding and calibration into a dedicated Settings section. Keep the readings form focused on deliberate suggestion insertion; preserve the standalone editor.

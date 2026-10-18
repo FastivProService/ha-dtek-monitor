@@ -51,7 +51,9 @@ async def async_setup_history(hass):
     from .account_energy_api import async_setup_energy
 
     from .schedule_grid_api import websocket_grid
+    from .account_options_api import websocket_options
 
+    websocket_api.async_register_command(hass, websocket_options)
     websocket_api.async_register_command(hass, websocket_grid)
     await async_setup_submissions(hass)
     await async_setup_energy(hass)
@@ -64,6 +66,16 @@ async def async_setup_history(hass):
     if "http" in hass.config.components:
         await hass.http.async_register_static_paths(
             [
+                StaticPathConfig(
+                    "/dtek_monitor/account-loader.js",
+                    str(Path(__file__).parent / "frontend" / "account-loader.js"),
+                    False,
+                ),
+                StaticPathConfig(
+                    "/dtek_monitor/account-options.js",
+                    str(Path(__file__).parent / "frontend" / "account-options.js"),
+                    False,
+                ),
                 StaticPathConfig(
                     "/dtek_monitor/account-energy-settings.js",
                     str(Path(__file__).parent / "frontend" / "account-energy-settings.js"),
@@ -124,7 +136,7 @@ async def async_setup_history(hass):
         if "frontend" in hass.config.components:
             from homeassistant.components.frontend import add_extra_js_url
 
-            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b16")
+            add_extra_js_url(hass, "/dtek_monitor/account-loader.js?v=1.8.0b17")
 
 
 class AccountAccessError(Exception):
