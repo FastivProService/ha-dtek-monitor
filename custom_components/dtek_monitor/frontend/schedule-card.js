@@ -1,4 +1,5 @@
-import { embeddedCSS } from "./account-ui.js?v=1.8.0b13";
+import { embeddedCSS } from "./account-ui.js?v=1.8.0b14";
+import "./schedule-grid.js?v=1.8.0b14";
 /* Publication status remains visible when HA's calendar cannot show events. */
 class DtekScheduleCard extends HTMLElement {
   constructor() {
@@ -7,13 +8,16 @@ class DtekScheduleCard extends HTMLElement {
       :host{display:block}ha-card{overflow:hidden}h2{overflow-wrap:anywhere;font-size:1.2em;margin:0;padding:16px 16px 0}
       .status{padding:16px;line-height:1.5;overflow-wrap:anywhere}
       .error{color:var(--error-color,#b22)}small{display:block;color:var(--secondary-text-color);margin-top:4px}
-    ${embeddedCSS}</style><ha-card><h2></h2><div class="status" role="status"></div><div class="calendar"></div></ha-card>`;
+    .views{display:flex;gap:8px;padding:0 16px 14px}.views button{font:inherit;min-height:40px;padding:8px 14px;border-radius:9px;border:1px solid var(--divider-color,#bcc);color:var(--primary-text-color);background:var(--card-background-color);cursor:pointer}.views button[aria-pressed=true]{background:var(--primary-color,#1685a6);color:var(--text-primary-color,#fff)}[hidden]{display:none!important}
+    ${embeddedCSS}</style><ha-card><h2></h2><div class="status" role="status"></div><div class="views"><button class="grid-view" type="button"></button><button class="list-view" type="button"></button></div><dtek-schedule-grid></dtek-schedule-grid><div class="calendar"></div></ha-card>`;
+    this._view="grid";
+    for(const view of ["grid","list"])this.shadowRoot.querySelector(`.${view}-view`).onclick=()=>{this._view=view;this._render();};
   }
   setConfig(config) {
     if(typeof config.status_entity!=="string" || !Array.isArray(config.entities)
       || !config.entities.length || config.entities.some(e=>typeof e!=="string" || !e.startsWith("calendar.")))
       throw new Error("Set status_entity and calendar entities");
-    this._config={...config,entities:[...config.entities]}; this.toggleAttribute("embedded",!!config.embedded); this._key=null; this._render();
+    this._config={...config,entities:[...config.entities]}; this.toggleAttribute("embedded",!!config.embedded); this._key=null; this._view=config.view || "grid"; this._render();
   }
   set hass(value) { this._hass=value; this._render(); }
   getCardSize() { return 6; }
@@ -64,13 +68,18 @@ class DtekScheduleCard extends HTMLElement {
     }
     const available=this._config.entities.filter(e=>["on","off"].includes(this._hass.states[e]?.state));
     const allowed=["current","empty","partial","forecast"].includes(status);
-    const entities=allowed ? available : [], key=JSON.stringify(entities);
+    const entities=allowed && this._view==="list" ? available : [], key=JSON.stringify(entities);
     if(key!==this._key) {
       this._key=key;const seq=++this._seq;this._calendar=null;
       this.shadowRoot.querySelector(".calendar").replaceChildren();
       if(entities.length)this._loadCalendar(entities,seq,words.frontend);
     }
     if(this._calendar)this._calendar.hass=this._hass;
+    this.shadowRoot.querySelector(".views").hidden=!!this._config.hide_view_switcher;
+    const grid=this.shadowRoot.querySelector("dtek-schedule-grid");grid.hidden=this._view!=="grid";
+    if(this._view==="grid")grid.setContext(this._hass,this._config.status_entity);
+    this.shadowRoot.querySelector(".calendar").hidden=this._view!=="list";
+    for(const view of ["grid","list"]){const b=this.shadowRoot.querySelector(`.${view}-view`);b.textContent=uk?(view==="grid"?"Сітка":"Список"):(view==="grid"?"Grid":"List");b.setAttribute("aria-pressed",String(this._view===view));}
   }
   async _loadCalendar(entities,seq,error) {
     try {

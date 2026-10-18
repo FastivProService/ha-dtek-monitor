@@ -1,10 +1,10 @@
-import "./account-profile-card.js?v=1.8.0b13";
-import "./account-readings-card.js?v=1.8.0b13";
-import "./account-history-card.js?v=1.8.0b13";
-import "./schedule-card.js?v=1.8.0b13";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b13";
-import { accountNumber } from "./account-number.js?v=1.8.0b13";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b13";
+import "./account-profile-card.js?v=1.8.0b14";
+import "./account-readings-card.js?v=1.8.0b14";
+import "./account-history-card.js?v=1.8.0b14";
+import "./schedule-card.js?v=1.8.0b14";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b14";
+import { accountNumber } from "./account-number.js?v=1.8.0b14";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b14";
 
 const words = {
   en: {
@@ -19,7 +19,7 @@ const words = {
     sensor: "Home energy sensor", sensorNote: "Use your own cumulative energy sensor to suggest readings. You can also enter readings manually.",
     sensorSettings: "Set up or calibrate a sensor", notifications: "Groups, accounts and notifications", notificationsNote: "Manage DTEK cabinet links, choose accounts HA monitors, set the apartment's group or change reminders in integration settings.",
     diagnostics: "Check journal", diagnosticsNote: "Local checks and technical details", viewOnly: "You have viewing access. An administrator can submit readings and configure the source.",
-    mine: "My group", building: "All building groups", noSchedule: "Link a building and choose your group in the integration settings. Building schedules remain available independently of the personal account.",
+    grid: "All operator groups", mine: "My group · list", building: "Building · list", noSchedule: "Link a building and choose your group in the integration settings. Building schedules remain available independently of the personal account.",
     setup: "Configure DTEK", draft: "Discard the unfinished entry?", draftNote: "Your readings or sensor settings have not been saved. They will not be copied to the other account.",
     stay: "Keep editing", discard: "Discard and switch", wait: "Wait for the current operation to finish before switching accounts.",
     state_current: "Today's schedule is published.", state_empty: "No planned outages today — the schedule is verified.", state_missing: "Today's schedule is not fully published yet.",
@@ -40,7 +40,7 @@ const words = {
     sensor: "Домашній лічильник енергії", sensorNote: "Накопичувальний датчик енергії може підказувати покази. Їх також можна вводити вручну.",
     sensorSettings: "Підключити або відкалібрувати датчик", notifications: "Група, рахунки та сповіщення", notificationsNote: "Керуйте прив’язками в ДТЕК, обирайте рахунки для моніторингу HA, групу квартири та нагадування в налаштуваннях інтеграції.",
     diagnostics: "Журнал перевірок", diagnosticsNote: "Локальні перевірки й технічні відомості", viewOnly: "Вам доступний перегляд. Передавати покази та налаштовувати джерело може адміністратор.",
-    mine: "Моя група", building: "Усі групи будинку", noSchedule: "Прив’яжіть будинок та оберіть свою групу в налаштуваннях інтеграції. Графіки будинку залишаються доступними незалежно від особистого кабінету.",
+    grid: "Усі групи оператора", mine: "Моя група · список", building: "Будинок · список", noSchedule: "Прив’яжіть будинок та оберіть свою групу в налаштуваннях інтеграції. Графіки будинку залишаються доступними незалежно від особистого кабінету.",
     setup: "Налаштувати ДТЕК", draft: "Скасувати незавершене введення?", draftNote: "Покази або налаштування датчика ще не збережено. Вони не будуть перенесені до іншого рахунку.",
     stay: "Продовжити введення", discard: "Скасувати та змінити рахунок", wait: "Дочекайтеся завершення поточної операції перед зміною рахунку.",
     state_current: "Графік на сьогодні опубліковано.", state_empty: "Сьогодні планових відключень немає — графік перевірено.", state_missing: "Графік на сьогодні ще не повністю опубліковано.",
@@ -269,17 +269,18 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     const buttons=el("div", undefined, "switcher"), slots=el("div"), mounted=new Map();
     const modes={mine:{status_entity:this._account.roles?.["account_schedule_status:all"], entities:[this._account.roles?.["account_outage_schedule:all"],this._account.roles?.["account_possible_schedule:all"]].filter(Boolean)},
       building:{status_entity:this._account.building_schedule?.schedule_status, entities:[this._account.building_schedule?.outage_schedule,this._account.building_schedule?.possible_schedule].filter(Boolean)}};
+    modes.grid=modes.mine.status_entity ? {...modes.mine} : {...modes.building};
     const show=mode => {
       for (const b of buttons.children) b.setAttribute("aria-pressed", String(b.dataset.mode===mode));
       if (!mounted.has(mode)) {
         const box=el("div"), config=modes[mode]; mounted.set(mode,box); slots.append(box);
-        if (config.status_entity && config.entities.length) this._child("dtek-schedule-card", {...config, title:this.t[mode]}, box);
+        if (config.status_entity && config.entities.length) this._child("dtek-schedule-card", {...config, title:this.t[mode],view:mode==="grid"?"grid":"list",hide_view_switcher:true}, box);
         else box.append(el("p", this.t.noSchedule), this._link(this.t.setup));
       }
       for (const [key, box] of mounted) box.hidden=key!==mode;
     };
-    for (const mode of ["mine","building"]) { const b=this._button(this.t[mode], () => show(mode)); b.dataset.mode=mode; buttons.append(b); }
-    panel.append(buttons,slots); show("mine");
+    for (const mode of ["grid","mine","building"]) { const b=this._button(this.t[mode], () => show(mode)); b.dataset.mode=mode; buttons.append(b); }
+    panel.append(buttons,slots); show("grid");
   }
   _create_settings(panel) {
     const profile=el("details"); profile.append(el("summary", this.t.details)); this._profileDetails=profile;

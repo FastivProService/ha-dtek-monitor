@@ -28,7 +28,7 @@ class ScheduleCardTests(unittest.IsolatedAsyncioTestCase):
           }});
           window.hass={language:'en',states:{'sensor.status':{state:'missing',attributes:{status_date:'2026-10-18'}},'calendar.building':{state:'unavailable'}}};
           window.card=document.createElement('dtek-schedule-card');
-          card.setConfig({status_entity:'sensor.status',entities:['calendar.building'],title:'Building — all groups'});
+          card.setConfig({status_entity:'sensor.status',entities:['calendar.building'],title:'Building — all groups',view:'list'});
           document.querySelector('main').append(card);card.hass=hass;
         }""")
 

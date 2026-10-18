@@ -50,6 +50,9 @@ async def async_setup_history(hass):
     from .account_submission_api import async_setup_submissions
     from .account_energy_api import async_setup_energy
 
+    from .schedule_grid_api import websocket_grid
+
+    websocket_api.async_register_command(hass, websocket_grid)
     await async_setup_submissions(hass)
     await async_setup_energy(hass)
     websocket_api.async_register_command(hass, websocket_history)
@@ -92,6 +95,11 @@ async def async_setup_history(hass):
                     False,
                 ),
                 StaticPathConfig(
+                    "/dtek_monitor/schedule-grid.js",
+                    str(Path(__file__).parent / "frontend" / "schedule-grid.js"),
+                    False,
+                ),
+                StaticPathConfig(
                     "/dtek_monitor/schedule-card.js",
                     str(Path(__file__).parent / "frontend" / "schedule-card.js"),
                     False,
@@ -111,7 +119,7 @@ async def async_setup_history(hass):
         if "frontend" in hass.config.components:
             from homeassistant.components.frontend import add_extra_js_url
 
-            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b13")
+            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b14")
 
 
 class AccountAccessError(Exception):

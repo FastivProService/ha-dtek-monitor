@@ -15,8 +15,8 @@ for (const n of [1, 2]) {
   states[`sensor.reading_${n}`] = {state: String(12400 * n), attributes: {reading_date: "2026-10-17", zone: "GENERAL"}};
   states[`sensor.consumption_${n}`] = {state: "85", attributes: {period: "2026-09"}};
   states[`sensor.group_${n}`] = {state: "GPV3.1", attributes: {selected_groups: ["GPV3.1"], building_groups: ["GPV3.1", "GPV5.1"]}};
-  states[`sensor.schedule_${n}`] = {state: "schedule_missing", attributes: {selected_groups: ["GPV3.1"]}};
-  states[`sensor.building_${n}`] = {state: "missing", attributes: {}};
+  states[`sensor.schedule_${n}`] = {state: "selected", attributes: {schedule_status:"current", selected_groups: ["GPV3.1"]}};
+  states[`sensor.building_${n}`] = {state: "current", attributes: {}};
 }
 states["sensor.grid"] = {state: "2100.5", attributes: {friendly_name: "Лічильник на вводі", device_class: "energy", state_class: "total_increasing", unit_of_measurement: "kWh"}};
 window.hass = {
@@ -24,6 +24,7 @@ window.hass = {
   callWS: async msg => {
     calls.push(structuredClone(msg));
     const n = msg.entity_id?.endsWith("2") ? 2 : 1;
+    if (msg.type === "dtek_monitor/schedule_grid") return window.makeScheduleGrid(!msg.entity_id.startsWith("sensor.building"));
     if (msg.type === "dtek_monitor/accounts") return structuredClone(accounts);
     if (msg.type === "dtek_monitor/account_identity") return {masked: `••••000${n}`, ...(msg.reveal ? {number: `100000000${n}`} : {})};
     if (msg.type === "dtek_monitor/account_profile") return {

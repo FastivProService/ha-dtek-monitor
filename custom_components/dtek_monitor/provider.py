@@ -135,6 +135,8 @@ class RefreshResult:
     address_error: str | None = None
     schedule_error: str | None = None
     schedule_checked_at: datetime | None = None
+    # Optional operator-wide display; never drives address calendars or alerts.
+    overview: ScheduleReading | None = None
 
 
 class OutageProvider(Protocol):

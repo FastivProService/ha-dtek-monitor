@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b14] - 2026-10-18
+
+- Add a half-hour grid of all published operator groups with building and personal-group highlights, date selection, local building filter and exact interval details. Keep personal/building calendar lists available.
+- Isolate operator-wide display data from address calendars and notifications. Distinguish verified daily coverage, weekly forecasts and unknown cells; discard failed refreshes and honor publication flags.
+- Add PNG export of the visible grid, timestamps and legend; retain date/filter choices across HA updates and handle Kyiv daylight-saving transitions.
+- Add provider, permission, time-boundary, browser and PNG-download tests; update the English/Ukrainian guides and interactive demo.
+
 ## [1.8.0b13] - 2026-10-18
 
 - Add native Odesa household account linking and unlinking with an address review, explicit confirmation and no automatic write retries. Keep DTEK links, HA monitoring and per-card selection independent.

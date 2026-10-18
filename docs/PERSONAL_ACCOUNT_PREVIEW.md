@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b13`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b14`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -63,6 +63,36 @@ Tabs preserve unfinished input. Switching accounts asks before discarding an edi
 while a submission is pending, switching is blocked. HA updates never insert new
 sensor readings into an edited form. Users without submission rights can view
 history without being offered a submission form.
+
+## Schedule grid
+
+The **Schedule** tab now opens a half-hour grid of all groups published by the
+selected operator. Building groups have an outline and a **My building** label;
+your confirmed personal group also has **My group**. Choosing a row shows its
+exact intervals below the grid. This display does not change building groups,
+personal selection, calendars or Telegram notifications.
+
+Use the date selector for today and the next six days. **My building** filters
+the grid locally; **All groups** restores the overview. **My group · list** and
+**Building · list** retain the calendar views. On a phone, scroll the grid
+horizontally; group labels stay visible. Dates and hours use Europe/Kyiv,
+including repeated or skipped hours at daylight-saving changes.
+
+The legend distinguishes planned outages, possible outages, no scheduled
+outage, weekly forecasts and missing data. A white cell does not prove the house
+has power. Missing, hidden or failed publication never produces a reassuring
+empty schedule. Unpublished dates show unknown cells; a connection failure hides
+the old grid. The grid reads HA's local snapshot without extra DTEK requests.
+
+**Save PNG** exports the selected date and visible groups with the building
+highlights, legend and update times. It contains the building address, not the
+apartment number or account number. The saved image is a snapshot and does not
+update. Download is unavailable while data is loading or all visible cells are
+unknown. Day/filter selections survive ordinary HA updates.
+
+A standalone `custom:dtek-schedule-card` also opens the grid by default; set
+`view: list` to retain its previous default. Its `status_entity` and the planned
+and possible calendar entities must be enabled and readable by the HA user.
 
 ## Registration and SMS recovery
 

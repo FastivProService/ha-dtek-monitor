@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import Any
@@ -201,7 +202,7 @@ def normalize_schedule(
             if not has_daily and not has_weekly:
                 continue
             # Weekly forecasts alone cannot confirm the daily outage calendar.
-            for kind in (("outage", "possible") if has_daily else ("possible",)):
+            for kind in ("outage", "possible") if has_daily else ("possible",):
                 coverage.append(
                     Coverage(group.id, kind, max(day, start), min(day_end, end))
                 )
@@ -257,6 +258,48 @@ def normalize_schedule(
     )
 
 
+def normalize_overview(reading, raw, start, end, fetched_at):
+    """All published operator groups, isolated from the address notification contract."""
+    ids = (
+        set(_data(raw, "preset"))
+        | set(reading.groups)
+        | set(raw["preset"].get("sch_names", {}))
+    )
+    for day in _data(raw, "fact").values():
+        if isinstance(day, dict):
+            ids.update(day)
+    if len(ids) > 64 or any(
+        not isinstance(g, str) or not g or len(g) > 64 for g in ids
+    ):
+        raise ProviderError("Invalid overview groups")
+    groups, intervals, coverage = [], [], []
+    for group in sorted(ids):
+        groups.append(Group(group, group))
+        try:
+            item = normalize_schedule(
+                replace(reading, groups=(group,)), raw, start, end, fetched_at
+            )
+        except ProviderError:
+            # A malformed unrelated group is shown as unknown; it cannot break
+            # the home's verified calendar or acquire a reassuring empty row.
+            continue
+        groups[-1] = item.groups[0]
+        intervals.extend(item.intervals)
+        coverage.extend(item.coverage)
+    return ScheduleReading(
+        reading.address,
+        tuple(groups),
+        tuple(intervals),
+        tuple(coverage),
+        fetched_at,
+        parse_dtek_datetime(
+            raw["fact"].get("update") or raw["preset"].get("updateFact")
+        ),
+        reading.publication,
+        "unsupported" if reading.external_operator else "current",
+    )
+
+
 class DTEKWebProvider:
     def __init__(self, spec: ProviderSpec, client: DTEKClient | None = None):
         self.spec = spec
@@ -303,7 +346,7 @@ class DTEKWebProvider:
     ) -> RefreshResult:
         if address.provider_id != self.provider_id:
             raise ProviderError("Address provider mismatch")
-        reading = schedule = None
+        reading = schedule = overview = None
         address_error = schedule_error = None
         checked = None
         try:
@@ -353,13 +396,21 @@ class DTEKWebProvider:
             checked = datetime.now(timezone.utc)
             if reading is not None:
                 schedule = normalize_schedule(reading, candidate, start, end, checked)
+                try:
+                    overview = normalize_overview(
+                        reading, candidate, start, end, checked
+                    )
+                except ProviderError:
+                    overview = None
                 # Publication/coverage is data, not a transport failure.
                 # Keep the reason on ScheduleReading; errors mean failed requests
                 # or an invalid response, never a legitimate absent schedule.
             self._raw = candidate
         except ProviderError as err:
             schedule_error = str(err)
-        return RefreshResult(reading, schedule, address_error, schedule_error, checked)
+        return RefreshResult(
+            reading, schedule, address_error, schedule_error, checked, overview
+        )
 
     async def close(self) -> None:
         await self._client.close()

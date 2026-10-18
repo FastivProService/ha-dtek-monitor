@@ -1,10 +1,10 @@
-import "./account-readback.js?v=1.8.0b13";
-import { embeddedCSS, date, number } from "./account-ui.js?v=1.8.0b13";
-import "./account-check-card.js?v=1.8.0b13";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b13";
+import "./account-readback.js?v=1.8.0b14";
+import { embeddedCSS, date, number } from "./account-ui.js?v=1.8.0b14";
+import "./account-check-card.js?v=1.8.0b14";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b14";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber } from "./account-number.js?v=1.8.0b13";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b13";
+import { accountNumber } from "./account-number.js?v=1.8.0b14";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b14";
 const labels = {
   en: {
     title: "Send DTEK meter readings", load: "Load current meter", prepare: "Review readings", confirm: "Confirm and send to DTEK",

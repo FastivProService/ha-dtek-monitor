@@ -52,6 +52,7 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         self._schedule_update_time: str = ""
         self.schedule: ScheduleReading | None = None
+        self.overview: ScheduleReading | None = None
         self.schedule_state = "missing"
         self.schedule_reason: str | None = None
         self.address = Address(
@@ -213,6 +214,7 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _fetch_data(self) -> dict[str, Any]:
         """Only normalized provider results cross into Home Assistant."""
         self.address_success = False
+        self.overview = None
         self.address_error = self.schedule_error = None
         self.schedule_state = "missing"
         self.schedule_reason = None
@@ -259,6 +261,9 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         ):
             raise ProviderError("Schedule does not match the verified address/groups")
         self.schedule = schedule
+        if result.overview is not None and result.overview.address != self.address:
+            raise ProviderError("Overview belongs to a different address")
+        self.overview = result.overview
         self._address_groups = list(result.address.groups)
         self._schedule_update_time = schedule.source_updated_at.astimezone(
             KYIV_TZ

@@ -24,6 +24,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
         await install_card(self.page, SCRIPT)
+        await self.page.evaluate((FIXTURE.parent / "schedule_grid.js").read_text())
         await self.page.evaluate(FIXTURE.read_text())
         await self.page.evaluate("""() => {
           hass.language='en';window.card=document.createElement('dtek-account-workspace-card');
@@ -46,7 +47,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("85", text)
         self.assertIn("Cumulative meter reading", text)
         self.assertIn("September 2026", text)
-        self.assertIn("not fully published", text)
+        self.assertIn("Today's schedule is published", text)
         self.assertEqual(await self.page.evaluate(
             "[...new Set(calls.map(c=>c.type))].sort()"
         ), ["dtek_monitor/account_identity", "dtek_monitor/accounts"])
@@ -168,3 +169,11 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         await link.wait_for()
         self.assertEqual(await link.get_attribute("href"), "/config/integrations/integration/dtek_monitor")
         self.assertEqual(await self.page.get_by_role("tab", name="Readings", exact=True).count(), 0)
+
+    async def test_schedule_opens_one_operator_grid_with_home_and_personal_highlights(self):
+        await self.page.get_by_role("tab", name="Schedule", exact=True).click()
+        await self.page.locator("dtek-schedule-grid tbody tr").first.wait_for()
+        self.assertEqual(await self.page.locator("dtek-schedule-grid tbody tr").count(), 12)
+        self.assertEqual(await self.page.locator("dtek-schedule-grid tr.home").count(), 2)
+        self.assertEqual(await self.page.locator("dtek-schedule-grid tr.selected").count(), 1)
+        self.assertEqual(await self.page.get_by_role("button", name="All operator groups", exact=True).get_attribute("aria-pressed"), "true")
