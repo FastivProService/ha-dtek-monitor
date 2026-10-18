@@ -1,10 +1,11 @@
-import "./account-profile-card.js?v=1.8.0b15";
-import "./account-readings-card.js?v=1.8.0b15";
-import "./account-history-card.js?v=1.8.0b15";
-import "./schedule-card.js?v=1.8.0b15";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b15";
-import { accountNumber } from "./account-number.js?v=1.8.0b15";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b15";
+import "./account-energy-settings.js?v=1.8.0b16";
+import "./account-profile-card.js?v=1.8.0b16";
+import "./account-readings-card.js?v=1.8.0b16";
+import "./account-history-card.js?v=1.8.0b16";
+import "./schedule-card.js?v=1.8.0b16";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b16";
+import { accountNumber } from "./account-number.js?v=1.8.0b16";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b16";
 
 const words = {
   en: {
@@ -95,7 +96,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     if (this._accounts) this._applyAccounts();
   }
   set hass(hass) {
-    const changed = this._hass && (this._hass.user?.id !== hass.user?.id || this._hass.connection !== hass.connection);
+    const changed = this._hass && (this._hass.user?.id !== hass.user?.id || this._hass.user?.is_admin !== hass.user?.is_admin || this._hass.connection !== hass.connection);
     this._hass = hass;
     if (changed) {
       this._seq++; this._loading = false; this._accounts = null; this._entity = this._config?.entity;
@@ -138,7 +139,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this.shadowRoot.append(el("style", css + embeddedCSS), this._shell);
   }
   _resetPanels() {
-    this._panels.clear(); this._content?.replaceChildren(); this._readings = null; this._overview = null; this._account = null; this._tab = "overview";
+    this._panels.clear(); this._content?.replaceChildren(); this._readings = null; this._energySettings=null; this._sensorDetails=null; this._overview = null; this._account = null; this._tab = "overview";
     if (this._dialog?.open) this._dialog.close();
   }
   async _loadAccounts() {
@@ -156,7 +157,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   }
   _applyAccounts() {
     if (!this._hass) return;
-    if (["dtek-account-readings-card", "dtek-account-history-card", "dtek-account-profile-card", "dtek-energy-editor"].some(tag => customElements.get(tag)?.workspaceVersion !== 1)) {
+    if (Object.entries({"dtek-account-readings-card":2,"dtek-account-history-card":1,"dtek-account-profile-card":1,"dtek-energy-editor":2,"dtek-energy-settings":1}).some(([tag,version]) => customElements.get(tag)?.workspaceVersion !== version)) {
       this._resetPanels(); this._identity?.remove(); this._identity=null; this._updateHeader(); this._showEmpty(this.t.reload);
       this._empty.replaceChildren(el("p",this.t.reload),this._button(this.t.reloadAction,()=>window.location.reload()));
       return;
@@ -202,9 +203,9 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   _choose(entity) {
     this._select.value=this._entity || "";
     if (!entity || entity===this._entity) return;
-    if (this._readings?.busy) { this._notice.textContent=this.t.wait; return; }
+    if (this._readings?.busy || this._energySettings?.busy) { this._notice.textContent=this.t.wait; return; }
     const switchAccount=() => { this._entity=entity; this._notice.textContent=""; this._applyAccounts(); };
-    if (!this._readings?.hasDraft) { switchAccount(); return; }
+    if (!this._readings?.hasDraft && !this._energySettings?.hasDraft) { switchAccount(); return; }
     const title=el("h3", this.t.draft); title.id="switch-title";
     const actions=el("div", undefined, "actions");
     actions.append(this._button(this.t.stay, () => this._dialog.close()), this._button(this.t.discard, () => { this._dialog.close(); switchAccount(); }));
@@ -265,7 +266,10 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this._overviewStamp.textContent=updated && !["unknown","unavailable"].includes(updated.state) ? `${t.dated}: ${date(updated.state,lang,true)}` : t.unavailable;
   }
   _create_readings(panel) {
-    this._readings=this._child("dtek-account-readings-card", {read_only: !this._account.can_submit}, panel);
+    this._readings=this._child("dtek-account-readings-card", {read_only: !this._account.can_submit,energy_settings_external:true}, panel);
+    this._readings.addEventListener("energy-settings",()=>this._openEnergySettings());
+    this._readings.addEventListener("submission-operation",()=>this._syncEnergyLocks());
+    this._syncEnergyLocks();
     const details=el("details"), summary=el("summary", this.t.history); summary.dataset.i18n="history"; details.append(summary); panel.append(details);
     details.addEventListener("toggle", () => { if (details.open && !details.querySelector("[data-child-card]")) this._child("dtek-account-history-card", {view:"readings"}, details); });
   }
@@ -287,14 +291,30 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     for (const mode of ["grid","mine","building"]) { const b=this._button(this.t[mode], () => show(mode)); b.dataset.mode=mode; buttons.append(b); }
     panel.append(buttons,slots); show("grid");
   }
+  _syncEnergyLocks(){
+    if(this._energySettings)this._energySettings.locked=!!this._readings?._busy;
+    if(this._readings)this._readings.energyLocked=!!this._energySettings?.mutating;
+  }
+  _mountEnergySettings(){
+    if(!this._account?.can_submit)return;
+    if(!this._energySettings){
+      this._energySettings=this._child("dtek-energy-settings",{},this._sensorDetails);
+      this._energySettings.addEventListener("energy-operation",()=>this._syncEnergyLocks());
+      this._energySettings.addEventListener("energy-binding-changed",()=>this._readings?.invalidateEnergy());
+    }
+    this._energySettings.open();this._syncEnergyLocks();
+  }
+  _openEnergySettings(){
+    this._activate("settings");if(!this._sensorDetails)return;
+    this._sensorDetails.open=true;this._mountEnergySettings();
+    this._sensorDetails.querySelector("summary").focus();this._sensorDetails.scrollIntoView({block:"nearest"});
+  }
   _create_settings(panel) {
     const profile=el("details"); profile.append(el("summary", this.t.details)); this._profileDetails=profile;
     profile.addEventListener("toggle", () => { if (profile.open && !profile.querySelector("[data-child-card]")) this._child("dtek-account-profile-card", {}, profile); }); panel.append(profile);
     if (this._account.can_submit) {
-      const sensor=el("section", undefined, "setting"); sensor.append(el("h3", this.t.sensor), el("p", this.t.sensorNote), this._button(this.t.sensorSettings, async () => {
-        this._activate("readings"); await this._readings.open(); const editor=this._readings._energyEditor;
-        if (editor) {editor._settingsOpen=true;editor.render();editor.scrollIntoView({block:"nearest"});}
-      })); panel.append(sensor);
+      const sensor=el("details");this._sensorDetails=sensor;const summary=el("summary",this.t.sensor);summary.dataset.i18n="sensor";sensor.append(summary,el("p",this.t.sensorNote));
+      sensor.addEventListener("toggle",()=>{if(sensor.open)this._mountEnergySettings();});panel.append(sensor);
     }
     const settings=el("section", undefined, "setting"); settings.append(el("h3", this.t.notifications), el("p", this.t.notificationsNote)); if(this._hass.user?.is_admin)settings.append(this._link(this.t.manage)); panel.append(settings);
     const diagnostics=el("details"); diagnostics.append(el("summary", this.t.diagnostics), el("p", this.t.diagnosticsNote, "muted"));

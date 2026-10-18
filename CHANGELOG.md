@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b16] - 2026-10-18
+
+- Move sensor binding and calibration into a dedicated Settings section. Keep the readings form focused on deliberate suggestion insertion; preserve the standalone editor.
+- Fold advanced validation controls and calibration history, label reference values and local times, and retain edits across HA updates and tab navigation.
+- Guard account switching and concurrent operations, invalidate old proposals after reference changes without overwriting entered values, and reject obsolete account responses.
+- Add settings, calibration, first-binding, offline, draft and concurrency browser regressions; document the workflow in English and Ukrainian.
+
 ## [1.8.0b15] - 2026-10-18
 
 - Place overview shortcuts beside their readings and outage-group context, with compact text actions instead of a separate button bar.

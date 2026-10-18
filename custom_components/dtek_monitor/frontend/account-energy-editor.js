@@ -1,7 +1,8 @@
-import { date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b15";
+import { date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b16";
 /* Local references only. No operation in this editor submits readings to DTEK. */
 const words = {
   en: {
+    advanced: "Advanced settings", calibration: "Calibrate against the official meter", calibrationHelp: "Read the official meter now. The home sensor reading will be captured when you review the correction.", locked: "Wait for the readings operation to finish.",
     title: "Home Assistant energy source", load: "Load / refresh energy source", link: "Link an energy sensor", replace: "Replace binding", cancel: "Cancel",
     mode: "Reading mode", offset: "Estimate from a secondary meter", direct: "Read the official meter directly",
     freshness: "Source availability check", reported: "Require recent reports", availability: "Trust the integration's availability status",
@@ -29,6 +30,7 @@ const words = {
     history: "Reference history", noContext: "Load an available DTEK meter before creating a binding.", mismatch: "This binding belongs to a different meter. Replace it before using a proposal.",
   },
   uk: {
+    advanced: "Додаткові налаштування", calibration: "Звірити з основним лічильником", calibrationHelp: "Зніміть покази основного лічильника зараз. Відлік домашнього датчика буде отримано під час перевірки коригування.", locked: "Дочекайтеся завершення операції з показами.",
     title: "Джерело енергії Home Assistant", load: "Завантажити / оновити джерело", link: "Прив’язати датчик енергії", replace: "Замінити прив’язку", cancel: "Скасувати",
     mode: "Режим показів", offset: "Розрахунок за додатковим лічильником", direct: "Пряме читання розрахункового лічильника",
     freshness: "Перевірка доступності джерела", reported: "Вимагати свіжі повідомлення", availability: "Довіряти статусу доступності інтеграції",
@@ -60,16 +62,22 @@ export function energyMessage(language, code) { const w = words[language?.starts
 function el(tag, text) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; return e; }
 
 export class DtekEnergyEditor extends HTMLElement {
-  static get workspaceVersion() { return 1; }
+  static get workspaceVersion() { return 2; }
   constructor() { super(); this.attachShadow({mode: "open"}); this._seq = 0; this._fields = {mode: "offset", freshness: "reported", entities: {}, references: {}, age: "15", power: "30"}; }
-  configure(hass, entity, context, compact = false) { this._compact = compact; const languageChanged = this._hass?.language !== hass?.language; this._hass = hass; this._entity = entity; const changed = languageChanged || this._context !== context; this._context = context; if (changed || !this.shadowRoot.firstChild) this.render(); }
+  configure(hass, entity, context, compact = false, options = {}) { this._options=options; this._compact = compact; const languageChanged = this._hass?.language !== hass?.language; this._hass = hass; this._entity = entity; const changed = languageChanged || this._context !== context; this._context = context; if (changed || !this.shadowRoot.firstChild) this.render(); }
   disconnectedCallback() { queueMicrotask(() => { if (!this.isConnected) { this._seq++; this._busy = false; this._draft = null; } }); }
   get hasDraft() { return !!this._draft || this._editing || Object.values(this._fields.references).some(v => v !== ""); }
+  get busy() { return !!this._busy; }
+  get mutating() { return this._busy && this._action!=="get"; }
+  set locked(value) { if(this._locked!==value){this._locked=value;this.render();} }
+  emit(name, detail) { this.dispatchEvent(new CustomEvent(name,{detail,bubbles:true,composed:true})); }
+  invalidate() { this._seq++;this._busy=false;this._data=null;this._error=null;this.render(); }
   get w() { return words[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
   request(action, extra = {}) { return this._hass.callWS({type: "dtek_monitor/account_energy", entity_id: this._entity, action, ...extra}); }
   async act(action) {
-    if (this._busy) return;
-    const seq = ++this._seq; this._busy = true; this._error = null; this._saved = false; this.render();
+    if (this._busy || (this._locked && action!=="get")) return;
+    this._action=action;
+    const seq = ++this._seq; this._busy = true; this._error = null; this._saved = false; this.render();this.emit("energy-operation");
     try {
       const binding = this._data?.binding;
       let result;
@@ -84,7 +92,7 @@ export class DtekEnergyEditor extends HTMLElement {
       if (action === "get") this._data = result;
       else if (action === "preview") this._draft = result;
       else {
-        this._draft = null; this._editing = false; this._data = null; this._fields.references = {}; this._saved = action === "save";
+        this._draft = null; this._editing = false; this._data = null; this._fields.references = {}; this._saved = action === "save";this.emit("energy-binding-changed");
         const fresh = await this.request("get");
         if (seq !== this._seq) return;
         this._data = fresh;
@@ -94,7 +102,8 @@ export class DtekEnergyEditor extends HTMLElement {
       this._error = error?.code || "unavailable";
       if (action === "get" || action === "save" || action === "remove") this._data = null;
       if (action === "save") this._draft = null;
-    } finally { if (seq === this._seq) { this._busy = false; this.render(); } }
+      if (["save","remove"].includes(action)) this.emit("energy-binding-changed");
+    } finally { if (seq === this._seq) { this._busy = false; this.render();this.emit("energy-operation"); } }
   }
   async calibrate(values) {
     if (this._busy) return;
@@ -102,13 +111,13 @@ export class DtekEnergyEditor extends HTMLElement {
     if (this._data?.binding?.mode !== "offset") {this._error = "energy_changed"; this.render(); return;}
     this._editing = false; this._fields.references = {...values}; await this.act("preview");
   }
-  button(text, fn) { const b = el("button", text); b.type = "button"; b.disabled = this._busy; b.addEventListener("click", fn); return b; }
+  button(text, fn) { const b = el("button", text); b.type = "button"; b.disabled = this._busy || this._locked; b.addEventListener("click", fn); return b; }
   gate(root, text, button) {
-    const label = el("label"), input = el("input"); label.className = "check"; input.type = "checkbox"; input.disabled = this._busy;
-    input.addEventListener("change", () => {button.disabled = !input.checked || this._busy;}); label.append(input, el("span", text)); root.append(label, button); button.disabled = true;
+    const label = el("label"), input = el("input"); label.className = "check"; input.type = "checkbox"; input.disabled = this._busy || this._locked;
+    input.addEventListener("change", () => {button.disabled = !input.checked || this._busy || this._locked;}); label.append(input, el("span", text)); root.append(label, button); button.disabled = true;
   }
   field(root, name, value, change, type = "text") {
-    const label = el("label", name), input = el("input"); input.type = type; input.value = value || ""; input.disabled = this._busy;
+    const label = el("label", name), input = el("input"); input.type = type; input.value = value || ""; input.disabled = this._busy || this._locked;
     input.setAttribute("aria-label", name); input.addEventListener("input", () => change(input.value)); label.append(input); root.append(label); return input;
   }
   render() {
@@ -116,46 +125,50 @@ export class DtekEnergyEditor extends HTMLElement {
     if (this._compact && !this._settingsOpen && !this._draft) { this.renderCompact(); return; }
     const w = this.w, root = el("section"), binding = this._data?.binding;
     if (this._compact) root.append(this.button(this._hass.language?.startsWith("uk") ? "Закрити налаштування датчика" : "Close sensor settings", () => {this._settingsOpen=false;this.render();}));
-    root.append(el("h3", w.title), el("p", w.help));
+    if(!this._options.settingsOnly)root.append(el("h3", w.title));
+    if(!this._options.settingsOnly || this._editing || !binding)root.append(el("p", w.help));
+    if(this._locked){const note=el("p",w.locked);note.setAttribute("role","status");root.append(note);}
     if (this._error) { const p = el("p", w[this._error] || w.unavailable); p.setAttribute("role", "alert"); root.append(p); }
     if (this._saved) { const p = el("p", w.saved); p.setAttribute("role", "status"); root.append(p); }
     if (this._draft) {
       root.append(el("p", w.reviewHelp), el("p", `${this._draft.binding.serial} · ${w[this._draft.binding.mode]} · ${w[this._draft.binding.freshness || "reported"]}`));
       for (const [zone, row] of Object.entries(this._draft.change.changes)) {
-        root.append(el("h4", w[zone.toLowerCase()]), el("p", `${w.source}: ${row.source} kWh`), el("p", `${w.at}: ${row.source_at}`));
+        root.append(el("h4", w[zone.toLowerCase()]), el("p", `${w.source}: ${row.source} kWh`), el("p", `${w.at}: ${date(row.source_at,this._hass.language,true)}`));
         if (row.actual !== null) root.append(el("p", `${w.actualLabel}: ${row.actual} kWh`));
         if (row.correction !== null) root.append(el("p", `${w.correction}: ${row.correction} kWh`));
       }
       root.append(this.button(w.cancel, () => {this._draft = null; this.render();}));
       this.gate(root, w.checked, this.button(w.save, () => this.act("save")));
     } else {
-      root.append(this.button(w.load, () => this.act("get")));
-      if (binding) {
-        root.append(el("p", `${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));
+      if(!this._options.settingsOnly || !this._data)root.append(this.button(w.load, () => this.act("get")));
+      if (binding && !(this._options.settingsOnly && this._editing)) {
+        if(!this._options.settingsOnly)root.append(el("p", `${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));
         const matches = !this._context?.serial || this._context.serial === binding.serial;
         if (!matches) root.append(el("p", w.mismatch));
         for (const [zone, row] of Object.entries(binding.zones)) {
           const reading = this._data.readings?.[zone];
-          root.append(el("h4", w[zone.toLowerCase()]), el("p", row.entity_id));
-          if (binding.mode === "offset") root.append(el("p", `${w.reference}: ${row.anchor_meter} / ${row.anchor_source} kWh`));
+          root.append(el("h4", w[zone.toLowerCase()]), el("p", this._options.settingsOnly?(this._hass.states?.[row.entity_id]?.attributes?.friendly_name || row.entity_id):row.entity_id));
+          if (binding.mode === "offset" && !this._options.settingsOnly) root.append(el("p", `${w.reference} — ${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)} kWh; ${w.source}: ${number(row.anchor_source,this._hass.language)} kWh`));
           if (reading?.error) root.append(el("p", w[reading.error] || w.unavailable));
-          else if (reading) root.append(el("p", `${w.proposal}: ${reading.value} kWh → ${reading.send_value}`), el("p", `${w.at}: ${reading.source.at}`));
+          else if (reading) root.append(el("p", this._options.settingsOnly?`${w.proposal}: ${number(reading.send_value,this._hass.language)} ${this._hass.language?.startsWith("uk")?"кВт·год":"kWh"}`:`${w.proposal}: ${reading.value} kWh → ${reading.send_value}`), el("p", `${w.at}: ${date(reading.source.at,this._hass.language,true)}`));
         }
-        if (this._data.ready && matches && this._context?.serial && !this._context.blocked) root.append(this.button(w.use, () => this.dispatchEvent(new CustomEvent("energy-proposal", {detail: {values: Object.fromEntries(Object.entries(this._data.readings).map(([z, r]) => [z, r.send_value])), token: this._data.proposal}, bubbles: true, composed: true}))));
+        if (!this._options.settingsOnly && this._data.ready && matches && this._context?.serial && !this._context.blocked) root.append(this.button(w.use, () => this.dispatchEvent(new CustomEvent("energy-proposal", {detail: {values: Object.fromEntries(Object.entries(this._data.readings).map(([z, r]) => [z, r.send_value])), token: this._data.proposal}, bubbles: true, composed: true}))));
         const history = el("details"); history.append(el("summary", w.history));
+        if(this._options.settingsOnly){history.append(el("p",`${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));for(const [zone,row] of Object.entries(binding.zones)){history.append(el("p",`${w[zone.toLowerCase()]} · ${row.entity_id}`));if(binding.mode==="offset")history.append(el("p",`${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)}; ${w.source}: ${number(row.anchor_source,this._hass.language)} ${this._hass.language?.startsWith("uk")?"кВт·год":"kWh"}`));}}
         for (const record of [...binding.history].reverse()) {
-          history.append(el("p", record.at));
+          history.append(el("p", date(record.at,this._hass.language,true)));
           for (const [zone, row] of Object.entries(record.changes)) history.append(el("p", `${w[zone.toLowerCase()]}: ${row.actual ?? "—"} / ${row.source} kWh · ${w.correction}: ${row.correction ?? "—"}`));
         }
         root.append(history);
       }
+      if(this._options.settingsOnly && this._data && !this._editing)root.append(this.button(this._hass.language?.startsWith("uk")?"Оновити покази датчика":"Refresh sensor readings",()=>this.act("get")));
       if (this._data && !this._editing) root.append(this.button(binding ? w.replace : w.link, () => {
         this._editing = true; this._fields = {mode: binding?.mode || "offset", freshness: binding?.freshness || "reported", entities: Object.fromEntries(Object.entries(binding?.zones || {}).map(([z,r])=>[z,r.entity_id])), references: {}, age: String((binding?.max_age || 900)/60), power: binding?.max_power_kw || "30"}; this.render();
       }));
       if (this._editing) {
-        if (!this._context?.serial || this._context.blocked) root.append(el("p", w.noContext));
+        if (!this._context?.serial || this._context.blocked) root.append(el("p", this._context?.blocked?w.pending_or_blocked:w.noContext));
         else {
-          const label = el("label", w.mode), select = el("select"); select.disabled = this._busy; select.setAttribute("aria-label", w.mode);
+          const label = el("label", w.mode), select = el("select"); select.disabled = this._busy || this._locked; select.setAttribute("aria-label", w.mode);
           for (const mode of ["offset", "direct"]) { const option = el("option", w[mode]); option.value = mode; select.append(option); }
           select.value = this._fields.mode; select.addEventListener("change", () => {this._fields.mode = select.value; this.render();}); label.append(select); root.append(label);
           for (const z of this._context.zones) {
@@ -163,28 +176,31 @@ export class DtekEnergyEditor extends HTMLElement {
             input.setAttribute("list", "energy-sources");
           }
           const list = el("datalist"); list.id = "energy-sources";
-          for (const [id, state] of Object.entries(this._hass.states || {})) if (state.attributes?.device_class === "energy" && ["total", "total_increasing"].includes(state.attributes.state_class)) { const option = el("option"); option.value = id; option.label = state.attributes.friendly_name || id; list.append(option); }
+          for (const [id, state] of Object.entries(this._hass.states || {})) if (state.attributes?.device_class === "energy" && ["total", "total_increasing"].includes(state.attributes.state_class) && ["Wh","kWh","MWh"].includes(state.attributes.unit_of_measurement)) { const option = el("option"); option.value = id; option.label = state.attributes.friendly_name || id; list.append(option); }
           root.append(list);
+          if (this._fields.mode === "offset") this.referenceFields(root, this._context.zones.map(z => z.zone));
+          let advanced=root;if(this._options.settingsOnly){advanced=el("details");advanced.open=!!this._advancedOpen;advanced.append(el("summary",w.advanced));advanced.ontoggle=()=>{this._advancedOpen=advanced.open;};root.append(advanced);}
           const freshnessLabel = el("label", w.freshness), freshnessSelect = el("select");
-          freshnessSelect.disabled = this._busy; freshnessSelect.setAttribute("aria-label", w.freshness);
+          freshnessSelect.disabled = this._busy || this._locked; freshnessSelect.setAttribute("aria-label", w.freshness);
           for (const mode of ["reported", "availability"]) { const option = el("option", w[mode]); option.value = mode; freshnessSelect.append(option); }
           freshnessSelect.value = this._fields.freshness;
           freshnessSelect.addEventListener("change", () => {this._fields.freshness = freshnessSelect.value; this.render();});
-          freshnessLabel.append(freshnessSelect); root.append(freshnessLabel);
-          if (this._fields.freshness === "availability") root.append(el("p", w.availabilityHelp));
-          else this.field(root, w.age, this._fields.age, value => {this._fields.age = value;}, "number");
-          this.field(root, w.power, this._fields.power, value => {this._fields.power = value;}, "number");
-          if (this._fields.mode === "offset") this.referenceFields(root, this._context.zones.map(z => z.zone));
+          freshnessLabel.append(freshnessSelect); advanced.append(freshnessLabel);
+          if (this._fields.freshness === "availability") advanced.append(el("p", w.availabilityHelp));
+          else this.field(advanced, w.age, this._fields.age, value => {this._fields.age = value;}, "number");
+          this.field(advanced, w.power, this._fields.power, value => {this._fields.power = value;}, "number");
+          if(this._options.settingsOnly)advanced.append(el("small",w.staleHelp));
           root.append(this.button(w.review, () => this.act("preview")));
         }
-        root.append(this.button(w.cancel, () => {this._editing = false; this.render();}));
-      } else if (binding?.mode === "offset") {
-        this.referenceFields(root, Object.keys(binding.zones));
-        root.append(this.button(w.calibrate, () => this.act("preview")));
+        root.append(this.button(w.cancel, () => {this._editing = false; this._fields.references={}; this.render();}));
+      } else if (binding?.mode === "offset" && (!this._context?.serial || this._context.serial===binding.serial)) {
+        let calibration=root;if(this._options.settingsOnly){calibration=el("details");calibration.open=!!this._calibrationOpen;calibration.append(el("summary",w.calibration),el("p",w.calibrationHelp));calibration.ontoggle=()=>{this._calibrationOpen=calibration.open;};root.append(calibration);}
+        this.referenceFields(calibration, Object.keys(binding.zones));
+        calibration.append(this.button(w.calibrate, () => this.act("preview")));
       }
       if (binding && !this._editing) { const details = el("details"); details.append(el("summary", w.remove)); this.gate(details, w.removeCheck, this.button(w.remove, () => this.act("remove"))); root.append(details); }
     }
-    root.append(el("small", w.staleHelp));
+    if(!this._options.settingsOnly)root.append(el("small", w.staleHelp));
     const style = el("style", embeddedCSS+`:host{display:block;margin-top:20px;border-top:1px solid var(--divider-color,#ddd)}h3{font-size:1.05em}p,small{line-height:1.5;overflow-wrap:anywhere}label{display:block;margin:12px 0}input,select{box-sizing:border-box;width:100%;margin-top:6px}button,input,select{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{margin:6px 6px 6px 0;cursor:pointer}button:disabled{opacity:.5;cursor:default}.check{display:flex;gap:10px;align-items:flex-start}.check input{width:auto;flex-shrink:0}small{display:block;margin-top:12px;color:var(--secondary-text-color)}[role=alert]{color:var(--error-color,#b22)}details{margin:12px 0}summary{cursor:pointer}`);
     this.shadowRoot.replaceChildren(style, root);
   }
@@ -201,9 +217,10 @@ export class DtekEnergyEditor extends HTMLElement {
       const matches=this._context?.serial===binding.serial;
       if(this._context?.serial&&!matches)root.append(el("p",w.mismatch));
       if(this._data.ready&&matches&&!this._context.blocked)root.append(this.button(uk?"Підставити":"Use suggestion",()=>this.dispatchEvent(new CustomEvent("energy-proposal",{detail:{values:Object.fromEntries(Object.entries(this._data.readings).map(([z,r])=>[z,r.send_value])),token:this._data.proposal},bubbles:true,composed:true}))));
-      root.append(this.button(uk?"Оновити":"Refresh suggestion",()=>this.act("get")));
+
     }else root.append(el("p",this._data?(uk?"Датчик не підключений. Покази можна ввести вручну.":"No sensor connected. You can enter readings manually."):(uk?"Можна використати накопичувальний датчик енергії своєї квартири.":"You can use a cumulative energy sensor for this apartment.")));
-    root.append(this.button(uk?"Налаштувати датчик":"Sensor settings",async()=>{this._settingsOpen=true;this.render();if(!this._data)await this.act("get");}));
+    root.append(this.button(uk?"Оновити":"Refresh suggestion",()=>this.act("get")));
+    root.append(this.button(uk?"Налаштувати датчик":"Sensor settings",async()=>{if(this._options.externalSettings){this.emit("energy-settings");return;}this._settingsOpen=true;this.render();if(!this._data)await this.act("get");}));
     this.shadowRoot.replaceChildren(el("style",embeddedCSS+`:host{display:block;margin-top:20px}section{padding:16px;border:1px solid var(--divider-color,#ddd);border-radius:12px}h3{margin:0 0 8px;font-size:1em}p{line-height:1.5}.value{font-size:1.15em;font-weight:600}small{display:block;color:var(--secondary-text-color);overflow-wrap:anywhere}button{font:inherit;padding:10px;border:1px solid var(--divider-color,#aaa);border-radius:8px;color:var(--primary-text-color);background:transparent;margin:12px 8px 0 0;cursor:pointer}button:disabled{opacity:.5}`),root);
   }
   referenceFields(root, zones) { for (const zone of zones) this.field(root, `${this.w[zone.toLowerCase()]} · ${this.w.actual}`, this._fields.references[zone], value => {this._fields.references[zone] = value;}); }

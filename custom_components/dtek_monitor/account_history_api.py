@@ -65,6 +65,11 @@ async def async_setup_history(hass):
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
+                    "/dtek_monitor/account-energy-settings.js",
+                    str(Path(__file__).parent / "frontend" / "account-energy-settings.js"),
+                    False,
+                ),
+                StaticPathConfig(
                     "/dtek_monitor/account-workspace-card.js",
                     str(Path(__file__).parent / "frontend" / "account-workspace-card.js"),
                     False,
@@ -119,7 +124,7 @@ async def async_setup_history(hass):
         if "frontend" in hass.config.components:
             from homeassistant.components.frontend import add_extra_js_url
 
-            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b15")
+            add_extra_js_url(hass, "/dtek_monitor/account-workspace-card.js?v=1.8.0b16")
 
 
 class AccountAccessError(Exception):

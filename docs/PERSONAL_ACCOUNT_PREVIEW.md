@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b15`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b16`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -64,6 +64,33 @@ Tabs preserve unfinished input. Switching accounts asks before discarding an edi
 while a submission is pending, switching is blocked. HA updates never insert new
 sensor readings into an edited form. Users without submission rights can view
 history without being offered a submission form.
+
+## Home energy sensor settings
+
+Open **Settings → Home energy sensor** in My DTEK. The sensor setup stays in
+this tab; the **Readings** tab contains only the suggestion and an explicit
+**Use suggestion** button. **Sensor settings** takes you back to the same setup.
+Opening settings reads the current configuration; it never submits meter readings.
+
+- To connect a source, choose **Link an energy sensor**. Select a cumulative
+  energy sensor for each tariff zone. Use a secondary-meter estimate with fresh
+  official readings, or direct mode when the source is the official meter itself.
+- **Advanced settings** contains report freshness, maximum data age and plausible
+  input power. Existing values are retained when replacing a binding; direct mode
+  does not require a calibration pair.
+- **Calibrate against the official meter** captures the current source reading
+  alongside the official value you enter. Review the pair and its time, then
+  explicitly confirm saving. This only updates the local reference.
+- Reference details/history and removing a binding are expandable. A saved
+  reference can be calibrated when DTEK is offline; a new binding requires an
+  available meter context. Use **DTEK meter data refresh** to retry after recovery.
+
+Draft sensor fields survive ordinary HA updates and tab navigation. Switching
+accounts requires discarding an unfinished edit; pending operations block the
+switch. Saving/removing a binding retains entered meter values but invalidates
+any suggestion from the previous reference. Insert a fresh suggestion or verify
+and edit the values manually before reviewing a submission. Local calibration
+and a pending reading submission cannot run concurrently within this workspace.
 
 ## Schedule grid
 
