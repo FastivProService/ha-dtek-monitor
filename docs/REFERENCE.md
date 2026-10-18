@@ -79,9 +79,7 @@ reference only and never establish an outage-free day.
 
 ### Schedule card
 
-For an explicit explanation on a dashboard, add the resource
-`/dtek_monitor/schedule-card.js?v=1.8.0b9` as a **JavaScript module** under
-**Settings → Dashboards → Resources** (advanced mode). Add a manual card:
+The integration loads its cards automatically. Reload the HA page after setup and add a manual card; no separate JavaScript resource registration is needed:
 
 ```yaml
 type: custom:dtek-schedule-card
@@ -125,7 +123,7 @@ When reporting a problem, include versions, operator, timestamps with timezone a
 2. Read the [changelog](../CHANGELOG.md), update via HACS or replace the integration folder, then restart HA.
 3. Verify the connection, address and calendars after the restart. Update the companion bot when its release requires newer integration attributes.
 
-Existing entries migrate automatically; the personal-account preview uses config-entry schema version 4. Address-based identity is designed to preserve entity IDs across upgrades. Manual renames still take precedence. Do not delete and re-add entries as a normal upgrade step.
+Existing entries migrate automatically; version 2.0 uses config-entry schema version 4. Address-based identity is designed to preserve entity IDs across upgrades. Manual renames still take precedence. Do not delete and re-add entries as a normal upgrade step.
 
 A full HA backup preserves configuration entries, entity registries and saved snapshots. Do not edit files under `.storage` manually. Removing an integration entry removes its active entities from use; update dependent dashboards, automations and bot addresses accordingly.
 
@@ -145,3 +143,9 @@ The integration reads the selected operator's public shutdowns website. It is no
 | `sensor.py`, `binary_sensor.py`, `calendar.py` | HA entities. |
 
 For development and verification, see [Contributing](../CONTRIBUTING.md).
+
+## Cabinet, readings and upgrading to 2.0
+
+[Cabinet and dashboard](PERSONAL_ACCOUNT.md) · [Readings and sensors](ENERGY_AND_READINGS.md) · [Grid and groups](SCHEDULES.md).
+
+[Back up before updating to the beta](BETA.md). Returning from 2.0 to 1.7.0 requires restoring the earlier configuration and code, not just reinstalling the old release.

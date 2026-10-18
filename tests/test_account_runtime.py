@@ -54,8 +54,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.hass.config_entries.flow.async_progress_by_handler.return_value = []
         self.hass.config_entries.async_entry_for_domain_unique_id.return_value = None
         self.hass.config_entries.async_entries.return_value = []
-        await er.async_load(self.hass)
-        await dr.async_load(self.hass)
+        await runtime.load_registries(self.hass)
         self.snapshot = account.AccountSnapshot(
             "Example",
             2030,

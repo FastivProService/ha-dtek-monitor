@@ -23,7 +23,7 @@ python -m unittest discover -s tests -v
 python -m compileall custom_components tests
 ```
 
-The lightweight suite skips HA-dependent tests when Home Assistant is absent. For complete verification, use a separate Python 3.14 environment, install `homeassistant==2026.3.1` plus the manifest requirements, and rerun the suite. Match `.github/workflows/tests.yml`; do not describe skipped runtime tests as passed.
+The lightweight suite skips HA-dependent tests when Home Assistant is absent. For complete verification, use a separate Python 3.14 environment, install `homeassistant==2026.3.0` plus the manifest requirements, and rerun the suite. Match `.github/workflows/tests.yml`; do not describe skipped runtime tests as passed.
 
 Provider changes need fixtures for published, unpublished, empty, malformed and multi-group data. Keep provider/address identity and publication coverage intact. New regions must use the provider interface and explicit rollout settings, not hardcoded regional branching in HA entities.
 
@@ -41,3 +41,15 @@ Use a separate HA/test destination and keep production notification delivery dis
 - Do not commit credentials, private diagnostics, caches, virtual environments or `graphify-out/` artifacts.
 
 Contributions must be your own work or compatible with this project’s [license](LICENSE). Submit contributions under PolyForm Noncommercial 1.0.0 and preserve third-party notices.
+
+## Release validation
+
+Run the HA runtime suite on both `2026.3.0` and `2026.8.3`, as in CI. Run the browser suite separately with Playwright 1.58.0 and Chromium:
+
+```sh
+python -m unittest discover -s tests -p 'test_*card.py' -v
+```
+
+Release tags use `vMAJOR.MINOR.PATCH`, optionally followed by `aN`, `bN` or `rcN`. Validate with `python scripts/release.py v2.0.0b1`. The manifest, JavaScript module cache versions and changelog must agree. The release job marks these suffixes as prereleases and leaves the latest stable release unchanged.
+
+The local UI demo is `examples/account-workspace/index.html`, served from the repository root with `python -m http.server 8974 --bind 127.0.0.1`. It uses fictional data; its connection screens are a mockup and never send SMS or readings.

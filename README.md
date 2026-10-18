@@ -2,9 +2,8 @@
 
 **English** · [Українська](README.uk.md)
 
-> **Experimental branch:** this version includes optional Odessa personal
-> accounts. See the [preview setup and limitations](docs/PERSONAL_ACCOUNT_PREVIEW.md).
-> Test it in a separate Home Assistant instance.
+> **2.0.0b1 — public beta.** The new personal cabinet and My DTEK dashboard are available for testing.
+> [Beta installation, upgrade and rollback](docs/BETA.md). Stable release: [1.7.0](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v1.7.0).
 
 [![HACS custom integration](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
@@ -16,6 +15,17 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 **Want Telegram notifications?** Pair it with [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): the companion Home Assistant app sends schedule updates, upcoming-outage reminders and a pinned status message. It can also use your local voltage sensors to check actual power availability.
 
 [Install](#installation) · [Set up](#setup) · [Understand the data](#data) · [Troubleshoot](#troubleshooting) · [Detailed reference](docs/REFERENCE.md)
+
+## Choose what you need
+
+| I want | Connect |
+| --- | --- |
+| Building schedules and outage status | An address without a cabinet login; all four operators below. |
+| My apartment's readings, consumption and account information | A phone-based personal cabinet; currently Odesa household accounts only. |
+| Reading suggestions from my home meter | An optional cumulative HA energy sensor linked to the appropriate account. |
+| Telegram notifications | The separate [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot), using the building address. |
+
+[Cabinet and dashboard](docs/PERSONAL_ACCOUNT.md) · [Readings and sensors](docs/ENERGY_AND_READINGS.md) · [Schedules and groups](docs/SCHEDULES.md)
 
 <a id="features"></a>
 ## What you get
@@ -52,9 +62,9 @@ Requires **Home Assistant 2026.3.0 or newer** and internet access from Home Assi
 
 1. Open **HACS → ⋮ → Custom repositories**.
 2. Add `https://github.com/groove-max/ha-dtek-monitor` with type **Integration**.
-3. Find **DTEK Monitor** in HACS and download it.
+3. Find **DTEK Monitor**. For **2.0.0b1**, follow [beta version selection](docs/BETA.md); a normal download may install stable 1.7.0.
 4. Restart Home Assistant.
-5. Continue with [address setup](#setup).
+5. Continue with [address setup](#setup) or [personal cabinet setup](#personal-account).
 
 This is a [HACS custom repository](https://hacs.dev/docs/faq/custom_repositories/); adding it to HACS installs the files, not the address configuration.
 
@@ -81,6 +91,34 @@ To change the polling interval later, open the integration's **Configure** menu.
 **First check:** the connection diagnostic should show `ok` after a successful refresh. Compare the address status with the official website, then add the **Outage schedule** calendar to a dashboard calendar card. An empty calendar is not always an error: DTEK may not have published that date yet.
 
 Add another integration entry for another address. You do not need to edit `configuration.yaml`.
+
+<a id="personal-account"></a>
+## Personal cabinet and My DTEK dashboard
+
+1. Add the integration and choose **ДТЕК Одеські електромережі → Personal account and meter readings**.
+2. Sign in with your phone and password. Registration and password recovery through SMS are also available.
+3. Select the personal accounts to monitor. If the cabinet is empty, add an account here or later in settings.
+4. Reload the HA page. On your dashboard choose **Edit → Add card → My DTEK**, select an account and save.
+5. Check the building link. Unique directory matches connect automatically; ambiguous addresses need confirmation. A sole building group is automatic; with several groups, choose your apartment group in Settings.
+
+**Overview** shows the address, latest cumulative reading and separately labelled
+monthly consumption. **Schedule** offers a grid of all groups with building and
+apartment highlights, a list and PNG export. **Readings** lets you review and send
+values. **Consumption** shows monthly history. **Settings** contains account,
+EIC and meter details, your group, energy sensor and optional reminders.
+
+For several apartments, choose an account on each card or enable its account
+selector. This does not change other panels or which accounts HA monitors.
+Use the eye button to reveal or hide an account number.
+
+An energy sensor is optional. It need not be ATORCH: use a cumulative grid-import
+sensor for the correct apartment. Linking, official-meter calibration, corrections,
+scheduled checks and reminders are covered in the [readings guide](docs/ENERGY_AND_READINGS.md).
+**There is no automatic submission**; an HA administrator confirms every send.
+
+![My DTEK dashboard with a fictional account](docs/images/my-dtek-overview.en.png)
+
+[Complete cabinet setup and features](docs/PERSONAL_ACCOUNT.md).
 
 <a id="data"></a>
 ## Understand the entities

@@ -1,12 +1,12 @@
-import "./account-options.js?v=1.8.0b21";
-import "./account-energy-settings.js?v=1.8.0b21";
-import "./account-profile-card.js?v=1.8.0b21";
-import "./account-readings-card.js?v=1.8.0b21";
-import "./account-history-card.js?v=1.8.0b21";
-import "./schedule-card.js?v=1.8.0b21";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b21";
-import { accountNumber } from "./account-number.js?v=1.8.0b21";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=1.8.0b21";
+import "./account-options.js?v=2.0.0b1";
+import "./account-energy-settings.js?v=2.0.0b1";
+import "./account-profile-card.js?v=2.0.0b1";
+import "./account-readings-card.js?v=2.0.0b1";
+import "./account-history-card.js?v=2.0.0b1";
+import "./schedule-card.js?v=2.0.0b1";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0b1";
+import { accountNumber } from "./account-number.js?v=2.0.0b1";
+import { el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0b1";
 
 const words = {
   en: {

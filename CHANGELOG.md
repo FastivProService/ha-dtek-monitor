@@ -2,119 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.8.0b21] - 2026-10-18
+## [2.0.0b1] - 2026-10-18
 
-- Automatically connect each monitored personal account to a building verified against its operator’s public directory. Reuse shared buildings and keep apartment details and cabinet credentials out of public connections.
-- Confirm ambiguous addresses inside Building and outage group settings. Preserve manual group choices and explicit disconnection; building calendars and bots retain every group.
-- Keep directory discovery independent of cabinet data, show pending/confirmation/unavailable states, and retry directory failures without blocking account setup.
-- Cover initial and later account selection, shared buildings, concurrent discovery, cancellation, directory failures and manual confirmation with regression tests.
+First public beta of DTEK Monitor 2.0. This is a testing release, not a release candidate or a stable update. Address monitoring remains available without a personal cabinet.
 
-## [1.8.0b20] - 2026-10-18
+### New in 2.0
 
-- Show neutral connection guidance when My DTEK has no accounts, even if the card still references a removed account. Keep list-loading failures distinct.
-- Keep account selection available when a saved account is missing and only one replacement account exists; require an explicit choice instead of silently switching apartments.
-- Add browser regressions for English/Ukrainian empty states, reconnecting an account and failed list requests.
+- Optional Odesa household cabinet: phone login, SMS registration/recovery, account linking/unlinking, and independent selection of the accounts monitored by HA.
+- My DTEK dashboard in English and Ukrainian: address, account visibility control, EIC/meter details, readings, monthly consumption and per-card apartment selection.
+- Automatic verified building matching with manual confirmation when needed. All building groups remain available; a personal group can be selected separately, or chosen automatically when the building has one group.
+- Half-hour schedule grid for all published operator groups, building/apartment highlights, list view and PNG export. Unpublished data stays distinct from empty schedules and connection errors.
+- Explicitly confirmed meter-reading submissions with a durable attempt journal, ambiguous-result protection and read-back checks. No automatic submissions.
+- Optional generic cumulative energy sensor: direct official-meter readings or estimates from paired references, calibration corrections, continuity checks and separate tariff zones.
+- Optional HA reading reminders, meter verification/replacement notices and scheduled checks without submission.
+- Account-scoped permissions, input preservation during HA updates, API-change repair notices and automatic recovery from directory failures.
 
-## [1.8.0b19] - 2026-10-18
+### Installation and limits
 
-- Explain how to add My DTEK after connecting a cabinet, including an actionable completion message for cabinets without monitored accounts.
-- Add optional Getting started guidance in Settings and clarify per-card account selection in the visual editor. Keep energy sensors optional and preserve manual reading drafts.
-- Refresh the English/Ukrainian setup guides and add screenshots made exclusively from fictional accounts.
-- Verify completion routing, account boundaries, draft retention, responsive layouts and the full regression suite.
+- Requires Home Assistant 2026.3.0 or newer. Public address schedules support Odesa oblast, Kyiv oblast, Dnipropetrovsk oblast and Kyiv city. Personal cabinets are Odesa household accounts only.
+- Back up before upgrading: configuration migration is automatic, but returning to 1.7.0 requires restoring the earlier configuration and code. Existing building entities and bot settings are preserved.
+- One consumption meter per account; manual submission supports one zone or Day/Night. Only single-zone Odesa submission has been verified live. No automatic submissions, payments, photo uploads or Energy-dashboard statistics from billing history.
+- DTEK Telegram Bot 0.3.13 remains compatible and independent; private account data is not sent to the building bot.
 
-## [1.8.0b18] - 2026-10-18
+[English installation and beta guide](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.md) · [Українська: встановлення та бета](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.uk.md)
 
-- Separate Grid/List presentation from group selection in My DTEK. Preserve independent building/personal calendars, grid dates, filters, scroll position and reading drafts across navigation and HA updates.
-- Show one grid publication notice for the selected date; distinguish setup, unsupported operators, paused publication, partial coverage, forecasts and connection errors.
-- Display only relevant legend entries and move update timestamps into expandable details. Keep all operator groups and building/apartment highlights.
-- Add browser regressions for view changes, publication recovery, focus and separate account/building schedules; update English/Ukrainian guidance.
-
-## [1.8.0b17] - 2026-10-18
-
-- Open apartment group, reading reminder and meter notification forms directly from My DTEK Settings, with the selected account already resolved.
-- Separate apartment preferences from cabinet links and HA monitoring; retain HA's existing validation and explicit confirmation steps.
-- Protect unfinished readings and sensor edits, retain settings fields through HA updates, and block automatic retries when a save response is lost.
-- Delay automatic card registration until HA initializes its element registry, preventing missing dependencies on fast or cached page loads.
-- Add account access, native-flow routing and browser regressions, plus English/Ukrainian guidance.
-
-## [1.8.0b16] - 2026-10-18
-
-- Move sensor binding and calibration into a dedicated Settings section. Keep the readings form focused on deliberate suggestion insertion; preserve the standalone editor.
-- Fold advanced validation controls and calibration history, label reference values and local times, and retain edits across HA updates and tab navigation.
-- Guard account switching and concurrent operations, invalidate old proposals after reference changes without overwriting entered values, and reject obsolete account responses.
-- Add settings, calibration, first-binding, offline, draft and concurrency browser regressions; document the workflow in English and Ukrainian.
-
-## [1.8.0b15] - 2026-10-18
-
-- Place overview shortcuts beside their readings and outage-group context, with compact text actions instead of a separate button bar.
-- Keep shortcut focus during HA updates and preserve reading drafts when navigating from the overview.
-
-## [1.8.0b14] - 2026-10-18
-
-- Add a half-hour grid of all published operator groups with building and personal-group highlights, date selection, local building filter and exact interval details. Keep personal/building calendar lists available.
-- Isolate operator-wide display data from address calendars and notifications. Distinguish verified daily coverage, weekly forecasts and unknown cells; discard failed refreshes and honor publication flags.
-- Add PNG export of the visible grid, timestamps and legend; retain date/filter choices across HA updates and handle Kyiv daylight-saving transitions.
-- Add provider, permission, time-boundary, browser and PNG-download tests; update the English/Ukrainian guides and interactive demo.
-
-## [1.8.0b13] - 2026-10-18
-
-- Add native Odesa household account linking and unlinking with an address review, explicit confirmation and no automatic write retries. Keep DTEK links, HA monitoring and per-card selection independent.
-- Allow empty authenticated cabinets and deselecting every monitored account. Require removing local monitoring before unlinking; retain energy references and submission records.
-- Report removed or incompatible cabinet APIs through persistent HA Repairs with release and Issues links. Distinguish connection, authentication, rate-limit and missing-account errors; clear each warning only when its operation recovers.
-- Test cabinet management, API compatibility, recovery and empty workspace access; update English and Ukrainian guides.
-
-## [1.8.0b12] - 2026-10-18
-
-- Add native Odesa SMS registration and password recovery to HA setup and reauthentication. Separate sending a code, checking it and explicitly confirming account creation or a password change.
-- Bound code attempts, respect resend delays, close abandoned SMS sessions, serialize submissions and never retry an uncertain password change. Keep SMS credentials out of persistent configuration.
-- Sign in after successful completion and update a matching existing connection after recovery. Explain the website account-linking step when a new cabinet is empty.
-- Add synthetic transport and HA-flow regressions; document SMS setup and the distinction between DTEK account links, HA selection and dashboard display in English and Ukrainian.
-
-## [1.8.0b11] - 2026-10-18
-
-- Add My DTEK: an account workspace with overview, personal/building schedules, readings, consumption and settings. Resolve entities from the registry and load cards automatically.
-- Keep account selection local to each card, retain drafts across tabs and HA updates, require explicit discard before switching accounts, and block switching during pending operations.
-- Remove duplicate history from the profile. Put submission read-back beside its result and split reading history from consumption views. Add a compact sensor suggestion and read-only mode.
-- Improve phone-entry retry, preselect a sole account for confirmation, and link official registration/recovery from sign-in. Include an interactive demo; native SMS flows remain planned.
-- Add mobile, theme, keyboard, permission, account isolation and submission regressions; update English/Ukrainian preview guides.
-
-## [1.8.0b10] - 2026-10-18
-
-- Add a per-account profile card with permanent address, every EIC, current installation, contract power, meter metadata and masked/copyable identifiers. Missing optional details no longer discard valid readings.
-- Add an explicit read-only history check for the last HA submission; distinguish matching, partial, ambiguous and absent records without treating them as final monthly settlement or unlocking uncertain deliveries.
-- Compare official consumption for matching closed months across years and calendar seasons, retaining missing periods and signed corrections.
-- Add opt-in per-account HA notices for verification year and meter-number changes, with durable baselines and dismissals. No automatic source rebinding or billing writes.
-- Add parser, permission, lifecycle and browser regressions; document the new controls in English and Ukrainian.
-
-## [1.8.0b9] - 2026-10-18
-
-- Add visual account selection to account number, history and readings cards. Keep each card independent and preserve edits while account lists load or HA states update. List only selected accounts the current user may read.
-- Add optional per-account scheduled reading checks, a manual check button, a result sensor and a read-only journal card. Validate the bound cumulative source against the current cabinet meter without submitting readings, creating confirmation drafts or moving reference pairs.
-- Persist daily reservations and the latest 20 results. Recover interrupted checks without replay, catch up only for today, and stop on journal errors. Keep unresolved submission barriers in effect.
-- Document connecting several accounts and showing any subset on one or separate dashboards. Add account isolation, permissions, restart, source validation and browser tests.
-
-## [1.8.0b8] - 2026-10-18
-
-- Separate successful responses with missing or disabled schedule publication from request/parsing failures. Keep live notification gates closed until schedules are verified.
-- Distinguish a verified outage-free day, incomplete coverage and weekly forecasts in building and personal schedule status. Add an English/Ukrainian schedule card that explains absent data without a generic calendar error.
-- Add optional per-account HA reading reminders, once per monthly reading window, with configurable Kyiv time and validated sensor estimates. Restore pending reminders and preserve dismissals across restarts; include an explicit preview button.
-- Keep building groups, personal selections and energy references independent. Reminders never submit readings or send Telegram messages.
-- Add lifecycle, publication, calendar-boundary and browser regression tests; include the schedule card in CI.
-
-## [1.8.0b7] - 2026-10-18
-
-- Add explicit personal-account links to a building and user-selected outage groups, with separate personal calendars and a translated selection status. A sole verified building group can be selected automatically; multiple groups require a personal choice. Building calendars and Telegram notifications retain all groups.
-- Revalidate group membership and publication on every read; removed, hidden or unavailable groups never silently fall back to another building group.
-- Count identical HA energy reports as observations and add an explicit availability-based mode for cumulative sources that report only value changes. Preserve the original report timestamp and strict freshness for existing bindings.
-- Test zero consumption, connection loss/recovery, source resets, independent account selections, changed groups and address reloads.
-
-## [1.8.0b6] - 2026-10-18
-
-- Add optional personal-account energy sources: direct official meter readings or estimates from a calibrated secondary cumulative meter.
-- Save independently confirmed reference pairs and correction history, including fractional kWh, separately from DTEK submission outcomes.
-- Add explicit source proposal insertion and local calibration to the English/Ukrainian readings card without overwriting user edits.
-- Suspend source proposals on stale data, observed resets, device/unit changes or implausible increases; recheck proposals before submitting.
-- Cover corrections, restarts, tariff zones, source permissions and browser interactions with synthetic tests. Scheduled/automatic submissions remain outside this preview.
+[English user guide](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.md) · [Український посібник](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.uk.md) · [Report a problem](https://github.com/groove-max/ha-dtek-monitor/issues)
 
 ## [1.7.0] - 2026-10-17
 

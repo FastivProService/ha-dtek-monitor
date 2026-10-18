@@ -16,7 +16,7 @@ HAS_HA = importlib.util.find_spec("homeassistant") is not None
 if HAS_HA:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import EntityPlatform
-    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers import device_registry as dr, entity_registry as er
     from homeassistant.exceptions import HomeAssistantError
     from homeassistant.helpers.update_coordinator import UpdateFailed
 
@@ -27,6 +27,14 @@ if HAS_HA:
     client_module = load_component_module("dtek_client")
     adapter = load_component_module("dtek_provider")
     registry = load_component_module("providers")
+
+
+async def load_registries(hass):
+    """Follow HA startup order on both supported registry APIs."""
+    if hasattr(dr, "async_setup"):
+        dr.async_setup(hass)
+    await dr.async_load(hass)
+    await er.async_load(hass)
 
 
 @unittest.skipUnless(HAS_HA, "Requires real Home Assistant runtime")
@@ -168,7 +176,7 @@ class RuntimeTests(unittest.IsolatedAsyncioTestCase):
             scan_interval=timedelta(seconds=30),
             entity_namespace=None,
         )
-        await er.async_load(self.hass)
+        await load_registries(self.hass)
         entity.add_to_platform_start(self.hass, entity.platform, None)
         await entity.add_to_platform_finish()
         try:

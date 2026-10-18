@@ -1,5 +1,5 @@
-import { embeddedCSS } from "./account-ui.js?v=1.8.0b21";
-import "./schedule-grid.js?v=1.8.0b21";
+import { embeddedCSS } from "./account-ui.js?v=2.0.0b1";
+import "./schedule-grid.js?v=2.0.0b1";
 /* Publication status remains visible when HA's calendar cannot show events. */
 class DtekScheduleCard extends HTMLElement {
   constructor() {

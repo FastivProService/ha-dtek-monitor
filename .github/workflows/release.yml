@@ -15,19 +15,12 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - name: Verify release version and changelog
-        run: |
-          python - <<'PY'
-          import json, os, pathlib
-          version = os.environ["GITHUB_REF_NAME"].removeprefix("v")
-          manifest = pathlib.Path(
-              "custom_components/dtek_monitor/manifest.json"
-          )
-          assert json.loads(manifest.read_text())["version"] == version
-          changelog = pathlib.Path("CHANGELOG.md").read_text()
-          assert any(line.startswith(f"## [{version}] - ")
-                     for line in changelog.splitlines())
-          PY
+      - name: Verify release version, assets and changelog
+        id: release
+        run: python scripts/release.py "$GITHUB_REF_NAME"
+    outputs:
+      prerelease: ${{ steps.release.outputs.prerelease }}
+      version: ${{ steps.release.outputs.version }}
 
   tests:
     needs: verify-version
@@ -49,13 +42,16 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
-      - name: Package integration for manual installation
-        working-directory: custom_components/dtek_monitor
-        run: zip -r ../../dtek_monitor.zip .
+      - name: Package integration and release notes
+        run: >-
+          python scripts/release.py "$GITHUB_REF_NAME"
+          --notes release-notes.md --archive dtek_monitor.zip
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
           files: dtek_monitor.zip
           fail_on_unmatched_files: true
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          name: DTEK Monitor ${{ needs.verify-version.outputs.version }}
+          body_path: release-notes.md
+          prerelease: ${{ needs.verify-version.outputs.prerelease == 'true' }}
+          make_latest: ${{ needs.verify-version.outputs.prerelease == 'true' && 'false' || 'true' }}
