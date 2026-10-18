@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN
 from .coordinator import DTEKDataCoordinator
@@ -19,6 +20,7 @@ from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
 from .account_client import create_account_provider
 
 _LOGGER = logging.getLogger(__name__)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -26,6 +28,13 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
 ]
 ACCOUNT_PLATFORMS = [Platform.SENSOR, Platform.BUTTON]
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    from .account_history_api import async_setup_history
+
+    await async_setup_history(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

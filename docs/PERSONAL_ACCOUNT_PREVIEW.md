@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional, read-only DTEK personal
-account connection. This is an experimental version (`1.8.0b2`), initially for
+account connection. This is an experimental version (`1.8.0b3`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -64,6 +64,53 @@ accounts in that connection. A shared 60-second limit applies after any refresh
 attempt, including automatic refreshes and failures. A failure leaves affected
 sensors unavailable; successfully refreshed accounts remain usable. The time of
 fetching data is distinct from the date of the recorded reading.
+
+## History and monthly chart
+
+The bundled **DTEK account history** card shows an account's readings and monthly
+consumption for a selected year. Each card belongs to one account. It uses your
+Home Assistant session and requires permission to read the configured entity
+and all sensors of that account; the browser never receives your DTEK password or API tokens.
+
+1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
+2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b3` as a **JavaScript module**.
+   When upgrading, edit this existing resource URL instead of adding another copy.
+4. Add a manual card to a private dashboard with the configuration below.
+   Replace the entity with **Account data updated** from the desired account device.
+
+```yaml
+type: custom:dtek-account-history-card
+entity: sensor.example_account_data_updated
+title: My DTEK account
+```
+
+Choose a year in the card; optionally set `year: 2025` in its configuration to
+start with that year. The default is the current year in Kyiv. The month table
+below the chart also shows returned tariff-zone values. The readings table has
+ten rows per page and shows Kyiv dates, values, scale, energy type, source and
+status. **Active**, **inactive**, **blocked** and **unknown** reflect DTEK's flags;
+inactive does not necessarily mean a rejected submission.
+
+Only closed months are plotted. Zero is a real returned value; a gap means no
+data was returned. Open months are labeled separately. Negative corrections
+remain negative. The API does not identify the meter for each historical row,
+so the integration does not associate old readings with the current meter or
+calculate consumption from their differences across replacements.
+
+History loads when the card opens or the year changes. Results are cached in
+memory for up to six hours, with at most 16 account/year combinations per
+connection. **Refresh history** requests a replacement result, including revised
+past months; it is separate from the device's **Refresh all accounts** button.
+Repeated history fetches for the same account/year are limited to once per
+60 seconds. A DTEK rate-limit response pauses history requests for five minutes.
+After a failed refresh, any retained result is explicitly labeled with its
+original fetch time. Reloading the connection clears the cache.
+
+History is not stored as sensor attributes or imported into Energy statistics.
+An empty year is shown explicitly. More than 1,000 returned rows or 20 API pages,
+inconsistent pagination, or malformed data produces an error instead of a
+silently truncated history. Older years are available only when DTEK returns them.
 
 ## Dashboard card
 

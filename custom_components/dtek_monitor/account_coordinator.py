@@ -22,6 +22,7 @@ from .account import (
     AccountError,
     AccountRateLimitError,
 )
+from .account_history import HistoryCache
 
 _LOGGER = logging.getLogger(__name__)
 MANUAL_REFRESH_SECONDS = 60
@@ -39,6 +40,7 @@ class AccountCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(hours=ACCOUNT_UPDATE_HOURS),
         )
         self.client = client
+        self.history = HistoryCache(client)
         self.entry = entry
         self._authenticated = False
         self._last_attempt = None

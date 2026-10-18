@@ -1,6 +1,9 @@
 {
   "domain": "dtek_monitor",
   "name": "DTEK Monitor",
+  "after_dependencies": [
+    "http"
+  ],
   "codeowners": [
     "@groove-max"
   ],
@@ -12,5 +15,5 @@
   "requirements": [
     "curl_cffi==0.16.3"
   ],
-  "version": "1.8.0b2"
+  "version": "1.8.0b3"
 }

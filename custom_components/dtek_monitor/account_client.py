@@ -28,6 +28,13 @@ from .account import (
     parse_consumption,
     parse_readings,
 )
+from .account_history import (
+    MAX_HISTORY_PAGES,
+    MAX_HISTORY_ROWS,
+    parse_history_page,
+    parse_months,
+    validate_year,
+)
 
 AUTH_ORIGIN = "https://auth.my.dtek-oem.com.ua"
 CABINET_ORIGIN = "https://my.dtek-oem.com.ua"
@@ -298,3 +305,52 @@ class DTEKAccountClient:
         return AccountSnapshot(
             model, verification_year, readings, consumption, period, now
         )
+
+    async def read_history(self, number: str, year: int) -> dict:
+        now = datetime.now(ZoneInfo("Europe/Kyiv"))
+        validate_year(year, now.date())
+        if number not in self._accounts:
+            raise AccountError("Selected personal account is no longer linked")
+        records = {}
+        expected_pages = None
+        raw_count = 0
+        for page in range(1, MAX_HISTORY_PAGES + 1):
+            payload = await self._get(
+                f"{BILLING}/meters/household/{number}/history",
+                params={"year": year, "page": page, "limit": 100},
+            )
+            returned_page, pages, rows = parse_history_page(payload, year, now.date())
+            if returned_page != page or (
+                expected_pages is not None and pages != expected_pages
+            ):
+                raise AccountError("History changed during pagination; retry later")
+            expected_pages = pages
+            raw_count += len(rows)
+            if raw_count > MAX_HISTORY_ROWS or (pages > 1 and not rows):
+                raise AccountError("Incomplete or excessive history response")
+            for identity, row in rows:
+                if identity in records and records[identity] != row:
+                    raise AccountError("Conflicting history records; retry later")
+                records[identity] = row
+            if page >= pages:
+                break
+        months = parse_months(
+            await self._get(
+                BILLING + "/meters/household/customer-book",
+                params={"accountNumber": number, "year": year},
+            ),
+            year,
+            now.date(),
+        )
+        return {
+            "year": year,
+            "fetched_at": datetime.now(ZoneInfo("Europe/Kyiv")).isoformat(),
+            "time_zone": "Europe/Kyiv",
+            "meter_scope": "account",
+            "readings": sorted(
+                records.values(),
+                key=lambda row: (row["date_time"], row["zone"], row["energy"]),
+                reverse=True,
+            ),
+            "months": months,
+        }
