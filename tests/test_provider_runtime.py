@@ -35,12 +35,16 @@ class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
             async_update_entry=Mock(side_effect=update)
         )
         self.assertTrue(await setup.async_migrate_entry(self.hass, self.entry))
-        self.assertEqual(self.entry.version, 3)
-        self.assertEqual(self.entry.data, {**data, "provider_id": "dtek_oem"})
+        self.assertEqual(self.entry.version, 4)
+        self.assertEqual(
+            self.entry.data,
+            {**data, "provider_id": "dtek_oem", "entry_kind": "address"},
+        )
         self.assertEqual(self.entry.options, options)
         self.assertEqual(helper.build_entity_unique_id(self.entry, "power"), before)
+        calls = self.hass.config_entries.async_update_entry.call_count
         self.assertTrue(await setup.async_migrate_entry(self.hass, self.entry))
-        self.hass.config_entries.async_update_entry.assert_called_once()
+        self.assertEqual(self.hass.config_entries.async_update_entry.call_count, calls)
 
     async def test_coordinator_accepts_a_provider_without_dtek_transport_methods(self):
         now = datetime.now(timezone.utc)
@@ -149,7 +153,7 @@ class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
         result = await f.async_step_settings({"scan_interval": 300})
         self.assertEqual(result["data"]["provider_id"], "dtek_oem")
         self.assertEqual(result["data"]["city"], "м. Одеса")
-        self.assertEqual(result["version"], 3)
+        self.assertEqual(result["version"], 4)
 
     async def test_dnem_multigroup_calendar_and_cek_revocation(self):
         from test_provider_contract import fixture
@@ -219,9 +223,7 @@ class ProviderRuntimeTests(unittest.IsolatedAsyncioTestCase):
         coord = coordinator.DTEKDataCoordinator(self.hass, provider, self.entry)
         await coord.async_refresh()
         self.assertTrue(coord.notifications_ready)
-        self.client.get_home_status.assert_awaited_once_with(
-            "", "вул. Прикладна", "2А"
-        )
+        self.client.get_home_status.assert_awaited_once_with("", "вул. Прикладна", "2А")
         self.assertEqual(coord.data["schedule_groups"], ["GPV29.1", "GPV35.1"])
         self.assertEqual(coord.data["group_labels"], {"GPV29.1": None, "GPV35.1": None})
         sensor = runtime.sensors.DTEKSensor(

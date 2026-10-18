@@ -15,6 +15,8 @@ from .const import DOMAIN
 from .coordinator import DTEKDataCoordinator
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, create_provider
 from .migration import migrate_device_identifiers, migrate_entity_unique_id
+from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
+from .account_client import create_account_provider
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +29,22 @@ PLATFORMS: list[Platform] = [
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up DTEK Monitor from a config entry."""
+    if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+        from .account_coordinator import AccountCoordinator
+
+        client = create_account_provider(entry.data[CONF_PROVIDER])
+        coordinator = AccountCoordinator(hass, entry, client)
+        try:
+            await coordinator.async_config_entry_first_refresh()
+            entry.runtime_data = coordinator
+            entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+            await hass.config_entries.async_forward_entry_setups(
+                entry, [Platform.SENSOR]
+            )
+        except BaseException:
+            await client.close()
+            raise
+        return True
     await _async_migrate_registry_identifiers(hass, entry)
 
     provider = create_provider(entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID))
@@ -57,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old config entries and registry state forward."""
-    if entry.version > 3:
+    if entry.version > 4:
         _LOGGER.error("Unsupported config entry version: %s", entry.version)
         return False
 
@@ -70,11 +88,25 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, data={**entry.data, CONF_PROVIDER: DEFAULT_PROVIDER_ID}, version=3
         )
 
+    if entry.version < 4:
+        hass.config_entries.async_update_entry(
+            entry,
+            data={CONF_ENTRY_KIND: "address", **entry.data},
+            version=4,
+        )
+
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a DTEK Monitor config entry."""
+    if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+        unload_ok = await hass.config_entries.async_unload_platforms(
+            entry, [Platform.SENSOR]
+        )
+        if unload_ok:
+            await entry.runtime_data.client.close()
+        return unload_ok
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:

@@ -37,6 +37,8 @@ from .const import (
 )
 from .provider import Address, ProviderError
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, PROVIDERS, create_provider
+from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
+from .account_flow import AccountFlowMixin, account_options
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,10 +59,10 @@ def _combo_select(options: list[str]) -> SelectSelector:
     )
 
 
-class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
+class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
     """Handle a config flow for DTEK Monitor."""
 
-    VERSION = 3
+    VERSION = 4
 
     @staticmethod
     @callback
@@ -76,6 +78,7 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
         self._street: str = ""
         self._house: str = ""
         self._available_houses: list[str] = []
+        self._address_suggestion: dict[str, str] = {}
 
     async def _fetch_streets(self) -> dict[str, list[str]]:
         """Cache options, closing owned HTTP sessions even if the flow aborts."""
@@ -106,10 +109,7 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._city = self._street = self._house = ""
                     self._available_houses = []
                 self._provider_id = provider_id
-                if spec.fixed_city:
-                    self._city = spec.fixed_city
-                    return await self.async_step_street()
-                return await self.async_step_city()
+                return await self.async_step_connection()
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -168,7 +168,9 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="city",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_CITY): _combo_select(cities),
+                    vol.Required(
+                        CONF_CITY, **self._suggested_default(CONF_CITY, cities)
+                    ): _combo_select(cities),
                 }
             ),
             errors=errors,
@@ -212,7 +214,9 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="street",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_STREET): _combo_select(streets),
+                    vol.Required(
+                        CONF_STREET, **self._suggested_default(CONF_STREET, streets)
+                    ): _combo_select(streets),
                 }
             ),
             errors=errors,
@@ -227,6 +231,12 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             house = str(user_input[CONF_HOUSE]).strip()
+            if self.context.get("source") == "integration_discovery" and (
+                not self._available_houses or house not in self._available_houses
+            ):
+                result = await self.async_step_house()
+                result["errors"] = {"house_num": "invalid_house"}
+                return result
             self._house = house
 
             # Keep the legacy OEM identifier so duplicate detection and existing
@@ -276,7 +286,10 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="house",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOUSE): _combo_select(self._available_houses),
+                    vol.Required(
+                        CONF_HOUSE,
+                        **self._suggested_default(CONF_HOUSE, self._available_houses),
+                    ): _combo_select(self._available_houses),
                 }
             ),
             errors=errors,
@@ -285,6 +298,26 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 "street": self._street,
             },
         )
+
+    def _suggested_default(self, key: str, choices: list[str]) -> dict:
+        value = self._address_suggestion.get(key)
+        if value in choices:
+            return {"default": value}
+        if not value:
+            return {}
+
+        def normalize(text):
+            text = " ".join(text.casefold().split())
+            if key == CONF_CITY:
+                text = re.sub(r"^(?:м\.|місто)\s+", "", text)
+            elif key == CONF_STREET:
+                text = re.sub(r"^вул\.\s+", "вулиця ", text)
+            return text
+
+        matches = [
+            choice for choice in choices if normalize(choice) == normalize(value)
+        ]
+        return {"default": matches[0]} if len(matches) == 1 else {}
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
@@ -300,6 +333,7 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                     else f"{self._city} • {self._street}, {self._house} ({PROVIDERS[self._provider_id].name})"
                 ),
                 data={
+                    CONF_ENTRY_KIND: "address",
                     CONF_PROVIDER: self._provider_id,
                     CONF_CITY: self._city,
                     CONF_STREET: self._street,
@@ -357,6 +391,8 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage runtime options for an existing entry."""
+        if self._config_entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+            return await self.async_step_account(user_input)
         if user_input is not None:
             return self.async_create_entry(
                 title="",
@@ -394,3 +430,6 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
                 }
             ),
         )
+
+    async def async_step_account(self, user_input=None):
+        return await account_options(self, self._config_entry, user_input)

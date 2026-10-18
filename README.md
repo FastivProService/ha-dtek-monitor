@@ -2,6 +2,10 @@
 
 **English** · [Українська](README.uk.md)
 
+> **Experimental branch:** this version includes optional Odessa personal
+> accounts. See the [preview setup and limitations](docs/PERSONAL_ACCOUNT_PREVIEW.md).
+> Test it in a separate Home Assistant instance.
+
 [![HACS custom integration](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
 
@@ -68,7 +72,7 @@ The noncommercial license does not meet the requirements for the default HACS ca
 
 1. Open **Settings → Devices & services → Add integration**.
 2. Search for **DTEK Monitor**.
-3. Choose the operator, settlement, street and house number. Use the spelling offered by DTEK.
+3. Choose the operator, then **Outage schedules by address**, settlement, street and house number. Use the spelling offered by DTEK.
 4. Keep the initial polling interval at **300 seconds (5 minutes)**.
 5. Open the newly created device and check its entities.
 

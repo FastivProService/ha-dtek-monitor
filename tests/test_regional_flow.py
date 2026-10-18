@@ -37,12 +37,12 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
             flow, "create_provider", return_value=self.provider
         ) as factory:
             result = await self.flow.async_step_user({"provider_id": provider_id})
+            self.assertEqual(result["step_id"], "connection")
+            result = await self.flow.async_step_address()
             self.assertEqual(result["step_id"], "city")
             result = await self.flow.async_step_city({"city": "м. Бровари"})
             self.assertEqual(result["step_id"], "street")
-            result = await self.flow.async_step_street(
-                {"street": "вул. Прикладна"}
-            )
+            result = await self.flow.async_step_street({"street": "вул. Прикладна"})
             self.assertEqual(result["step_id"], "house")
             self.assertEqual(self.flow._available_houses, ["1", "2", "10"])
             self.assertEqual(
@@ -59,9 +59,7 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["data"]["provider_id"], "dtek_krem")
         self.assertEqual(
             self.flow.unique_id,
-            contract.Address(
-                "dtek_krem", "м. Бровари", "вул. Прикладна", "1"
-            ).identity,
+            contract.Address("dtek_krem", "м. Бровари", "вул. Прикладна", "1").identity,
         )
         self.assertIn("Київські регіональні", result["title"])
 
@@ -112,6 +110,8 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
             flow, "create_provider", return_value=self.provider
         ) as factory:
             result = await self.flow.async_step_user({"provider_id": "dtek_krem"})
+            self.assertEqual(result["step_id"], "connection")
+            result = await self.flow.async_step_address()
             self.assertEqual(result["errors"], {"base": "cannot_connect"})
             self.provider.list_localities.side_effect = None
             result = await self.flow.async_step_city({})
@@ -173,6 +173,8 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
             flow, "create_provider", return_value=self.provider
         ) as factory:
             result = await self.flow.async_step_user({"provider_id": "dtek_dnem"})
+            self.assertEqual(result["step_id"], "connection")
+            result = await self.flow.async_step_address()
             self.assertEqual(result["step_id"], "city")
             await self.flow.async_step_city({"city": "м. Дніпро"})
             await self.flow.async_step_street({"street": "пров. Прикладний"})
@@ -181,7 +183,9 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["data"]["provider_id"], "dtek_dnem")
         self.assertEqual(
             self.flow.unique_id,
-            contract.Address("dtek_dnem", "м. Дніпро", "пров. Прикладний", "2").identity,
+            contract.Address(
+                "dtek_dnem", "м. Дніпро", "пров. Прикладний", "2"
+            ).identity,
         )
         self.assertTrue(all(c.args == ("dtek_dnem",) for c in factory.call_args_list))
         self.provider.close.assert_awaited()
@@ -195,6 +199,8 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
             flow, "create_provider", return_value=self.provider
         ) as factory:
             result = await self.flow.async_step_user({"provider_id": "dtek_kem"})
+            self.assertEqual(result["step_id"], "connection")
+            result = await self.flow.async_step_address()
             self.assertEqual(result["step_id"], "street")
             self.assertEqual(self.flow._city, "м. Київ")
             await self.flow.async_step_street({"street": "вул. Прикладна"})
@@ -209,6 +215,8 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
         self.provider.list_localities.side_effect = flow.ProviderError("offline")
         with patch.object(flow, "create_provider", return_value=self.provider):
             result = await self.flow.async_step_user({"provider_id": "dtek_kem"})
+            self.assertEqual(result["step_id"], "connection")
+            result = await self.flow.async_step_address()
             self.assertEqual(result["step_id"], "street")
             self.assertEqual(result["errors"], {"base": "cannot_connect"})
             self.provider.list_localities.side_effect = None

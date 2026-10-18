@@ -20,6 +20,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import DTEKDataCoordinator
 from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
+from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -99,6 +100,17 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up DTEK sensors from a config entry."""
+    if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+        from .account_sensor import account_sensors
+
+        discover = account_sensors(entry.runtime_data, entry)
+        async_add_entities(discover())
+        entry.async_on_unload(
+            entry.runtime_data.async_add_listener(
+                lambda: async_add_entities(discover())
+            )
+        )
+        return
     coordinator: DTEKDataCoordinator = entry.runtime_data
 
     async_add_entities(

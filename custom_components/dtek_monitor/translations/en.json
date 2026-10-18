@@ -38,6 +38,29 @@
         "data_description": {
           "scan_interval": "How often to check DTEK for outage updates. Default is 300 seconds (5 minutes). Minimum 60 seconds, maximum 3600 seconds (1 hour)."
         }
+      },
+      "connection": {
+        "title": "What would you like to connect?",
+        "description": "Address monitoring needs no login. The personal account is an independent connection, currently available only for Odessa in this preview.",
+        "menu_options": {
+          "address": "Outage schedules by address",
+          "account_login": "Personal account"
+        }
+      },
+      "account_login": {
+        "title": "Sign in to your personal account",
+        "description": "Enter your +380… phone number and DTEK password. This connection only reads data. The password is stored in Home Assistant configuration. Reauthentication must use the same account.",
+        "data": {
+          "username": "Phone number",
+          "password": "Password"
+        }
+      },
+      "accounts": {
+        "title": "Select personal accounts",
+        "description": "Account data is not shared with the building Telegram bot. After setup, use Configure on this connection to add a separate building address. Data refreshes every 6 hours.",
+        "data": {
+          "accounts": "Personal accounts"
+        }
       }
     },
     "error": {
@@ -47,10 +70,21 @@
       "no_houses": "No houses found for the selected street. You can enter the number manually.",
       "invalid_city": "City not found in the DTEK database. Please select from the list.",
       "invalid_street": "Street not found in the DTEK database. Please select from the list.",
-      "invalid_provider": "This operator is not supported yet."
+      "invalid_provider": "This operator is not supported yet.",
+      "invalid_phone": "Enter a Ukrainian phone number in +380… format.",
+      "invalid_auth": "Sign-in failed. Check your credentials or complete any required account update on the DTEK website.",
+      "account_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "account_cannot_connect": "Cannot read the personal account service. Try again later.",
+      "no_accounts": "No supported household accounts were found.",
+      "select_accounts": "Select at least one available account.",
+      "invalid_house": "Select a house confirmed by the public DTEK directory.",
+      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added."
     },
     "abort": {
-      "already_configured": "This address is already configured."
+      "already_configured": "This address or account is already configured.",
+      "account_not_supported": "Personal accounts are not supported for this operator yet.",
+      "account_mismatch": "Sign in to the same DTEK account.",
+      "reauth_successful": "Reauthentication successful."
     }
   },
   "options": {
@@ -64,7 +98,20 @@
         "data_description": {
           "scan_interval": "How often to check DTEK for outage updates. Changes apply immediately after the integration reloads."
         }
+      },
+      "account": {
+        "title": "Add building monitoring",
+        "description": "Choose an account address. A separate setup appears under Discovered on the integrations page. Verify its city, street and building; the apartment is not imported. Existing addresses are not duplicated. Configure the bot separately.",
+        "data": {
+          "address_account": "Account address"
+        }
       }
+    },
+    "error": {
+      "select_accounts": "Select at least one available account."
+    },
+    "abort": {
+      "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup."
     }
   },
   "entity": {
@@ -110,6 +157,30 @@
           "ok": "Connected",
           "error": "Error"
         }
+      },
+      "account_consumption": {
+        "name": "Latest closed-month consumption"
+      },
+      "account_meter_model": {
+        "name": "Meter model"
+      },
+      "account_verification_year": {
+        "name": "Next verification year"
+      },
+      "account_updated": {
+        "name": "Account data updated"
+      },
+      "account_reading": {
+        "name": "Recorded reading ({zone})"
+      },
+      "account_reading_date": {
+        "name": "Reading date ({zone})"
+      },
+      "account_reading_general": {
+        "name": "Recorded reading"
+      },
+      "account_reading_date_general": {
+        "name": "Reading date"
       }
     },
     "calendar": {
