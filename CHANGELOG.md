@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0b10] - 2026-10-18
+
+- Add a per-account profile card with permanent address, every EIC, current installation, contract power, meter metadata and masked/copyable identifiers. Missing optional details no longer discard valid readings.
+- Add an explicit read-only history check for the last HA submission; distinguish matching, partial, ambiguous and absent records without treating them as final monthly settlement or unlocking uncertain deliveries.
+- Compare official consumption for matching closed months across years and calendar seasons, retaining missing periods and signed corrections.
+- Add opt-in per-account HA notices for verification year and meter-number changes, with durable baselines and dismissals. No automatic source rebinding or billing writes.
+- Add parser, permission, lifecycle and browser regressions; document the new controls in English and Ukrainian.
+
 ## [1.8.0b9] - 2026-10-18
 
 - Add visual account selection to account number, history and readings cards. Keep each card independent and preserve edits while account lists load or HA states update. List only selected accounts the current user may read.

@@ -239,6 +239,16 @@ class SubmissionManager:
         record = self._journal.get(self._key(number), {})
         return record.get("status") in ("pending", "unknown", "partial")
 
+    async def last_attempt(self, number):
+        """Read-only journal access; never acknowledge an uncertain delivery."""
+        async with self._lock:
+            await self._load()
+            record = self._record(number)
+            if record:
+                # The read-only view does not need source bindings or tokens.
+                record.pop("source", None)
+            return record
+
     async def context(self, number, authorize):
         async with self._lock:
             await self._load()
@@ -406,6 +416,7 @@ class SubmissionManager:
                 "id": secrets.token_hex(16),
                 "status": "pending",
                 "at": datetime.now(KYIV).isoformat(),
+                "meter_serial": context["serial"],
                 "signature": draft["signature"],
                 "readings": draft["readings"],
                 "source": source,

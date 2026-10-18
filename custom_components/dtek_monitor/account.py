@@ -54,6 +54,7 @@ class AccountSnapshot:
     consumption: Decimal | None
     consumption_period: str | None
     fetched_at: datetime
+    profile: dict | None = field(default=None, repr=False)
 
 
 class AccountProvider(Protocol):

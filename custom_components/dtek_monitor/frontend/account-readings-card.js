@@ -1,8 +1,8 @@
-import "./account-check-card.js?v=1.8.0b9";
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b9";
+import "./account-check-card.js?v=1.8.0b10";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b10";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber } from "./account-number.js?v=1.8.0b9";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b9";
+import { accountNumber } from "./account-number.js?v=1.8.0b10";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=1.8.0b10";
 const labels = {
   en: {
     title: "Send DTEK meter readings", load: "Load current meter", prepare: "Review readings", confirm: "Confirm and send to DTEK",

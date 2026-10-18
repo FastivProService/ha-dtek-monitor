@@ -66,6 +66,31 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(await self.page.evaluate("requests.length"), 1)
 
+    async def test_comparison_is_on_demand_and_year_changes_reset_it(self):
+        await self.load()
+        await self.page.evaluate(
+            """() => {const base=hass.callWS;hass.callWS=async msg=>{const data=await base(msg);if(msg.compare)data.comparison={year:msg.year,previous_year:msg.year-1,fetched_at:{current:data.fetched_at,previous:'2026-10-18T11:00:00+03:00'},months:[{month:1,current:'-12',previous:'10',difference:'-22',comparable:true}],periods:[{period:'year',months:[1],complete:false,current:'-12',previous:'10',difference:'-22'}]};return data;};card.hass=hass;}"""
+        )
+        self.assertFalse(await self.page.evaluate("requests.some(m=>m.compare)"))
+        await self.page.get_by_role(
+            "button", name="Compare with previous year", exact=True
+        ).click()
+        await self.page.get_by_text(
+            "Consumption for matching periods · 2026 / 2025", exact=True
+        ).wait_for()
+        self.assertEqual(
+            await self.page.get_by_text("Partial: 01", exact=True).count(), 1
+        )
+        await self.page.get_by_label("Year", exact=True).select_option("2025")
+        await self.page.get_by_text("Monthly consumption · 2025", exact=True).wait_for()
+        self.assertEqual(
+            await self.page.get_by_text(
+                "Consumption for matching periods", exact=False
+            ).count(),
+            0,
+        )
+        self.assertFalse(await self.page.evaluate("requests.at(-1).compare"))
+
     async def test_late_response_cannot_overwrite_user_year_choice(self):
         await self.page.evaluate(
             """() => {card.hass={language:'en',callWS:msg=>msg.type==='dtek_monitor/account_identity'?Promise.resolve({masked:'••••0001'}):new Promise(resolve=>{requests.push(msg);pending.push({msg,resolve});})};}"""

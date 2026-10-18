@@ -1,4 +1,10 @@
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b9";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b10";
+export async function copyValue(value){
+  if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);return;}
+  const input=document.createElement('textarea');input.value=value;input.style.cssText='position:fixed;left:-10000px';document.body.append(input);
+  try{input.select();if(!document.execCommand('copy'))throw new Error('Copy unavailable');}finally{input.remove();}
+}
+
 /* Display privacy only: HA permissions, not masking, protect account access. */
 class DtekAccountNumber extends HTMLElement {
   constructor() {
@@ -15,8 +21,8 @@ class DtekAccountNumber extends HTMLElement {
   disconnectedCallback() { this._seq++; this._number=null; this._pending=false; this._render(); }
   get words() {
     return this._hass?.language?.startsWith("uk")
-      ? {account:"Особовий рахунок",show:"Показати номер рахунку",hide:"Сховати номер рахунку",error:"Номер недоступний",loading:"Завантаження…"}
-      : {account:"Account number",show:"Show account number",hide:"Hide account number",error:"Account number unavailable",loading:"Loading…"};
+      ? {account:"Особовий рахунок",show:"Показати номер рахунку",hide:"Сховати номер рахунку",error:"Номер недоступний",loading:"Завантаження…",copy:"Копіювати номер рахунку",copied:"Скопійовано",copyError:"Копіювання недоступне; виділіть номер."}
+      : {account:"Account number",show:"Show account number",hide:"Hide account number",error:"Account number unavailable",loading:"Loading…",copy:"Copy account number",copied:"Copied",copyError:"Copy unavailable; select the number."};
   }
   async _load(reveal) {
     if(!this._hass || !this._entity || !this.isConnected) {this._render();return;}
@@ -55,6 +61,7 @@ class DtekAccountNumber extends HTMLElement {
     const pupil=document.createElementNS(ns,"circle");pupil.setAttribute("cx","12");pupil.setAttribute("cy","12");pupil.setAttribute("r","3");svg.append(eye,pupil);
     if(this._number) {const slash=document.createElementNS(ns,"path");slash.setAttribute("d","m3 3 18 18");svg.append(slash);}
     button.append(svg);line.append(text,button);
+    if(this._number){const copy=document.createElement("button");copy.type="button";copy.textContent=w.copy;const value=this._number;copy.addEventListener("click",async()=>{try{await copyValue(value);copy.textContent=w.copied;}catch(_){copy.textContent=w.copyError;}});line.append(copy);}
     const feedback=document.createElement("small");feedback.textContent=this._error?w.error:this._pending?w.loading:"";
     if(this._error)feedback.setAttribute("role","alert");
     this.shadowRoot.replaceChildren(style,line,feedback);

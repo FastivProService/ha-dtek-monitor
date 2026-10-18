@@ -1,9 +1,9 @@
-import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b9";
+import { accountCardEditor } from "./account-card-editor.js?v=1.8.0b10";
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=1.8.0b9";
+import { accountNumber } from "./account-number.js?v=1.8.0b10";
 const words = {
   en: {
-    title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
+    compare: "Compare with previous year", comparison: "Consumption for matching periods", pairNote: "Only months closed and published in both years are included. Partial totals cover the listed months, not the whole year or season. Winter here means January, February and December of the same calendar year. Negative corrections remain included.", yearTotal: "Year", winter: "Winter", spring: "Spring", summer: "Summer", autumn: "Autumn", coverage: "Included months", difference: "Difference", complete: "Complete", partial: "Partial", title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
     consumption: "Monthly consumption", readings: "Meter readings", period: "Month", value: "Value",
     zone: "Tariff scale", energy: "Energy type", source: "Source", status: "Status", date: "Date (Kyiv)",
     active: "Active", inactive: "Inactive", blocked: "Blocked", unknown: "Unknown",
@@ -18,7 +18,7 @@ const words = {
     total: "Total", page: "Page", general: "Single zone", day: "Day", night: "Night",
   },
   uk: {
-    title: "Історія особового рахунку ДТЕК", year: "Рік", refresh: "Оновити історію", loading: "Завантаження…",
+    compare: "Порівняти з попереднім роком", comparison: "Споживання за однакові періоди", pairNote: "Враховано лише місяці, закриті та опубліковані в обох роках. Часткові підсумки охоплюють перелічені місяці, а не весь рік чи сезон. Зима тут — січень, лютий і грудень одного календарного року. Від’ємні коригування збережено.", yearTotal: "Рік", winter: "Зима", spring: "Весна", summer: "Літо", autumn: "Осінь", coverage: "Враховані місяці", difference: "Різниця", complete: "Повний", partial: "Частковий", title: "Історія особового рахунку ДТЕК", year: "Рік", refresh: "Оновити історію", loading: "Завантаження…",
     consumption: "Місячне споживання", readings: "Покази лічильника", period: "Місяць", value: "Значення",
     zone: "Тарифна шкала", energy: "Тип енергії", source: "Джерело", status: "Статус", date: "Дата (Київ)",
     active: "Активний", inactive: "Неактивний", blocked: "Заблокований", unknown: "Невідомо",
@@ -73,7 +73,7 @@ class DtekAccountHistoryCard extends HTMLElement {
     if (!Number.isInteger(year) || year < 2000 || year > Number(new Intl.DateTimeFormat("en", {year:"numeric", timeZone:"Europe/Kyiv"}).format(new Date()))) throw new Error("Invalid history year.");
     const changed = !this._config || config.entity !== this._config.entity || config.year !== this._config.year;
     this._config = {...config};
-    if (changed) { this._year=year; this._data=null; this._error=null; this._seq++; this._busy=false; this._page=0; }
+    if (changed) { this._year=year; this._compare=false; this._data=null; this._error=null; this._seq++; this._busy=false; this._page=0; }
     this._render();
     if (changed && this.isConnected && this._hass) this._load(false);
   }
@@ -98,7 +98,7 @@ class DtekAccountHistoryCard extends HTMLElement {
     const sequence=++this._seq, year=this._year, entity=this._config.entity;
     this._busy=true; this._loadingYear=year; this._error=null; this._render();
     try {
-      const data=await this._hass.callWS({type:"dtek_monitor/account_history",entity_id:entity,year,force});
+      const data=await this._hass.callWS({type:"dtek_monitor/account_history",entity_id:entity,year,force,compare:!!this._compare});
       if (sequence!==this._seq || !this.isConnected) return;
       if (data.year!==year || !Array.isArray(data.months) || !Array.isArray(data.readings)) throw new Error("Invalid history response");
       this._data=data; this._page=0;
@@ -122,9 +122,10 @@ class DtekAccountHistoryCard extends HTMLElement {
     const current=Number(new Intl.DateTimeFormat("en",{year:"numeric",timeZone:"Europe/Kyiv"}).format(new Date()));
     for(let year=current;year>=2000;year--) { const opt=element("option",String(year));opt.value=String(year);select.append(opt); }
     select.value=String(this._year);
-    select.addEventListener("change",()=>{ this._year=Number(select.value);this._data=null;this._page=0;this._load(false); });
+    select.addEventListener("change",()=>{ this._year=Number(select.value);this._compare=false;this._data=null;this._page=0;this._load(false); });
     label.append(select);controls.append(label);
-    const refresh=element("button",this._busy?t.loading:t.refresh);refresh.disabled=this._busy;refresh.addEventListener("click",()=>this._load(true));controls.append(refresh);card.append(controls);
+    const refresh=element("button",this._busy?t.loading:t.refresh);refresh.disabled=this._busy;refresh.addEventListener("click",()=>this._load(true));controls.append(refresh);
+    const compare=element("button",t.compare);compare.disabled=this._busy||this._year<=2000;compare.addEventListener("click",()=>{this._compare=true;this._load(false);});controls.append(compare);card.append(controls);
     if(this._error) { const error=element("p",t[this._error],"error");error.setAttribute("role","alert");card.append(error);if(this._data)card.append(element("p",t.stale,"muted")); }
     if(!this._data || this._data.year!==this._year) return;
     const data=this._data;
@@ -140,6 +141,12 @@ class DtekAccountHistoryCard extends HTMLElement {
       row.append(element("td",zones||"—"),element("td",t[month.status]||month.status));monthTable.body.append(row);
     }
     details.append(monthTable.wrap);card.append(details);
+    if(data.comparison){const c=data.comparison;card.append(element("h3",`${t.comparison} · ${c.year} / ${c.previous_year}`),element("p",t.pairNote,"muted"));
+      const totals=this._table([t.period,`${c.year} · kWh`,`${c.previous_year} · kWh`,`${t.difference} · kWh`,t.coverage]);
+      for(const p of c.periods){const row=element("tr");for(const value of [p.period==="year"?t.yearTotal:t[p.period],this.format(p.current),this.format(p.previous),this.format(p.difference),`${p.complete?t.complete:t.partial}: ${p.months.map(m=>String(m).padStart(2,"0")).join(", ")||"—"}`])row.append(element("td",value));totals.body.append(row);}card.append(totals.wrap);
+      const monthly=this._table([t.period,String(c.year),String(c.previous_year),`${t.difference} · kWh`]);for(const p of c.months){const row=element("tr");for(const value of [String(p.month).padStart(2,"0"),this.format(p.current),this.format(p.previous),p.comparable?this.format(p.difference):t.missing])row.append(element("td",value));monthly.body.append(row);}card.append(monthly.wrap);
+      card.append(element("p",`${t.fetched} ${c.previous_year}: ${new Intl.DateTimeFormat(this._lang||"en",{dateStyle:"medium",timeStyle:"short",timeZone:"Europe/Kyiv"}).format(new Date(c.fetched_at.previous))} (Europe/Kyiv)`,"muted"));
+    }
     card.append(element("h3",`${t.readings} · ${data.readings.length}`));card.append(element("p",t.scope,"muted"));
     if(!data.readings.length) {card.append(element("p",t.empty));return;}
     const table=this._table([t.date,t.value,t.status,t.zone,t.energy,t.source]);

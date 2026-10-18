@@ -29,6 +29,7 @@ from .account_submission_store import SubmissionStore
 from .providers import CONF_PROVIDER
 from .account_reminders import AccountReminders
 from .account_checks import AccountChecks
+from .account_notifications import AccountMeterNotifications
 
 _LOGGER = logging.getLogger(__name__)
 MANUAL_REFRESH_SECONDS = 60
@@ -62,6 +63,7 @@ class AccountCoordinator(DataUpdateCoordinator):
         self.entry = entry
         self.reminders = AccountReminders(hass, entry, self)
         self.checks = AccountChecks(hass, entry, self)
+        self.meter_notifications = AccountMeterNotifications(hass, entry, self)
         self._authenticated = False
         self._last_attempt = None
         self._manual_refresh_lock = asyncio.Lock()

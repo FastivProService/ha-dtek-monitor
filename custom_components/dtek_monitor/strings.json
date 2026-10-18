@@ -113,7 +113,8 @@
           "account": "Add building monitoring",
           "account_schedule": "My group and schedule",
           "account_reminders": "Reading reminders",
-          "account_checks": "Scheduled reading checks"
+          "account_checks": "Scheduled reading checks",
+          "account_notices": "Meter verification and replacement"
         }
       },
       "account_selection": {
@@ -173,6 +174,20 @@
           "enabled": "Enable checks without submission",
           "time": "Check time (Kyiv)",
           "frequency": "Frequency"
+        }
+      },
+      "account_notices": {
+        "title": "Meter notifications",
+        "data": {
+          "notice_account": "Personal account"
+        }
+      },
+      "account_notice_settings": {
+        "title": "Home Assistant notifications",
+        "description": "Separate notifications for this account, off by default. Verification: a reminder in the year specified by DTEK and subsequent years, without assuming an exact due date. Replacement: a changed meter number after the first observation. Data refreshes every 6 hours; dismissed notices stay dismissed until a new event. Sensor bindings do not transfer to a new meter automatically. Notifications are visible to users of this HA; the account number is masked.",
+        "data": {
+          "verification": "Remind about verification year",
+          "replacement": "Notify when meter number changes"
         }
       }
     },

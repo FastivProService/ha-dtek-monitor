@@ -3,7 +3,7 @@
 **English** · [Українська](PERSONAL_ACCOUNT_PREVIEW.uk.md)
 
 The `feature/personal-account` branch adds an optional DTEK personal account connection with
-read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b9`), initially for
+read access and explicitly confirmed manual reading submissions. This is an experimental version (`1.8.0b10`), initially for
 **DTEK Odesa Electric Networks household accounts only**. Address monitoring
 continues to support all operators listed in the main README.
 
@@ -126,6 +126,78 @@ personal calendars become unavailable. A saved manual choice remains visible for
 review; another group is never substituted for it automatically. The schedule status
 explains why. Choosing “—” for the building removes only the personal link.
 
+## Account profile: address, EIC and meter
+
+Add `/dtek_monitor/account-profile-card.js?v=1.8.0b10` as a **JavaScript module**
+in **Settings → Dashboards → Resources**, then choose **DTEK account profile**
+in the card picker. Its visual editor selects one connected account independently
+of every other card. A manual example:
+
+```yaml
+type: custom:dtek-account-profile-card
+entity: sensor.example_account_data_updated
+```
+
+The full address, including the apartment when DTEK provides it, is always visible.
+The card shows the meter model, tariff scheme, contract power and next verification
+year. Expand **Meter details** for manufacture, installation and verification dates,
+agreement details, seals and the number of replacement records. For nonempty replacement
+histories, open the cabinet to see individual records; their fields are not yet
+parsed because no verified example is available.
+
+An **EIC identifies a distribution point**, not a meter number, account number or
+outage group. All EICs returned for the account are kept; the current installation's
+EIC is labelled separately. These codes do not determine an apartment's outage group.
+
+Account, EIC, meter and seal numbers start masked. Reveal them explicitly and use
+**Copy**, or hide them before sharing a screenshot. The address itself stays visible:
+check it before sharing. Masking is a display preference; HA read permissions protect
+access. Full numbers are not added to entity names or sensor history. The account
+profile requires the same account-wide read permission as the history card.
+
+Profile data uses the existing six-hour cabinet refresh. **Refresh profile view**
+reads the latest HA cache; use the account device's refresh button to fetch new DTEK
+data. Missing optional fields show **Not provided**, not zero. Failure to fetch meter
+details does not discard valid readings; old cached data is labelled with its date
+when the overall account refresh fails. Profile display does not require permission
+or eligibility to submit readings.
+
+### Check whether readings appear in the cabinet
+
+**Check reading history** performs a fresh, rate-limited read. When this HA has a
+submission record, it compares every submitted tariff scale with the cabinet's
+active-energy records for the same reading date in Kyiv. The result distinguishes
+all scales matching, partial matches, multiple possible matches and no match yet.
+Rows retain DTEK's active/inactive/blocked status and source. An unmatched record is
+not proof of rejection; DTEK may publish later or assign another reading date.
+
+A match is evidence of a corresponding account record, **not proof that this specific
+request created it or that a monthly settlement is final**. Historical rows do not
+identify their individual meter. A known change from the submitted meter is reported
+separately. Checking never repeats a submission, changes calibration or acknowledges
+an uncertain delivery. If this HA has no submission journal, it shows recent cabinet
+records for the current year without claiming it submitted them.
+
+### Optional meter notifications
+
+Open **Configure → Meter verification and replacement**, select the account and
+enable either notification. Both are off by default and independent of reading
+reminders. These are local HA notifications, visible to users of that HA, with a
+masked account number; no private account data is sent to the building bot.
+
+- **Verification:** one notice in the listed year, then one per following calendar
+  year until DTEK updates the information. A year alone cannot establish the exact
+  deadline or whether verification is overdue; check with the operator.
+- **Meter number change:** establishes a baseline on the first successful observation
+  and reports later changes, including after a restart. Missing metadata never resets
+  the baseline. A change can mean a replacement or a cabinet correction. Check the new
+  meter and explicitly set new energy reference readings; old bindings are not moved.
+
+Notices follow the six-hour profile refresh. Dismissal survives restarts. Disabling
+a notification removes it; re-enabling verification may show the current year's
+notice again. Changes observed while replacement notices are disabled establish a
+new baseline rather than a backlog of alerts.
+
 ## History and monthly chart
 
 The bundled **DTEK account history** card shows an account's readings and monthly
@@ -135,7 +207,7 @@ and all sensors of that account; the browser never receives your DTEK password o
 
 1. Enable **Advanced mode** in your HA user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources** (possibly under the three-dot menu).
-3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b9` as a **JavaScript module**.
+3. Add `/dtek_monitor/account-history-card.js?v=1.8.0b10` as a **JavaScript module**.
    When upgrading, edit this existing resource URL instead of adding another copy.
 4. Add a manual card to a private dashboard with the configuration below.
    Replace the entity with **Account data updated** from the desired account device.
@@ -173,6 +245,19 @@ An empty year is shown explicitly. More than 1,000 returned rows or 20 API pages
 inconsistent pagination, or malformed data produces an error instead of a
 silently truncated history. Older years are available only when DTEK returns them.
 
+### Compare the same periods
+
+Choose a year and press **Compare with previous year**. The card compares monthly,
+yearly and seasonal official consumption using only months that are closed and
+published in **both** years. A partial yearly/seasonal total explicitly lists its
+included months. Missing periods are not zero; negative DTEK corrections are retained.
+Winter is explicitly grouped as January, February and December of the same calendar
+year, not a continuous December–February season. Both fetch dates are shown.
+
+These are dated **consumption** figures from DTEK, not cumulative meter readings and
+not estimates from the bound HA source. The comparison fetches the preceding year's
+history on demand and uses the same cache and rate limits as other history reads.
+
 ## Show or hide the account number
 
 The history and submission cards include an eye button next to **Account number**.
@@ -196,7 +281,7 @@ entity: sensor.example_account_data_updated
 ```
 
 It is loaded automatically by either DTEK custom card resource above. If you use
-neither, register `/dtek_monitor/account-number.js?v=1.8.0b9` as a JavaScript module
+neither, register `/dtek_monitor/account-number.js?v=1.8.0b10` as a JavaScript module
 in Resources. Existing entity IDs and masked device labels are unchanged.
 
 ## Send meter readings
@@ -206,7 +291,7 @@ write to your DTEK account only after you review and explicitly confirm the valu
 Opening the card, loading meter data and reviewing values do not send readings.
 Use actual meter readings or reviewed source proposals; never use invented values to test the final button.
 
-Add `/dtek_monitor/account-readings-card.js?v=1.8.0b9` as another **JavaScript module**
+Add `/dtek_monitor/account-readings-card.js?v=1.8.0b10` as another **JavaScript module**
 in dashboard Resources, then add this manual card to a private dashboard:
 
 ```yaml
@@ -407,7 +492,7 @@ without repeating that day; journal errors stop checks until resolved.
 For a readable journal on a dashboard, add **DTEK reading checks** in the card
 picker and choose its account. Loading the readings card resource also registers
 this card. For a standalone journal, register
-`/dtek_monitor/account-check-card.js?v=1.8.0b9` as a JavaScript module. YAML example:
+`/dtek_monitor/account-check-card.js?v=1.8.0b10` as a JavaScript module. YAML example:
 
 ```yaml
 type: custom:dtek-account-check-card

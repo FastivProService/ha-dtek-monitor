@@ -169,6 +169,7 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
                 "account_schedule",
                 "account_reminders",
                 "account_checks",
+                "account_notices",
             ],
         )
         with patch.object(

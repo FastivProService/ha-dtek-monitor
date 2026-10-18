@@ -1,6 +1,7 @@
 """Authenticated history access, scoped to a readable entity of one account."""
 
 from pathlib import Path
+from datetime import datetime
 
 import voluptuous as vol
 from homeassistant.auth.permissions.const import POLICY_READ
@@ -21,6 +22,10 @@ from .account import (
 )
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
+from .account_profile import public_profile
+from .account_analysis import compare_consumption, match_readback
+from .account_history import KYIV
+from .account_submission import SubmissionError
 
 
 def _can_read_account(hass, connection, entry, number):
@@ -51,9 +56,16 @@ async def async_setup_history(hass):
     websocket_api.async_register_command(hass, websocket_identity)
     websocket_api.async_register_command(hass, websocket_accounts)
     websocket_api.async_register_command(hass, websocket_checks)
+    websocket_api.async_register_command(hass, websocket_profile)
+    websocket_api.async_register_command(hass, websocket_readback)
     if "http" in hass.config.components:
         await hass.http.async_register_static_paths(
             [
+                StaticPathConfig(
+                    "/dtek_monitor/account-profile-card.js",
+                    str(Path(__file__).parent / "frontend" / "account-profile-card.js"),
+                    False,
+                ),
                 StaticPathConfig(
                     "/dtek_monitor/account-check-card.js",
                     str(Path(__file__).parent / "frontend" / "account-check-card.js"),
@@ -215,6 +227,7 @@ def websocket_checks(hass, connection, msg):
         vol.Required("entity_id"): str,
         vol.Required("year"): int,
         vol.Optional("force", default=False): bool,
+        vol.Optional("compare", default=False): bool,
     }
 )
 @websocket_api.async_response
@@ -228,6 +241,11 @@ async def websocket_history(hass, connection, msg):
     coordinator = entry.runtime_data
     try:
         result = await coordinator.history.get(number, msg["year"], force=msg["force"])
+        if msg.get("compare") and msg["year"] > 2000:
+            previous = await coordinator.history.get(
+                number, msg["year"] - 1, force=msg["force"]
+            )
+            result = {**result, "comparison": compare_consumption(result, previous)}
     except AccountAuthError:
         entry.async_start_reauth(hass)
         connection.send_error(
@@ -262,3 +280,83 @@ async def websocket_history(hass, connection, msg):
         )
         return
     connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "dtek_monitor/account_profile",
+        vol.Required("entity_id"): str,
+        vol.Optional("reveal", default=False): bool,
+    }
+)
+@callback
+def websocket_profile(hass, connection, msg):
+    """Cached profile remains independent of the ability to submit readings."""
+    try:
+        entry, number, _ = resolve_readable_account(hass, connection, msg["entity_id"])
+    except AccountAccessError as error:
+        connection.send_error(msg["id"], error.code, "Personal account is unavailable")
+        return
+    coordinator = entry.runtime_data
+    snapshot = (coordinator.data or {}).get(number)
+    profile = snapshot.profile if snapshot and snapshot.profile else {}
+    result = public_profile(profile, reveal=msg["reveal"])
+    result["address"] = result.get("address") or entry.data[CONF_ACCOUNTS][number]
+    result["fetched_at"] = snapshot.fetched_at.isoformat() if snapshot else None
+    result["available"] = bool(snapshot and coordinator.last_update_success)
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "dtek_monitor/account_readback",
+        vol.Required("entity_id"): str,
+    }
+)
+@websocket_api.async_response
+async def websocket_readback(hass, connection, msg):
+    entry = None
+    try:
+        entry, number, entity = resolve_readable_account(
+            hass, connection, msg["entity_id"]
+        )
+        coordinator = entry.runtime_data
+        attempt = await coordinator.submissions.last_attempt(number)
+        try:
+            year = (
+                datetime.fromisoformat(attempt["at"]).astimezone(KYIV).year
+                if attempt
+                else datetime.now(KYIV).year
+            )
+        except (TypeError, ValueError, KeyError):
+            raise AccountError("Invalid attempt date") from None
+        history = await coordinator.history.get(number, year, force=True)
+        current, selected, current_entity = resolve_readable_account(
+            hass, connection, msg["entity_id"]
+        )
+        if (
+            current is not entry
+            or selected != number
+            or current.runtime_data is not coordinator
+            or current_entity.unique_id != entity.unique_id
+        ):
+            raise AccountAccessError("not_available")
+        snapshot = (coordinator.data or {}).get(number)
+        serial = (snapshot.profile or {}).get("serial") if snapshot else None
+        connection.send_result(msg["id"], match_readback(attempt, history, serial))
+    except AccountAccessError as error:
+        connection.send_error(msg["id"], error.code, "Personal account is unavailable")
+    except AccountAuthError:
+        if entry:
+            entry.async_start_reauth(hass)
+        connection.send_error(
+            msg["id"], "auth_required", "Personal account authentication required"
+        )
+    except AccountRateLimitError:
+        connection.send_error(
+            msg["id"], "rate_limited", "Please wait before refreshing history again"
+        )
+    except (AccountError, SubmissionError):
+        connection.send_error(
+            msg["id"], "history_unavailable", "History could not be verified"
+        )

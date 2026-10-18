@@ -92,7 +92,9 @@ def parse_history_page(payload, year: int, today: date):
             else (
                 "inactive"
                 if inactive is True
-                else "active" if flags == [False, False] else "unknown"
+                else "active"
+                if flags == [False, False]
+                else "unknown"
             )
         )
         source = item.get("kind")
@@ -107,6 +109,10 @@ def parse_history_page(payload, year: int, today: date):
                     "energy": _code(item.get("deviceEnergyType")),
                     "zone": _code(item.get("deviceScaleType")),
                     "source": source,
+                    "origin": item.get("origin")
+                    if isinstance(item.get("origin"), str)
+                    and len(item["origin"]) <= 200
+                    else None,
                     "status": status,
                     "blocked": blocked,
                     "inactive": inactive,
@@ -156,7 +162,9 @@ def parse_months(payload, year: int, today: date):
             else (
                 "open"
                 if day == today.replace(day=1)
-                else "closed" if period in found else "missing"
+                else "closed"
+                if period in found
+                else "missing"
             )
         )
         data = (

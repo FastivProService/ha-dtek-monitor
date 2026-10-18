@@ -35,6 +35,7 @@ from .account_history import (
     parse_months,
     validate_year,
 )
+from .account_profile import parse_profile
 
 AUTH_ORIGIN = "https://auth.my.dtek-oem.com.ua"
 CABINET_ORIGIN = "https://my.dtek-oem.com.ua"
@@ -62,12 +63,14 @@ class DTEKAccountClient:
         self._token = ""
         self._token_expires = 0.0
         self._accounts: set[str] = set()
+        self._linked_profiles: dict[str, dict] = {}
         self.subject: str | None = None
 
     async def close(self) -> None:
         await self._session.close()
         self._token = ""
         self._accounts.clear()
+        self._linked_profiles.clear()
 
     async def _request(self, method: str, path: str, *, auth=False, **kwargs):
         origin = AUTH_ORIGIN if auth else CABINET_ORIGIN
@@ -120,6 +123,7 @@ class DTEKAccountClient:
         async with self._lock:
             self._token = ""
             self._accounts.clear()
+            self._linked_profiles.clear()
             self._check(await self._request("GET", "/login", auth=True))
             self._check(
                 await self._request(
@@ -233,6 +237,7 @@ class DTEKAccountClient:
 
     async def list_accounts(self) -> tuple[PersonalAccount, ...]:
         accounts: dict[str, PersonalAccount] = {}
+        profiles = {}
         for page in range(1, 51):
             response = await self._get(
                 "/api/billing/joint/objects/get_advanced",
@@ -265,8 +270,12 @@ class DTEKAccountClient:
                 if not isinstance(address, str) or not address.strip():
                     raise AccountError("Personal account address is missing")
                 accounts[number] = PersonalAccount(number, address)
+                profiles[number] = {
+                    key: item.get(key) for key in ("address", "eic", "contractPower")
+                }
             if page >= pages:
                 self._accounts = set(accounts)
+                self._linked_profiles = profiles
                 return tuple(accounts.values())
         raise AccountError("Personal account list is too large")
 
@@ -275,8 +284,15 @@ class DTEKAccountClient:
             raise AccountError("Selected personal account is no longer linked")
         now = datetime.now(ZoneInfo("Europe/Kyiv"))
         path = f"{BILLING}/meters/household/{number}"
-        details = await self._get(path + "/data")
-        if not isinstance(details, dict) or details.get("accountNumber") != number:
+        try:
+            details = await self._get(path + "/data")
+        except (AccountAuthError, AccountRateLimitError):
+            raise
+        except AccountError:
+            details = None
+        if details is not None and (
+            not isinstance(details, dict) or details.get("accountNumber") != number
+        ):
             raise AccountError("Invalid meter details")
         readings = parse_readings(
             await self._get(path + "/meters-with-readings"), now.date()
@@ -289,21 +305,15 @@ class DTEKAccountClient:
             ),
             now.date(),
         )
-        verification = details.get("nextVerificationYear")
-        if verification in (None, ""):
-            verification_year = None
-        else:
-            try:
-                verification_year = int(verification)
-                if not 1900 <= verification_year <= 2200:
-                    raise ValueError
-            except (ValueError, TypeError):
-                raise AccountError("Invalid meter verification year") from None
-        model = details.get("meterType")
-        if model is not None and not isinstance(model, str):
-            raise AccountError("Invalid meter model")
+        profile = parse_profile(details, self._linked_profiles.get(number))
         return AccountSnapshot(
-            model, verification_year, readings, consumption, period, now
+            profile["model"],
+            profile["next_verification_year"],
+            readings,
+            consumption,
+            period,
+            now,
+            profile,
         )
 
     async def read_history(self, number: str, year: int) -> dict:
