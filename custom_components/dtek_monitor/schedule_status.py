@@ -31,8 +31,8 @@ def covers(coverage, group, kind, start, end):
     return False
 
 
-def schedule_status(coordinator, groups=None, now=None):
-    """Today's planned schedule, independent of cached display-only events.
+def schedule_status(coordinator, groups=None, now=None, *, day_offset=0):
+    """A day's planned schedule, independent of cached display-only events.
 
     `empty` is justified only by complete dated coverage for all selected groups.
     A weekly forecast, a missing group or a gap never proves no planned outages.
@@ -45,6 +45,7 @@ def schedule_status(coordinator, groups=None, now=None):
         return "error"
     now = now or datetime.now(KYIV_TZ)
     start = now.astimezone(KYIV_TZ).replace(hour=0, minute=0, second=0, microsecond=0)
+    start += timedelta(days=day_offset)
     end = start + timedelta(days=1)
     schedule = coordinator.schedule
     groups = list(groups if groups is not None else (g.id for g in schedule.groups))
@@ -71,10 +72,11 @@ def schedule_status(coordinator, groups=None, now=None):
     return "empty"
 
 
-def status_attributes(coordinator, groups=None):
+def status_attributes(coordinator, groups=None, now=None, *, day_offset=0):
+    now = now or datetime.now(KYIV_TZ)
     return {
-        "schedule_status": schedule_status(coordinator, groups),
-        "status_date": datetime.now(KYIV_TZ).date().isoformat(),
+        "schedule_status": schedule_status(coordinator, groups, now, day_offset=day_offset),
+        "status_date": (now.astimezone(KYIV_TZ).date() + timedelta(days=day_offset)).isoformat(),
         "status_timezone": "Europe/Kyiv",
         "reason": coordinator.schedule_reason,
         "request_error": coordinator.address_error or coordinator.schedule_error,

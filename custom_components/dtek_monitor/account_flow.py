@@ -16,7 +16,6 @@ from homeassistant.helpers.selector import (
 )
 
 from .account import (
-    ACCOUNT_PROVIDERS,
     CONF_ACCOUNTS,
     CONF_ACCOUNT_SUBJECT,
     CONF_ENTRY_KIND,
@@ -29,6 +28,11 @@ from .account import (
     normalize_phone,
 )
 from .account_client import create_account_provider
+from .account_providers import (
+    account_connection_title,
+    account_provider_supported,
+    get_account_provider_spec,
+)
 from .account_access_flow import AccountAccessFlowMixin
 from .account_link_flow import AccountLinkFlowMixin
 from .account_api_health import report_api_issue, watch_api
@@ -42,7 +46,7 @@ class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
 
     async def async_step_connection(self, user_input=None):
         options = ["address"]
-        if self._provider_id in ACCOUNT_PROVIDERS:
+        if account_provider_supported(self._provider_id):
             options.append("account_access")
         return self.async_show_menu(step_id="connection", menu_options=options)
 
@@ -56,12 +60,14 @@ class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
         return await self.async_step_city()
 
     async def async_step_account_login(self, user_input=None):
-        if self._provider_id not in ACCOUNT_PROVIDERS:
+        if not account_provider_supported(self._provider_id):
             return self.async_abort(reason="account_not_supported")
         errors = {}
         reauth_entry = (
             self._get_reauth_entry() if self.context.get("source") == "reauth" else None
         )
+        if reauth_entry and reauth_entry.data[CONF_PROVIDER] != self._provider_id:
+            return self.async_abort(reason="account_mismatch")
         if user_input is not None:
             client = create_account_provider(self._provider_id)
             watch_api(self.hass, self._provider_id, client)
@@ -140,8 +146,10 @@ class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
             ),
             errors=errors,
             description_placeholders={
-                "signup_url": "https://auth.my.dtek-oem.com.ua/signup",
-                "recovery_url": "https://auth.my.dtek-oem.com.ua/recovery",
+                "signup_url": get_account_provider_spec(self._provider_id).auth_origin
+                + "/signup",
+                "recovery_url": get_account_provider_spec(self._provider_id).auth_origin
+                + "/recovery",
             },
         )
 
@@ -177,7 +185,9 @@ class AccountFlowMixin(AccountAccessFlowMixin, AccountLinkFlowMixin):
                 credentials = self._account_credentials
                 self._account_credentials = {}
                 return self.async_create_entry(
-                    title=f"Personal account • ••••{credentials[CONF_USERNAME][-4:]}",
+                    title=account_connection_title(
+                        self._provider_id, credentials[CONF_USERNAME]
+                    ),
                     description="account_connected",
                     data={
                         CONF_ENTRY_KIND: ENTRY_ACCOUNT,

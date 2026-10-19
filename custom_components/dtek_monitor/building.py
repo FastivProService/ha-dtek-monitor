@@ -5,10 +5,29 @@ import re
 from .const import CONF_CITY, CONF_HOUSE, CONF_STREET
 from .provider import Address
 
+# Expand only explicit address types. Keep village/settlement/district and street
+# types distinct; identical names alone are not proof of the same building.
+_LOCALITY_TYPES = (
+    (r"с\.\s*", "село "),
+    (r"с-ще\s+", "селище "),
+    (r"смт\.?\s+", "селище міського типу "),
+    (r"хут\.\s*", "хутір "),
+)
+_STREET_TYPES = (
+    (r"вул\.\s*", "вулиця "),
+    (r"дор\.\s*", "дорога "),
+    (r"пров\.\s*", "провулок "),
+    (r"(?:просп\.\s*|пр-т\s+)", "проспект "),
+    (r"(?:бул\.\s*|б-р\s+)", "бульвар "),
+    (r"пл\.\s*", "площа "),
+    (r"узв\.\s*", "узвіз "),
+)
+
 
 def building_suggestion(address: str) -> dict[str, str]:
     match = re.fullmatch(
-        r"\s*(?P<city>[^,]+),\s*(?P<street>[^,]+?)\s+буд\.\s*"
+        r"\s*(?P<city>[^,]+),\s*(?P<street>[^,]+?)(?:,\s*|\s+)"
+        r"(?:буд\.\s*|будинок\s+)"
         r"(?P<house_num>[\w/\-]+)(?:,\s*(?:кв\.?|к\.|квартира)\s*[\w/\-]+)?\s*",
         address,
     )
@@ -19,9 +38,17 @@ def normalized(value: str, key: str) -> str:
     text = " ".join(value.casefold().split())
     if key == CONF_CITY:
         text = re.sub(r"^(?:м\.\s*|місто\s+)", "", text)
-    elif key == CONF_STREET:
-        text = re.sub(r"^вул\.\s*", "вулиця ", text)
-        text = re.sub(r"^дор\.\s*", "дорога ", text)
+    types = (
+        _LOCALITY_TYPES
+        if key == CONF_CITY
+        else _STREET_TYPES
+        if key == CONF_STREET
+        else ()
+    )
+    for pattern, replacement in types:
+        if re.match("^" + pattern, text):
+            text = re.sub("^" + pattern, replacement, text, count=1)
+            break
     return text
 
 

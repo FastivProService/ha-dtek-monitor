@@ -17,6 +17,27 @@ MAX_HISTORY_ROWS = 1000
 MAX_HISTORY_PAGES = 20
 
 
+def reading_history_page(rows, *, include_inactive=False, offset=0):
+    """A display-only page; retain raw records for readback and accounting."""
+    energy = [row for row in rows if row.get("energy") == "ACTIVE"]
+    inactive = sum(row.get("status") == "inactive" for row in energy)
+    visible = [row for row in energy if include_inactive or row.get("status") != "inactive"]
+    size = 6
+    offset = min(max(0, offset // size), max(0, (len(visible) - 1) // size)) * size
+    return {
+        "latest": visible[offset:offset + size],
+        "history_view": {
+            "include_inactive": include_inactive,
+            "inactive_count": inactive,
+            "total": len(energy),
+            "visible": len(visible),
+            "offset": offset,
+            "previous_offset": offset - size if offset else None,
+            "next_offset": offset + size if offset + size < len(visible) else None,
+        },
+    }
+
+
 def validate_year(year, today: date) -> int:
     if type(year) is not int or not 2000 <= year <= today.year:
         raise AccountError("Invalid history year")
@@ -193,13 +214,13 @@ class HistoryCache:
             if key[0] == number:
                 del self._cache[key]
 
-    async def get(self, number, year, *, force=False):
+    async def get(self, number, year, *, force=False, max_age=6 * 3600):
         validate_year(year, datetime.now(KYIV).date())
         key = (number, year)
         async with self._lock:
             now = monotonic()
             cached = self._cache.get(key)
-            if cached and not force and now - cached[0] < 6 * 3600:
+            if cached and not force and now - cached[0] < max_age:
                 self._cache.move_to_end(key)
                 return cached[1]
             if (

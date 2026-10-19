@@ -1,3 +1,4 @@
+import { isUkrainian } from "./account-ui.js?v=2.0.0-rc1";
 /* Card-local account selection. No global active account or billing operations. */
 const words = {
   en: {workspaceHelp:"Choose the account shown in this card. For two apartments, add two My DTEK cards. The switching option below affects only this card; it does not add or remove DTEK accounts.", account:"Personal account", title:"Title (optional)", year:"Initial year (optional)", choose:"Choose an account", missing:"Current entity is unavailable", loading:"Loading accounts…", empty:"No readable accounts are connected. Select accounts in the integration settings.", error:"Could not load accounts.", retry:"Refresh account list", help:"This choice applies only to this card. Connect additional accounts in Settings → Devices & services → DTEK Monitor → Configure → Select personal accounts."},
@@ -16,7 +17,7 @@ class DtekAccountCardEditor extends HTMLElement {
   }
   connectedCallback() {this._render();if(this._hass && !this._loaded)this._load();}
   disconnectedCallback() {this._seq++;this._pending=false;this._loaded=false;}
-  get w() {return words[this._hass?.language?.startsWith("uk")?"uk":"en"];}
+  get w() {return words[isUkrainian(this._hass?.language)?"uk":"en"];}
   async _load() {
     if(!this._hass || this._pending)return;
     const seq=++this._seq;this._pending=true;this._error=false;this._render();
@@ -69,7 +70,7 @@ class DtekAccountCardEditor extends HTMLElement {
     if (this._config.type === "custom:dtek-account-workspace-card" && !this._scope) {
       const label=document.createElement("label");this._scope=document.createElement("input");this._scope.type="checkbox";this._scope.style.width="auto";this._scopeText=document.createElement("span");label.append(this._scope,this._scopeText);this.shadowRoot.append(label);this._scope.onchange=()=>this._change("show_account_selector",this._scope.checked);
     }
-    if(this._scope){this._scope.checked=this._config.show_account_selector!==false;this._scopeText.textContent=this._hass.language?.startsWith("uk")?"Дозволити перемикання рахунків у цій картці":"Allow switching accounts in this card";}
+    if(this._scope){this._scope.checked=this._config.show_account_selector!==false;this._scopeText.textContent=isUkrainian(this._hass.language)?"Дозволити перемикання рахунків у цій картці":"Allow switching accounts in this card";}
     this._select.value=selected;
     this._feedback.textContent=this._pending?w.loading:this._error?w.error:this._loaded&&!accounts.length?w.empty:"";
     this._retry.textContent=w.retry;this._retry.disabled=this._pending;this._help.textContent=this._config.type==="custom:dtek-account-workspace-card"?w.workspaceHelp:w.help;

@@ -6,6 +6,9 @@ A schedule is the operator's plan, not a measurement of electricity at home.
 
 - [Schedule grid](#section-1)
 - [My apartment group and the building schedules](#section-2)
+- [Address repair works](#address-works)
+- [Upcoming times and tomorrow's schedule](#upcoming-times)
+- [Refresh and change notifications](#changes)
 
 <a id="section-1"></a>
 ## Schedule grid
@@ -46,10 +49,11 @@ and possible calendar entities must be enabled and readable by the HA user.
 <a id="section-2"></a>
 ## My apartment group and the building schedules
 
-The cabinet connection does not establish which outage group supplies an apartment.
-The verified cabinet responses currently provide no such assignment. A building
-may have several groups; its **Primary schedule group** is a compatibility value,
-not a claim about your apartment.
+A building may have several groups. Its **Primary schedule group** is a
+compatibility value, not a claim about your apartment. For Odesa household
+accounts, HA can also look up the account's groups through an optional cabinet
+service. The panel identifies whether your group comes from the cabinet, a manual
+choice or the building's only verified group.
 
 1. When HA starts monitoring an account, it matches its city, street and building
    against the operator’s public directory. A unique match connects the building
@@ -59,9 +63,29 @@ not a claim about your apartment.
    outage group → Choose another building from the directory**. Confirm the city,
    street and building in the same dialog. Apartment numbers and cabinet credentials
    are never included in the public building connection.
-3. A sole verified building group is used automatically. With several groups,
-   choose your apartment group in the same settings. The building calendars and
-   bot keep every group. Manual group choices never change automatically.
+3. Leave **My apartment groups** empty for automatic selection. A single group
+   from the cabinet is used when it also belongs to the verified building groups.
+   Without a cabinet assignment, the building's sole verified group can be used.
+   If the cabinet lists several groups, choose yours in the same settings. Manual
+   choices take priority while they still belong to the building. Building calendars and
+   the building-mode bot keep every building group.
+
+**Look up apartment groups in the DTEK cabinet** is enabled by default for Odesa.
+Turn it off in the group settings to use only your manual choice or the sole
+building group. The lookup refreshes in the background every 15 minutes and after
+account data updates. It does not delay loading the cabinet or submitting readings.
+Errors immediately invalidate the optional result; a result older than 15 minutes
+is also unverified. No old assignment is silently reused. With several building
+groups, the personal calendar then waits for confirmation or a manual choice;
+the building calendars continue independently. An explicit empty response means
+the cabinet has not assigned a group, not that there are no outages.
+
+If the cabinet group is absent from the building's groups, HA shows the mismatch
+instead of selecting it. Check the linked building and your group. If the legacy
+service disappears or its response changes, **Settings → System → Repairs** shows
+an issue for the optional account-group service with update/support links. Other
+cabinet features remain independent. Optional group lookup is currently enabled
+only for Odesa; other regional cabinets await live validation.
 
 A directory outage does not block cabinet data or readings. HA reports that
 matching is pending and retries every five minutes. **Do not link a building**
@@ -71,18 +95,48 @@ it does not delete the shared building connection.
 The account device exposes **My group**, **My schedule status**,
 **My outage schedule** and **My possible outage schedule**. Add the personal
 calendars to your apartment dashboard; keep the building calendars alongside them
-when you want to compare all groups. The building calendars and Telegram bot keep
+when you want to compare all groups. The building calendars and building-mode Telegram bot keep
 all address groups. Different accounts can select different groups in one building.
 
-The status distinguishes a manual choice from automatic use of the building’s
-sole group. Neither is an apartment assignment returned by the cabinet. If an
-automatically linked building gains a second group, only the personal calendar
-waits for a selection; the public building calendars and bot keep all groups.
-If a manually selected group disappears from the verified building groups, group
-labels are hidden, the building is removed or schedule verification fails, the
-personal calendars become unavailable. A saved manual choice remains visible for
-review; another group is never substituted for it automatically. The schedule status
-explains why. Choosing **Do not link a building** removes only the personal link and prevents automatic relinking.
+If the building gains a second group and the cabinet does not verify a single
+apartment group, only the personal calendar waits for a selection; public building
+calendars and the building-mode bot keep all groups.
+If a manually selected group disappears, HA switches to automatic selection only
+when a fresh cabinet assignment or the building's sole verified group provides an
+unambiguous replacement. HA notifies you of the change; the obsolete manual choice
+is cleared so it cannot silently return later. A conflicting cabinet assignment
+does not authorize replacement. If several candidates remain, choose your group
+in Settings. Hidden labels, a removed building or failed verification leave the
+personal schedule unavailable; missing data never authorize a reassignment.
+Choosing **Do not link a building** removes only the personal link and prevents automatic relinking.
+
+<a id="changes"></a>
+## Refresh and change notifications
+
+Press **Refresh schedule** above the grid to ask DTEK for fresh building data.
+The same action is available as a button on the building device. All callers share
+a one-minute limit; the operator's retry delay may be longer. The grid shows the
+result and keeps your selected date and group filter. Its ordinary background
+updates read HA's data and do not force extra DTEK requests.
+
+Building groups follow verified address responses automatically. Your personal
+schedule follows the cabinet's verified assignment or the building's only group
+when automatic selection is active. A still-valid manual selection takes priority.
+Changes appear in **Home Assistant notifications**, with the previous and new
+groups. They are informational messages, not Repairs. Building and personal
+changes are identified separately; all building groups remain available to building-mode bot profiles.
+These notices do not send Telegram messages or mobile push notifications by themselves.
+
+The first verified group/schedule establishes a baseline. Repeated polls, group
+reordering, temporary errors and recovery of the same data do not generate changes.
+Comparison baselines survive HA restarts and are never used as live schedules.
+
+For your own automations, use `dtek_monitor_schedule_changed`. It reports changes
+to verified future daily intervals, including confirmed cancellations and newly
+published dates, even when a new date has no outages. A publication timestamp
+change, an elapsed interval, midnight rollover, a weekly forecast or lost coverage
+alone does not fire this event. `dtek_monitor_groups_changed` separately reports
+building group changes. [Event fields and an example](REFERENCE.md#schedule-change-events).
 
 ## Schedules without a personal cabinet
 
@@ -91,3 +145,75 @@ reload its page and add a built-in calendar card or the
 [DTEK grid card](REFERENCE.md#schedule-card), using that building's availability
 sensor and calendars. No phone login is required. Set `view: list` for a calendar
 list; the default is the grid.
+
+<a id="upcoming-times"></a>
+## Upcoming times and tomorrow's schedule
+
+Open **Settings → Devices & services → DTEK Monitor → your building** and add these
+sensors to an **Entities** card. Each monitored account also has personal versions
+on its account device; those use only the apartment's selected groups.
+
+| Sensor | What it means |
+| --- | --- |
+| **Next planned outage (scheduled)** | The next future start in the published planned schedule. An outage already in progress is skipped. |
+| **Next possible outage (scheduled)** | The next future possible start, including a weekly forecast when provided. This is not a confirmed planned outage. |
+| **Outage end (scheduled)** | The end of an ongoing planned outage; when none is ongoing, the end of the next planned outage. |
+| **Tomorrow’s schedule availability** | Whether tomorrow has a complete schedule, verified no planned outages, incomplete data, only a forecast, or unavailable data. |
+
+These times describe the **schedule**, not electricity measured at home. For a
+building with multiple groups, the start is the earliest future start among them.
+If several groups are currently in an outage, the end sensor shows the earliest
+end among those ongoing outages. It does not promise restoration for the whole
+building. The `event_groups` attribute identifies the affected groups. Use the
+personal sensors when you need only your apartment's group; until its selection
+is resolved, personal timestamps stay unavailable.
+
+A blank/unknown timestamp can mean there is no next event in the verified time
+range. It does not mean there will be no outages beyond it. If publication stops
+at an event's end, that end remains unknown: a schedule ending at midnight alone
+does not confirm restoration at midnight. Missing coverage for a selected group
+or a request failure makes the relevant timestamps unavailable. Saved schedules
+never supply these times. [Technical status attributes](REFERENCE.md#scheduled-times)
+distinguish these cases for automations.
+
+The sensors update when a schedule changes, an event starts/ends, or the Kyiv date
+changes, without extra network requests. Tomorrow's status uses Kyiv dates even
+when your HA is in another timezone. It creates no extra calendar events or
+Telegram messages.
+
+Continuous outages across midnight appear as one calendar event, for example
+**23:00–02:00**, when both days are verified for the same group, event type and
+source. Different groups and forecasts remain separate. Native calendar titles
+use HA's configured system language (English or Ukrainian, with English fallback);
+the machine-readable group and event type remain unchanged.
+
+<a id="address-works"></a>
+## Address repair works
+
+Each building also has **Address repair works** and **Repair report availability**.
+Open **Settings → Devices & services → DTEK Monitor → your building** to find them.
+Add a built-in **Calendar** card to your dashboard and select **Address repair works**;
+add the availability sensor to an **Entities** card alongside it. No extra login or
+configuration is needed. The calendar uses the same address response as the status
+sensors, without additional requests.
+
+This calendar shows repair intervals reported for the building, with the reason
+and source in each event. It does not merge them into GPV schedules or filter them
+by your apartment's group. Emergency and stabilization status records remain in
+the address sensors, not in this repair calendar. Several repair records are kept;
+identical records are shown once. It can work even when group schedules are missing.
+
+- **DTEK reported repair works:** complete repair intervals are available.
+- **No repair works in the DTEK response:** the latest successful address response
+  contains no repair records. This does not confirm electricity or rule out outages.
+- **Repair times are incomplete:** at least one repair lacks valid start/end times.
+  The calendar is unavailable rather than inventing an end time or showing a partial
+  list as complete. Check the address status/description for the available information.
+- **Failed to fetch address data:** old repair events are not reused as current.
+- **Repair reports not supported:** the source cannot verify these records, including
+  addresses served by an external operator.
+
+DTEK may publish a repair only after it has started. End times are estimates and can
+change. Events disappear when removed from the current response: this is not a history
+archive. An empty future calendar does not guarantee that no repairs will occur.
+This calendar does not automatically enable new Telegram notifications.

@@ -1,4 +1,4 @@
-import { el, date, number } from "./account-ui.js?v=2.0.0b1";
+import { isUkrainian,  el, date, number } from "./account-ui.js?v=2.0.0-rc1";
 
 const words = {
   en: {
@@ -39,7 +39,7 @@ class DtekAccountReadback extends HTMLElement {
   }
   reset() { this._seq++; this._data = null; this._error = null; this._busy = false; }
   disconnectedCallback() { queueMicrotask(() => { if (!this.isConnected) this.reset(); }); }
-  get w() { return words[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
+  get w() { return words[isUkrainian(this._hass?.language) ? "uk" : "en"]; }
   async check() {
     if (this._busy) return;
     const seq = ++this._seq;

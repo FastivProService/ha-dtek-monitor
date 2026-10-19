@@ -11,7 +11,7 @@ from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
 
 TAG = re.compile(
-    r"v(?P<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?P<pre>(?:a|b|rc)\d+)?)"
+    r"v(?P<version>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?P<pre>-?(?:a|b|rc)[1-9]\d*)?)"
 )
 COMPONENT = Path("custom_components/dtek_monitor")
 
@@ -19,7 +19,7 @@ COMPONENT = Path("custom_components/dtek_monitor")
 def metadata(root: Path, tag: str) -> dict:
     match = TAG.fullmatch(tag)
     if not match:
-        raise ValueError("Use vMAJOR.MINOR.PATCH with an optional aN, bN or rcN suffix")
+        raise ValueError("Use vMAJOR.MINOR.PATCH with an optional -rcN, aN or bN suffix")
     version = match["version"]
     component = root / COMPONENT
     if json.loads((component / "manifest.json").read_text())["version"] != version:
@@ -46,7 +46,11 @@ def metadata(root: Path, tag: str) -> dict:
     return {
         "version": version,
         "prerelease": bool(match["pre"]),
-        "notes": section[1].strip() + "\n",
+        "notes": re.sub(
+            r"\]\((?![a-z]+:|#)([^)]+)\)",
+            lambda link: f"](https://github.com/groove-max/ha-dtek-monitor/blob/{tag}/{link[1]})",
+            section[1].strip() + "\n",
+        ),
     }
 
 

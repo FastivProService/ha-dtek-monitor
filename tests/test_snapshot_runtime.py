@@ -49,6 +49,7 @@ class SnapshotRuntimeTests(unittest.IsolatedAsyncioTestCase):
         return self.coord.snapshot
 
     async def test_restart_while_offline_restores_display_but_not_notifications(self):
+        self.hass.config.language = "uk"
         saved = await self.snapshot()
         restored = coordinator.DTEKDataCoordinator(self.hass, self.provider, self.entry)
         await restored.async_load_snapshot()

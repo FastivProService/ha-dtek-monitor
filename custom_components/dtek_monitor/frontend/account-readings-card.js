@@ -1,10 +1,10 @@
-import "./account-readback.js?v=2.0.0b1";
-import { embeddedCSS, date, number } from "./account-ui.js?v=2.0.0b1";
-import "./account-check-card.js?v=2.0.0b1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0b1";
+import "./account-readback.js?v=2.0.0-rc1";
+import { isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc1";
+import "./account-check-card.js?v=2.0.0-rc1";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber } from "./account-number.js?v=2.0.0b1";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0b1";
+import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc1";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0-rc1";
 const labels = {
   en: {
     energyLocked: "Wait for the sensor settings operation to finish.", sourceInvalid: "Sensor settings changed. Your values are retained. Insert a fresh suggestion or verify and edit the readings manually before review.",
@@ -122,7 +122,7 @@ class DtekAccountReadingsCard extends HTMLElement {
   }
   static getConfigElement() { return accountCardEditor(); }
   static getStubConfig() { return {entity: "sensor.example_account_data_updated"}; }
-  get w() { return labels[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
+  get w() { return labels[isUkrainian(this._hass?.language) ? "uk" : "en"]; }
   async request(action, extra = {}) {
     return this._hass.callWS({type: "dtek_monitor/account_submission", entity_id: this._config.entity, action, ...extra});
   }
@@ -194,9 +194,9 @@ class DtekAccountReadingsCard extends HTMLElement {
     const style = node("style", `:host{display:block}ha-card{padding:20px;overflow:hidden}h2{font-size:1.2em;margin:0 0 12px}p{line-height:1.5;overflow-wrap:anywhere}button,input{font:inherit;color:var(--primary-text-color);background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#aaa);border-radius:6px;padding:10px}button{cursor:pointer;margin:8px 8px 0 0;white-space:normal}button:disabled{opacity:.5;cursor:default}.fields label{display:block;margin:16px 0}.fields input{display:block;box-sizing:border-box;width:100%;margin-top:8px}.check{display:flex;gap:10px;align-items:flex-start;margin:16px 0}.check input{margin-top:4px}.scroll{overflow:auto}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px 6px;border-bottom:1px solid var(--divider-color,#ddd);white-space:nowrap}.alert{color:var(--error-color,#b22)}a{color:var(--primary-color)}small{display:block;color:var(--secondary-text-color);margin-top:6px}`);
     card.append(node("h2", this._config.title || w.title));
     if (!this._config.embedded) card.append(accountNumber(this._hass, this._config.entity));
-    if (this.readOnly) { const p=node("p", this._hass?.language?.startsWith("uk") ? "Ви можете переглядати покази та історію. Передавати покази й налаштовувати датчик може адміністратор Home Assistant." : "You can view readings and history. Sending readings and configuring the source requires a Home Assistant administrator."); p.setAttribute("role","status"); card.append(p); style.textContent+=embeddedCSS; this.shadowRoot.replaceChildren(style,card); return; }
-    card.append(node("p", this._config.embedded ? (this._hass?.language?.startsWith("uk") ? "Вкажіть накопичувальні покази з лічильника — не споживання за місяць." : "Enter the cumulative meter reading, not the monthly consumption.") : w.instructions));
-    const a = node("a", w.cabinet); a.href = "https://my.dtek-oem.com.ua/"; a.target = "_blank"; a.rel = "noopener noreferrer"; card.append(a);
+    if (this.readOnly) { const p=node("p", isUkrainian(this._hass?.language) ? "Ви можете переглядати покази та історію. Передавати покази й налаштовувати датчик може адміністратор Home Assistant." : "You can view readings and history. Sending readings and configuring the source requires a Home Assistant administrator."); p.setAttribute("role","status"); card.append(p); style.textContent+=embeddedCSS; this.shadowRoot.replaceChildren(style,card); return; }
+    card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Вкажіть накопичувальні покази з лічильника — не споживання за місяць." : "Enter the cumulative meter reading, not the monthly consumption.") : w.instructions));
+    card.append(cabinetLink(this._hass, this._config.entity, w.cabinet));
     if (this._error) { const error = node("p", w[this._error] || energyMessage(this._hass?.language, this._error) || w.unavailable); error.className = "alert"; error.setAttribute("role", "alert"); card.append(error); }
     if(this._energyLocked || this._sourceInvalid){const note=node("p",this._energyLocked?w.energyLocked:w.sourceInvalid);note.className="source-notice";note.setAttribute("role","status");card.append(note);}
     const ctx = this._context;
@@ -212,9 +212,9 @@ class DtekAccountReadingsCard extends HTMLElement {
       if (result.readings) this.table(card, result.readings);
     }
     if (this._draft) {
-      card.append(node("p", this._config.embedded ? (this._hass?.language?.startsWith("uk") ? "Перевірте адресу, лічильник і покази перед передачею." : "Check the address, meter and readings before sending.") : w.review)); this.table(card, this._draft.readings);
+      card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Перевірте адресу, лічильник і покази перед передачею." : "Check the address, meter and readings before sending.") : w.review)); this.table(card, this._draft.readings);
       if (this._draft.source) {
-        card.append(node("p", this._config.embedded ? (this._hass?.language?.startsWith("uk") ? "Покази розраховано за домашнім датчиком. Перед передачею джерело буде перевірено ще раз." : "These readings use your home sensor. Its data is checked again before sending.") : w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
+        card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Покази розраховано за домашнім датчиком. Перед передачею джерело буде перевірено ще раз." : "These readings use your home sensor. Its data is checked again before sending.") : w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
         for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zone.toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
       }
       card.append(this.button(w.back, () => {this._draft = null; this.render();}));
@@ -226,7 +226,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     } else if (ctx && !this._uncertain) {
       const form = node("form"); form.className = "fields";
       for (const z of ctx.zones) {
-        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (${this._hass?.language?.startsWith("uk") ? "кВт·год" : "kWh"})`);
+        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (${isUkrainian(this._hass?.language) ? "кВт·год" : "kWh"})`);
         label.append(node("small", `${w.previous}: ${number(z.previous, this._hass?.language)} · ${date(z.date, this._hass?.language)}`));
         const input = node("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]+";
         input.maxLength = ctx.digits; input.required = true; input.disabled = this._busy;
@@ -238,7 +238,7 @@ class DtekAccountReadingsCard extends HTMLElement {
       form.addEventListener("submit", e => {e.preventDefault(); this.act("prepare");}); card.append(form);
       if (!this._config.embedded) card.append(this.button(w.calibrate, () => this._energyEditor?.calibrate({...this._values})));
     }
-    if (!this._draft) { const refresh=this.button(this._uncertain ? w.recover : w.load, () => this.act("context")); if (this._config.embedded && ctx && !this._uncertain) { const more=node("details"), summary=node("summary", this._hass?.language?.startsWith("uk")?"Оновити дані лічильника":"Refresh meter data"); more.append(summary,refresh); card.append(more); } else card.append(refresh); }
+    if (!this._draft) { const refresh=this.button(this._uncertain ? w.recover : w.load, () => this.act("context")); if (this._config.embedded && ctx && !this._uncertain) { const more=node("details"), summary=node("summary", isUkrainian(this._hass?.language)?"Оновити дані лічильника":"Refresh meter data"); more.append(summary,refresh); card.append(more); } else card.append(refresh); }
     if (this._busy) card.append(node("p", w.loading));
     if (!this._draft && !this._uncertain) {
       if (!this._energyEditor) {

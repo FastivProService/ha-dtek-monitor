@@ -1,5 +1,5 @@
-import "./account-energy-editor.js?v=2.0.0b1";
-import {el, embeddedCSS} from "./account-ui.js?v=2.0.0b1";
+import "./account-energy-editor.js?v=2.0.0-rc1";
+import { isUkrainian, el, embeddedCSS} from "./account-ui.js?v=2.0.0-rc1";
 
 // Owns the settings lifecycle; source proposals stay in the readings card.
 class DtekEnergySettings extends HTMLElement {
@@ -14,7 +14,7 @@ class DtekEnergySettings extends HTMLElement {
   disconnectedCallback(){this._seq++;this._loading=false;this._started=false;}
   labels(){
     if(!this._retry)return;
-    const uk=this._hass.language?.startsWith("uk");
+    const uk=isUkrainian(this._hass.language);
     this._retry.textContent=uk?"Оновити дані лічильника ДТЕК":"Refresh DTEK meter data";
     this._refreshTitle.textContent=uk?"Оновлення даних лічильника ДТЕК":"DTEK meter data refresh";
     this._retry.disabled=this.busy || this.hasDraft;

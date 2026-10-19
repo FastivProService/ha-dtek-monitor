@@ -148,7 +148,7 @@
       },
       "account_link": {
         "title": "Find a household account",
-        "description": "Enter the modern 12-digit account number from your DTEK receipt (starting with 572 for Odesa household accounts). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
+        "description": "Enter the modern {account_length}-digit account number from your DTEK receipt for the selected operator (number starts with: {account_prefixes}). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
         "data": {
           "account_number": "DTEK household account number"
         }
@@ -210,7 +210,7 @@
       "access_code_format": "Enter exactly four digits from the SMS, including any leading zeros.",
       "access_attempts_exhausted": "Five code checks have been used. Wait, then explicitly request another SMS.",
       "access_start_uncertain": "DTEK did not confirm the SMS request. An SMS may still arrive. Wait before starting again; the request was not repeated.",
-      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
       "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
       "link_not_found": "No matching household account was found. Check the number on your receipt.",
       "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
@@ -236,7 +236,7 @@
       "access_expired": "This SMS session has expired or is no longer valid. Start again to request a new code.",
       "access_finalize_uncertain": "DTEK did not confirm the result. Your account may have been created or your password changed. No retry was made. Try signing in with the new password, or recover access on the official DTEK website.",
       "access_registered_no_accounts": "Your DTEK account was created. Link your household accounts on the DTEK website, then add this integration again and choose Sign in.",
-      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
       "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
       "link_not_found": "No matching household account was found. Check the number on your receipt.",
       "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
@@ -259,7 +259,7 @@
       "cannot_connect": "The DTEK directory is temporarily unavailable."
     },
     "create_entry": {
-      "account_connected": "**Your cabinet is connected.**\n\nTo open it on a dashboard:\n\n1. Finish setup and reload the HA page.\n2. Open your dashboard → Edit dashboard → Add card, then search for **My DTEK**.\n3. Choose the personal account for this card and save. You can add another card for a different account.\n\nIn My DTEK, open **Settings** to connect a building schedule. A **home energy sensor is optional**: any suitable cumulative kWh sensor can suggest readings; you can also enter readings manually. Nothing is submitted to DTEK without confirmation.\n\nThe building for outage schedules is matched automatically. If the address is ambiguous, confirm it in Building and outage group. A sole building group is selected automatically; with multiple groups, choose your apartment group.",
+      "account_connected": "**Your cabinet is connected.**\n\nTo open it on a dashboard:\n\n1. Finish setup and reload the HA page.\n2. Open your dashboard → Edit dashboard → Add card, then search for **My DTEK**.\n3. Choose the personal account for this card and save. You can add another card for a different account.\n\nIn My DTEK, open **Settings** to connect a building schedule. A **home energy sensor is optional**: any suitable cumulative kWh sensor can suggest readings; you can also enter readings manually. Nothing is submitted to DTEK without confirmation.\n\nThe building for outage schedules is matched automatically. If the address is ambiguous, confirm it in Building and outage group. A single verified cabinet group or the building’s only group is selected automatically. Otherwise, choose your apartment group in settings.",
       "account_connected_empty": "**Your cabinet is connected; no personal accounts are monitored yet.**\n\nOpen **Settings → Devices & services → DTEK Monitor → Configure** to add an account or choose which existing accounts HA monitors. You do not need to sign in again.\n\nThen reload the HA page, edit a dashboard, choose **Add card → My DTEK**, and select an account. Building schedules and a home energy sensor can be configured later."
     }
   },
@@ -317,9 +317,10 @@
       },
       "account_schedule_groups": {
         "title": "My group",
-        "description": "Building: {building}. Select verified apartment groups. An empty selection enables automatic assignment only when the building has exactly one verified group. With multiple groups, the personal calendar waits for your choice. Building calendars and the bot always retain every group. Manual choices never change automatically.",
+        "description": "Building: {building}. Leave the group selection empty to use one verified cabinet group, or the only building group. If several groups remain, select your apartment group. Manual choices take priority and never change automatically. Building calendars and the bot keep all groups. You can turn off cabinet group lookup below.",
         "data": {
-          "schedule_groups": "My apartment groups"
+          "schedule_groups": "My apartment groups",
+          "use_cabinet_groups": "Look up apartment groups in the DTEK cabinet"
         }
       },
       "account_reminders": {
@@ -378,7 +379,7 @@
       },
       "account_link": {
         "title": "Find a household account",
-        "description": "Enter the modern 12-digit account number from your DTEK receipt (starting with 572 for Odesa household accounts). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
+        "description": "Enter the modern {account_length}-digit account number from your DTEK receipt for the selected operator (number starts with: {account_prefixes}). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
         "data": {
           "account_number": "DTEK household account number"
         }
@@ -438,7 +439,7 @@
       "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups.",
       "invalid_reminder_settings": "Check the reminder time and switches.",
       "invalid_check_settings": "Check the time and frequency.",
-      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
       "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
       "link_not_found": "No matching household account was found. Check the number on your receipt.",
       "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
@@ -467,7 +468,7 @@
       "no_accounts": "No supported household accounts were found.",
       "account_mismatch": "Sign in to the same DTEK account.",
       "account_auth_required": "Sign in to the same DTEK account again before managing links.",
-      "link_invalid_number": "Enter a 12-digit Odesa household account number starting with 572.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
       "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
       "link_not_found": "No matching household account was found. Check the number on your receipt.",
       "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
@@ -591,7 +592,10 @@
           "schedule_error": "Failed to fetch schedule",
           "address_pending": "Finding the building for this account…",
           "address_confirmation": "Confirm the building in Building and outage group settings.",
-          "address_lookup_unavailable": "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently."
+          "address_lookup_unavailable": "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.",
+          "cabinet_selected": "Automatic — verified personal account group",
+          "cabinet_group_mismatch": "Cabinet and building groups disagree",
+          "cabinet_unavailable": "Cabinet group temporarily unavailable"
         }
       },
       "account_reading_check": {
@@ -604,6 +608,74 @@
           "error": "Check failed — not sent",
           "interrupted": "Interrupted — not sent"
         }
+      },
+      "address_works_status": {
+        "name": "Repair report availability",
+        "state": {
+          "reported": "DTEK reported repair works",
+          "empty": "No repair works in the DTEK response",
+          "incomplete": "Repair times are incomplete",
+          "unavailable": "Failed to fetch address data",
+          "unsupported": "Repair reports not supported"
+        }
+      },
+      "schedule_tomorrow_status": {
+        "name": "Tomorrow’s schedule availability",
+        "state": {
+          "current": "Schedule available tomorrow",
+          "empty": "No planned outages tomorrow (verified)",
+          "partial": "Incomplete schedule tomorrow",
+          "forecast": "Forecast only; planned outages unconfirmed",
+          "missing": "No verified schedule for tomorrow",
+          "unpublished": "DTEK paused schedule publication",
+          "unsupported": "Operator not supported",
+          "error": "Failed to fetch schedule"
+        }
+      },
+      "account_schedule_tomorrow_status": {
+        "name": "My schedule tomorrow",
+        "state": {
+          "no_address": "No building linked",
+          "not_selected": "Select an apartment group",
+          "selected": "Group selected by user",
+          "address_unavailable": "Building unavailable",
+          "group_unavailable": "Selected group no longer verified for building",
+          "labels_hidden": "DTEK has hidden group labels",
+          "schedule_unavailable": "Schedule unavailable",
+          "auto_selected": "Automatic — only building group",
+          "schedule_current": "Schedule available tomorrow",
+          "schedule_empty": "No planned outages tomorrow (verified)",
+          "schedule_partial": "Incomplete schedule tomorrow",
+          "schedule_forecast": "Forecast only; planned outages unconfirmed",
+          "schedule_missing": "No verified schedule for tomorrow",
+          "schedule_unpublished": "DTEK paused schedule publication",
+          "schedule_unsupported": "Operator not supported",
+          "schedule_error": "Failed to fetch schedule",
+          "address_pending": "Finding the building for this account…",
+          "address_confirmation": "Confirm the building in Building and outage group settings.",
+          "address_lookup_unavailable": "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.",
+          "cabinet_selected": "Automatic — verified personal account group",
+          "cabinet_group_mismatch": "Cabinet and building groups disagree",
+          "cabinet_unavailable": "Cabinet group temporarily unavailable"
+        }
+      },
+      "next_planned_outage": {
+        "name": "Next planned outage (scheduled)"
+      },
+      "account_next_planned_outage": {
+        "name": "My next planned outage (scheduled)"
+      },
+      "next_possible_outage": {
+        "name": "Next possible outage (scheduled)"
+      },
+      "account_next_possible_outage": {
+        "name": "My next possible outage (scheduled)"
+      },
+      "scheduled_outage_end": {
+        "name": "Outage end (scheduled)"
+      },
+      "account_scheduled_outage_end": {
+        "name": "My outage end (scheduled)"
       }
     },
     "calendar": {
@@ -621,6 +693,9 @@
       },
       "account_possible_schedule": {
         "name": "My possible outage schedule"
+      },
+      "address_works": {
+        "name": "Address repair works"
       }
     },
     "button": {
@@ -632,6 +707,9 @@
       },
       "account_check_now": {
         "name": "Check readings without submission"
+      },
+      "schedule_refresh": {
+        "name": "Refresh schedule"
       }
     }
   },
@@ -665,6 +743,21 @@
     },
     "check_unavailable": {
       "message": "Local checks are unavailable. Check the integration and the check journal."
+    },
+    "address_works_incomplete": {
+      "message": "DTEK reported repairs without a complete valid time interval. Check the address status; no end time is assumed."
+    },
+    "address_works_unavailable": {
+      "message": "Could not verify address repair reports. Retry after the connection recovers."
+    },
+    "address_works_unsupported": {
+      "message": "This provider does not supply verified repair reports for the address."
+    },
+    "schedule_refresh_cooldown": {
+      "message": "Another schedule refresh is available in {seconds} seconds."
+    },
+    "schedule_refresh_failed": {
+      "message": "Could not refresh the DTEK schedule. Check the connection status; the integration will retry automatically."
     }
   },
   "selector": {
@@ -685,6 +778,10 @@
     "account_api_changed": {
       "title": "Check DTEK API compatibility",
       "description": "The **{interface}** interface is unavailable or returned an incompatible response ({reason}). DTEK may have changed or disabled it.\n\nCheck [DTEK Monitor updates]({releases_url}). If you already use the latest version, [report the problem]({issues_url}) with the interface and reason shown here. Do not include passwords, tokens or full account numbers.\n\nThis issue clears automatically after successful requests resume."
+    },
+    "account_groups_api_changed": {
+      "title": "Legacy cabinet group lookup needs an update",
+      "description": "The optional account-group service is unavailable or its response format changed ({reason}). This affects group lookup through the legacy cabinet. Meter data, reading submission and building schedules work independently. You can choose your group manually or disable cabinet lookup in group settings.\n\nCheck [integration updates]({releases_url}). If you already use the latest version, [report the issue]({issues_url}) with the reason and interface: {interface}. Omit credentials and full account numbers. This issue clears after recovery or after lookup is disabled for this connection."
     }
   }
 }

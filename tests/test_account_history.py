@@ -42,6 +42,32 @@ def month(period="2026-09", value=-12, zones=None):
 
 
 class HistoryParsingTests(unittest.TestCase):
+    def test_display_filter_preserves_warnings_and_distinct_periods_without_mutation(self):
+        rows = [{"energy": "ACTIVE", "status": "inactive", "value": "120"} for _ in range(8)]
+        # The same value in different periods or tariff zones is not a duplicate.
+        rows += [{"energy": "ACTIVE", "status": "active", "value": "120", "date_time": str(i), "zone": "DAY" if i == 1 else "GENERAL"} for i in range(7)]
+        rows += [{"energy": "ACTIVE", "status": s, "value": "121"} for s in ("blocked", "unknown")]
+        rows += [{"energy": "REACTIVE", "status": "active", "value": "9"}]
+        original = deepcopy(rows)
+        first = history.reading_history_page(rows)
+        self.assertEqual(len(first["latest"]), 6)
+        self.assertEqual(first["history_view"]["visible"], 9)
+        self.assertEqual(first["history_view"]["inactive_count"], 8)
+        last = history.reading_history_page(rows, offset=1000)
+        self.assertEqual([r["status"] for r in last["latest"]], ["active", "blocked", "unknown"])
+        self.assertEqual(last["history_view"]["previous_offset"], 0)
+        full = history.reading_history_page(rows, include_inactive=True)
+        self.assertEqual(full["history_view"]["visible"], 17)
+        self.assertTrue(all(r["status"] == "inactive" for r in full["latest"]))
+        self.assertEqual(rows, original)
+
+    def test_all_inactive_is_distinct_from_empty_history(self):
+        page = history.reading_history_page([{"energy": "ACTIVE", "status": "inactive"}], offset=999)
+        self.assertEqual(page["latest"], [])
+        self.assertEqual(page["history_view"]["total"], 1)
+        self.assertEqual(page["history_view"]["offset"], 0)
+        self.assertEqual(history.reading_history_page([])["history_view"]["total"], 0)
+
     def test_explicit_statuses_and_kyiv_dates(self):
         values = [
             row(),
@@ -205,6 +231,19 @@ class HistoryClientTests(unittest.IsolatedAsyncioTestCase):
 
 
 class HistoryCacheTests(unittest.IsolatedAsyncioTestCase):
+    async def test_short_bot_cache_reuses_recent_fetch_and_refreshes_after_one_minute(self):
+        client = SimpleNamespace(read_history=AsyncMock(return_value={"readings": [1]}))
+        cache = history.HistoryCache(client)
+        with patch.object(history, "monotonic", return_value=100):
+            await cache.get("100001", 2026)
+        with patch.object(history, "monotonic", return_value=159):
+            self.assertEqual(await cache.get("100001", 2026, max_age=60), {"readings": [1]})
+            self.assertEqual(client.read_history.await_count, 1)
+        client.read_history.return_value = {"readings": [2]}
+        with patch.object(history, "monotonic", return_value=160):
+            self.assertEqual(await cache.get("100001", 2026, max_age=60), {"readings": [2]})
+        self.assertEqual(client.read_history.await_count, 2)
+
     async def test_submission_invalidates_cached_and_in_flight_history(self):
         client = SimpleNamespace(read_history=AsyncMock(return_value={"months": [1]}))
         cache = history.HistoryCache(client)

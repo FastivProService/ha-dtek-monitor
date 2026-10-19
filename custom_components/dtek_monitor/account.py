@@ -14,7 +14,6 @@ ENTRY_ACCOUNT = "account"
 CONF_ACCOUNTS = "accounts"
 CONF_ACCOUNT_SUBJECT = "account_subject"
 ACCOUNT_UPDATE_HOURS = 6
-ACCOUNT_PROVIDERS = frozenset({"dtek_oem"})
 
 
 class AccountError(Exception):

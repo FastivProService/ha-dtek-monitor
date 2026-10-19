@@ -26,7 +26,7 @@ window.hass = {
     const n = msg.entity_id?.endsWith("2") ? 2 : 1;
     if (msg.type === "dtek_monitor/schedule_grid") return window.makeScheduleGrid(!msg.entity_id.startsWith("sensor.building"));
     if (msg.type === "dtek_monitor/accounts") return structuredClone(accounts);
-    if (msg.type === "dtek_monitor/account_identity") return {masked: `••••000${n}`, ...(msg.reveal ? {number: `100000000${n}`} : {})};
+    if (msg.type === "dtek_monitor/account_identity") return {masked: `••••000${n}`, provider_id: "dtek_oem", cabinet_url: "https://my.dtek-oem.com.ua/", ...(msg.reveal ? {number: `100000000${n}`} : {})};
     if (msg.type === "dtek_monitor/account_profile") return {
       address: accounts[n - 1].address, available: true, metadata_available: true,
       model: "Лічильник прикладу", serial: msg.reveal ? "DEMO-001" : "••••0001",

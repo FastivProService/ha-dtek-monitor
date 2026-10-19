@@ -94,14 +94,14 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_refresh_preserves_controls_and_group_focus(self):
         await self.page.evaluate(
-            "() => {hass.callWS=()=>new Promise(resolve=>window.reply=resolve);}"
+            "() => {hass.callWS=msg=>msg.type==='dtek_monitor/schedule_refresh'?new Promise(resolve=>window.reply=resolve):Promise.resolve(structuredClone(data));}"
         )
         await self.page.get_by_role("button", name="Refresh").click()
         await self.page.get_by_label("Date", exact=True).select_option("2026-10-19")
         await self.page.get_by_label("Groups", exact=True).select_option("home")
         group = self.page.get_by_role("button", name="GPV3.1: Intervals", exact=True)
         await group.focus()
-        await self.page.evaluate("reply({...data,verified_at:'2026-10-18T09:06:00Z'})")
+        await self.page.evaluate("reply({status:'current',changed:false})")
         await self.page.get_by_role("button", name="Refresh").wait_for()
         self.assertEqual(
             await self.page.get_by_label("Date", exact=True).input_value(), "2026-10-19"
@@ -150,8 +150,9 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
         await self.page.get_by_text("DTEK has paused schedule publication.", exact=True).wait_for()
         self.assertFalse(await self.page.locator("table").is_visible())
         self.assertTrue(await self.page.get_by_role("button", name="Save PNG").is_disabled())
+        await self.page.evaluate("""() => {hass.callWS=msg=>msg.type==='dtek_monitor/schedule_refresh'?new Promise(resolve=>window.reply=resolve):Promise.resolve(structuredClone(data));}""")
         await self.page.get_by_role("button", name="Refresh").click()
-        await self.page.evaluate("reply(structuredClone(data))")
+        await self.page.evaluate("reply({status:'current',changed:false})")
         await self.page.locator("table").wait_for()
         self.assertEqual(await self.page.get_by_label("Date", exact=True).input_value(), "2026-10-19")
         self.assertEqual(await self.page.locator("tbody tr").count(), 2)
@@ -170,7 +171,7 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
         ]:
             await self.page.evaluate("status=>{hass.callWS=async()=>({status,days:[]})}", status)
             await self.page.get_by_role("button", name="Refresh").click()
-            await self.page.get_by_text(text, exact=False).wait_for()
+            await self.page.locator(".feedback").filter(has_text=text).wait_for()
             self.assertFalse(await self.page.locator("table").is_visible())
             self.assertEqual(await self.page.locator(".feedback.error").count(), int(status == "error"))
 
@@ -232,3 +233,39 @@ class GridCardTests(unittest.IsolatedAsyncioTestCase):
               return rects.every((a,i)=>rects.every((b,j)=>i===j || a.right<=b.left || b.right<=a.left || a.bottom<=b.top || b.bottom<=a.top));
             }"""))
         self.assertEqual(await self.page.locator("img").count(), 0)
+
+    async def test_manual_refresh_has_one_network_action_and_preserves_selected_date(self):
+        await self.page.evaluate("""() => {hass.callWS=msg=>{
+          calls.push(msg);
+          return msg.type==='dtek_monitor/schedule_refresh'?new Promise(resolve=>window.finishRefresh=resolve):Promise.resolve(structuredClone(data));
+        }}""")
+        await self.page.get_by_role("button", name="Refresh schedule").click()
+        await self.page.get_by_label("Date", exact=True).select_option("2026-10-19")
+        await self.page.get_by_label("Groups", exact=True).select_option("home")
+        await self.page.evaluate("card.hass={...hass};card.shadowRoot.querySelector('dtek-schedule-grid').refresh()")
+        self.assertEqual(await self.page.evaluate("calls.filter(x=>x.type==='dtek_monitor/schedule_refresh').length"), 1)
+        await self.page.evaluate("finishRefresh({status:'current',changed:false})")
+        await self.page.get_by_text("Checked: the schedule has not changed.", exact=True).wait_for()
+        self.assertEqual(await self.page.get_by_label("Date", exact=True).input_value(), "2026-10-19")
+        self.assertEqual(await self.page.get_by_label("Groups", exact=True).input_value(), "home")
+        self.assertFalse(await self.page.get_by_role("button", name="Refresh schedule").is_disabled())
+        self.assertEqual(self.errors, [])
+
+    async def test_refresh_cooldown_and_language_are_clear_and_do_not_remove_the_grid(self):
+        await self.page.evaluate("""() => {hass.callWS=async msg=>{if(msg.type==='dtek_monitor/schedule_refresh')throw {code:'schedule_refresh_cooldown',translation_placeholders:{seconds:'125'}};return structuredClone(data)};}""")
+        await self.page.get_by_role("button", name="Refresh schedule").click()
+        await self.page.get_by_text("Another refresh is available in 125 seconds.").wait_for()
+        self.assertTrue(await self.page.locator("table").is_visible())
+        await self.page.evaluate("hass.language='uk';card.hass={...hass}")
+        await self.page.get_by_text("Наступне оновлення доступне через 125 с.").wait_for()
+        self.assertFalse(await self.page.get_by_role("button", name="Оновити графік").is_disabled())
+        self.assertLessEqual(await self.page.evaluate("document.documentElement.scrollWidth"), 390)
+
+    async def test_late_refresh_result_does_not_affect_another_account(self):
+        await self.page.evaluate("""() => {hass.callWS=msg=>msg.type==='dtek_monitor/schedule_refresh'?new Promise(resolve=>window.finishRefresh=resolve):Promise.resolve(structuredClone(data));}""")
+        await self.page.get_by_role("button", name="Refresh schedule").click()
+        await self.page.evaluate("card.setConfig({...card._config,status_entity:'sensor.other'});card.hass={...hass}")
+        await self.page.evaluate("finishRefresh({status:'current',changed:true})")
+        self.assertTrue(await self.page.locator(".refresh-result").is_hidden())
+        self.assertFalse(await self.page.get_by_role("button", name="Refresh schedule").is_disabled())
+        self.assertEqual(self.errors, [])

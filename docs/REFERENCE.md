@@ -23,6 +23,8 @@ Find **Last known schedule (view only)** by its display name. Use live calendars
 
 The reported power sensor uses `on`/`off`; a failed address request makes it unavailable. Outage types are `ok`, `emergency`, `planned` and `stabilization`. If DTEK lists several active outages, the primary status uses the most severe one. Additional `outage_N_*` attributes preserve individual descriptions and times.
 
+Repair reports have a separate **Address repair works** calendar and **Repair report availability** sensor. Find their actual IDs on the building device; new regional entries use `_address_works` and `_address_works_status`. These reports use address freshness, not GPV publication coverage. [Setup and status meanings](SCHEDULES.md#address-works).
+
 <a id="freshness"></a>
 ## Freshness and calendar automations
 
@@ -77,6 +79,39 @@ Live calendar entities still use HA's `unavailable` state when there is no usabl
 calendar; the separate status explains why. Previously saved events remain for
 reference only and never establish an outage-free day.
 
+<a id="scheduled-times"></a>
+### Scheduled times and tomorrow's status
+
+Building timestamp suffixes are `_next_planned_outage`, `_next_possible_outage`
+and `_scheduled_outage_end`. Find their actual IDs on the device; account devices
+have corresponding personal entities. These use HA's `timestamp` device class,
+so HA displays them in the viewer's timezone. [Meanings and setup](SCHEDULES.md#upcoming-times).
+
+`event_status` explains a missing timestamp:
+
+| Value | HA state and meaning |
+| --- | --- |
+| `scheduled` | A timestamp within continuously verified coverage. |
+| `no_event_in_coverage` | `unknown`: no future event before `verified_until`; no claim beyond that boundary. |
+| `end_unconfirmed` | `unknown`: the candidate end meets a publication boundary or another continuing outage. |
+| `missing_coverage` | `unavailable`: at least one selected group lacks coverage at the current time. |
+| `unavailable` | `unavailable`: a failed request or unusable schedule; no saved values reused. |
+| `no_groups` / `group_selection_unavailable` | `unavailable`: no verified groups or unresolved personal selection. |
+
+`event_groups` identifies the groups for the displayed start/end, `schedule_sources`
+distinguishes `daily` and `weekly`, and `ongoing_scheduled_outage` indicates whether
+the end belongs to an ongoing event. `basis` is always `schedule`. A building end
+is the earliest end among ongoing outages, or among the next outages starting
+together. It is not a prediction for every group or a measurement of actual power.
+The search stops at the first coverage gap in any selected group.
+
+`_schedule_tomorrow_status` uses the same states as today's availability sensor,
+with `status_date` set to tomorrow in Europe/Kyiv. The personal version also
+retains group-selection statuses and prefixes publication states with `schedule_`.
+These entities update at event/coverage boundaries and Kyiv midnight without
+marking network data as freshly fetched. Existing calendar entity IDs, event
+types and `group=…` descriptions remain compatible with the Telegram bot.
+
 ### Schedule card
 
 The integration loads its cards automatically. Reload the HA page after setup and add a manual card; no separate JavaScript resource registration is needed:
@@ -102,6 +137,10 @@ A successful, complete verification stores concrete events in Home Assistant sto
 <a id="diagnostics"></a>
 ## Diagnose unavailable data
 
+To attach a diagnostic file to an issue, open **Settings → Devices & services → DTEK Monitor**, find the affected connection, and choose **Download diagnostics** from its three-dot menu. This works for both address and personal-account connections, including connections that could not finish setup.
+
+The DTEK section contains refresh status, timestamps, retry/protection counters, schedule publication flags and counts. For a personal account it shows how many accounts are selected, whether cached data is present and whether building links are configured. Cached data does not imply a successful current refresh: check `last_update_success` too. Credentials, addresses, account numbers (including suffixes and hashes), EIC codes, readings, raw responses and error text are omitted. Home Assistant also adds system and integration information. Review the complete file before publishing it.
+
 Open **DTEK connection** on the device page, including its attributes:
 
 - `address_last_success`, `address_error`: address/status requests.
@@ -111,6 +150,10 @@ Open **DTEK connection** on the device page, including its attributes:
 - `snapshot_storage_error`: problems saving/loading the reference copy.
 
 Repeated failures remain visible in diagnostics even while other entities are unavailable. Failed refreshes back off to roughly 1, 2, 4, 8 and 10 minutes, with small timing variation. Success restores the configured polling interval.
+
+Public website requests also share one queue and failure pause per operator across all addresses, setup dialogs and reloads. Completed operations are spaced by at least one second; the existing bounded page/CSRF handshake stays inside an operation. After a failed operation, no other address retries that operator for 1, 2, 4, 8 or at most 10 minutes. A server `Retry-After` can extend this to at most one hour. Suppressed calls do not extend the pause; a successful operation resets it. Other operators and personal-cabinet requests remain independent. Reloading an address does not bypass the pause.
+
+The connection attributes `public_retry_in_seconds` and `public_consecutive_failures` describe this shared state at the last entity update. They are also included in diagnostic downloads; the remaining time is not a live countdown.
 
 Check the same address on the operator's website. If it also fails, wait for the source to recover. If it works there, inspect HA logs under the integration name for transport, website-protection or parsing errors. Do not reduce the polling interval as a workaround for website protection.
 
@@ -148,4 +191,48 @@ For development and verification, see [Contributing](../CONTRIBUTING.md).
 
 [Cabinet and dashboard](PERSONAL_ACCOUNT.md) · [Readings and sensors](ENERGY_AND_READINGS.md) · [Grid and groups](SCHEDULES.md).
 
-[Back up before updating to the beta](BETA.md). Returning from 2.0 to 1.7.0 requires restoring the earlier configuration and code, not just reinstalling the old release.
+[Back up before updating to the beta](UPGRADING.md). Returning from 2.0 to 1.7.0 requires restoring the earlier configuration and code, not just reinstalling the old release.
+
+<a id="schedule-change-events"></a>
+## Schedule change events
+
+`dtek_monitor_schedule_changed` contains `entry_id`, `provider_id`, `groups`,
+`changed_groups`, `revision` (content fingerprint) and `source_updated_at`.
+It concerns the public building's verified future daily schedule; filter
+`changed_groups` if your automation is for one apartment. The existing schedule
+publication timestamp sensor keeps its meaning and the bot's contract is unchanged.
+
+`dtek_monitor_groups_changed` contains `entry_id`, `provider_id`,
+`previous_groups` and `groups`. It concerns the building, not a private account.
+Neither event contains credentials, account numbers or meter readings.
+
+Listen for these events in **Developer tools → Events** to find your building's
+`entry_id`, then use it to limit an automation:
+
+```yaml
+alias: DTEK schedule changed
+triggers:
+  - trigger: event
+    event_type: dtek_monitor_schedule_changed
+    event_data:
+      entry_id: YOUR_BUILDING_ENTRY_ID
+conditions: []
+actions:
+  - action: persistent_notification.create
+    data:
+      title: DTEK schedule
+      message: "Updated groups: {{ trigger.event.data.changed_groups | join(', ') }}"
+mode: queued
+```
+
+The first verified schedule is a baseline, not an update notification. Events do
+not fire for source timestamp changes, routine expiry, midnight rollover, missing
+coverage or weekly forecasts alone. Newly verified dates can trigger a change,
+including a published empty day. [User-facing behavior](SCHEDULES.md#changes).
+
+The building's **Refresh schedule** button (`schedule_refresh` unique-ID suffix)
+queries the public provider. The grid uses `dtek_monitor/schedule_refresh` with its
+status `entity_id`, requiring control permission on that entity and read access to
+both associated calendars. All manual requests for a building share a one-minute
+limit and respect operator-wide cooldowns. A successful request without a published
+schedule stays distinguishable from a request failure or a verified empty day.

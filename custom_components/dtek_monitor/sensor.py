@@ -22,6 +22,8 @@ from .coordinator import DTEKDataCoordinator
 from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
 from .schedule_status import SCHEDULE_STATUSES, schedule_status, status_attributes
+from .schedule_events import EVENT_SENSOR_KEYS, scheduled_event
+from .address_works import WORKS_STATUSES, works_attributes, works_status
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -103,7 +105,9 @@ async def async_setup_entry(
     """Set up DTEK sensors from a config entry."""
     if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
         from .account_sensor import account_sensors
-        from .account_schedule import AccountGroupSensor, AccountScheduleStatusSensor
+        from .account_schedule import (
+            AccountGroupSensor, AccountScheduleStatusSensor, AccountScheduleEventSensor,
+        )
         from .account import CONF_ACCOUNTS
 
         discover = account_sensors(entry.runtime_data, entry)
@@ -117,6 +121,15 @@ async def async_setup_entry(
                 *(
                     AccountScheduleStatusSensor(entry, number)
                     for number in entry.data[CONF_ACCOUNTS]
+                ),
+                *(
+                    AccountScheduleStatusSensor(entry, number, day_offset=1)
+                    for number in entry.data[CONF_ACCOUNTS]
+                ),
+                *(
+                    AccountScheduleEventSensor(entry, number, key)
+                    for number in entry.data[CONF_ACCOUNTS]
+                    for key in EVENT_SENSOR_KEYS
                 ),
             ]
         )
@@ -135,7 +148,10 @@ async def async_setup_entry(
                 for description in SENSOR_DESCRIPTIONS
             ),
             DTEKConnectionSensor(coordinator, entry),
+            DTEKWorksStatusSensor(coordinator, entry),
             DTEKScheduleStatusSensor(coordinator, entry),
+            DTEKScheduleStatusSensor(coordinator, entry, day_offset=1),
+            *(DTEKScheduleEventSensor(coordinator, entry, key) for key in EVENT_SENSOR_KEYS),
         ]
     )
 
@@ -253,27 +269,85 @@ class DTEKConnectionSensor(SensorEntity):
         }
 
 
+class DTEKWorksStatusSensor(DTEKConnectionSensor):
+    """Distinguish no reported works, missing dates and a failed address fetch."""
+
+    _attr_translation_key = "address_works_status"
+    _attr_options = list(WORKS_STATUSES)
+    _attr_icon = "mdi:wrench-clock"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = build_entity_unique_id(entry, "address_works_status")
+        self.entity_id = suggested_entity_id(entry, "sensor", "address_works_status")
+
+    @property
+    def native_value(self):
+        return works_status(self.coordinator)
+
+    @property
+    def extra_state_attributes(self):
+        return works_attributes(self.coordinator)
+
+
 class DTEKScheduleStatusSensor(DTEKConnectionSensor):
     """Explain missing schedules even before the first successful calendar fetch."""
 
     _attr_translation_key = "schedule_status"
     _attr_options = list(SCHEDULE_STATUSES)
 
-    def __init__(self, coordinator, entry):
+    def __init__(self, coordinator, entry, *, day_offset=0):
         super().__init__(coordinator, entry)
-        self._attr_unique_id = build_entity_unique_id(entry, "schedule_status")
-        self.entity_id = suggested_entity_id(entry, "sensor", "schedule_status")
+        self.day_offset = day_offset
+        key = "schedule_tomorrow_status" if day_offset else "schedule_status"
+        self._attr_translation_key = key
+        self._attr_unique_id = build_entity_unique_id(entry, key)
+        self.entity_id = suggested_entity_id(entry, "sensor", key)
 
     @property
     def native_value(self):
-        return schedule_status(self.coordinator)
+        return schedule_status(self.coordinator, day_offset=self.day_offset)
 
     @property
     def extra_state_attributes(self):
         return {
-            **status_attributes(self.coordinator),
+            **status_attributes(self.coordinator, day_offset=self.day_offset),
             "notifications_ready": self.coordinator.notifications_ready,
             "last_verified_at": self.coordinator.snapshot_attributes[
                 "last_verified_at"
             ],
+        }
+
+
+class DTEKScheduleEventSensor(DTEKConnectionSensor):
+    """Upcoming times from the schedule, never measurements of actual power."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = None
+    _attr_options = None
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator, entry, key):
+        super().__init__(coordinator, entry)
+        self.key = key
+        self._attr_translation_key = key
+        self._attr_unique_id = build_entity_unique_id(entry, key)
+        self.entity_id = suggested_entity_id(entry, "sensor", key)
+
+    @property
+    def available(self):
+        return scheduled_event(self.coordinator, self.key).available
+
+    @property
+    def native_value(self):
+        return scheduled_event(self.coordinator, self.key).value
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            **scheduled_event(self.coordinator, self.key).attributes,
+            "schedule_groups": (
+                [g.id for g in self.coordinator.schedule.groups]
+                if self.coordinator.notifications_ready and self.coordinator.schedule else []
+            ),
         }

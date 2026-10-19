@@ -33,6 +33,8 @@ from .account_checks import AccountChecks
 from .account_notifications import AccountMeterNotifications
 from .account_api_health import report_api_issue, clear_api_issue, watch_api
 from .account_buildings import AccountBuildingLinks
+from .account_groups import AccountGroups
+from .account_schedule_updates import AccountScheduleUpdates
 
 _LOGGER = logging.getLogger(__name__)
 MANUAL_REFRESH_SECONDS = 60
@@ -69,6 +71,8 @@ class AccountCoordinator(DataUpdateCoordinator):
         self.checks = AccountChecks(hass, entry, self)
         self.meter_notifications = AccountMeterNotifications(hass, entry, self)
         self.buildings = AccountBuildingLinks(hass, entry, self)
+        self.groups = AccountGroups(hass, entry, self)
+        self.schedule_updates = AccountScheduleUpdates(hass, entry, self)
         self._authenticated = False
         self._last_attempt = None
         self._manual_refresh_lock = asyncio.Lock()

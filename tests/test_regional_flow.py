@@ -49,6 +49,7 @@ class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
                 [c.args for c in factory.call_args_list],
                 [(provider_id,), (provider_id,)],
             )
+            self.assertTrue(all(c.kwargs.get("hass") is self.hass for c in factory.call_args_list))
             self.assertEqual(self.provider.close.await_count, 2)
         result = await self.flow.async_step_house({"house_num": "1"})
         self.assertEqual(result["step_id"], "settings")

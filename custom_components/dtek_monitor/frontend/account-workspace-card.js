@@ -1,15 +1,17 @@
-import "./account-options.js?v=2.0.0b1";
-import "./account-energy-settings.js?v=2.0.0b1";
-import "./account-profile-card.js?v=2.0.0b1";
-import "./account-readings-card.js?v=2.0.0b1";
-import "./account-history-card.js?v=2.0.0b1";
-import "./schedule-card.js?v=2.0.0b1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0b1";
-import { accountNumber } from "./account-number.js?v=2.0.0b1";
-import { el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0b1";
+import "./account-options.js?v=2.0.0-rc1";
+import "./account-energy-settings.js?v=2.0.0-rc1";
+import "./account-profile-card.js?v=2.0.0-rc1";
+import "./account-readings-card.js?v=2.0.0-rc1";
+import "./account-history-card.js?v=2.0.0-rc1";
+import "./schedule-card.js?v=2.0.0-rc1";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
+import { accountNumber } from "./account-number.js?v=2.0.0-rc1";
+import { isUkrainian, languageLocale,  el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
 
 const words = {
   en: {
+    groupSource_cabinet:"From the DTEK personal account", groupSource_user:"Selected manually", groupSource_building_single_group:"Only verified building group", groupCandidates:"The cabinet lists several groups",
+    state_cabinet_group_mismatch:"Cabinet and building groups disagree. Check the address and select your group manually.", state_cabinet_unavailable:"The cabinet group is temporarily unavailable. You can select it manually; building schedules remain available separately.",
     gettingStarted:"Getting started", startAccounts:"This card shows one personal account at a time. Choose another above, or add a separate My DTEK card for each apartment.", startReadings:"Readings: enter the cumulative value on the official meter, review the change, then confirm. A home energy sensor is optional and never sends readings by itself.", startSensor:"For sensor suggestions, open Home energy meter below. Use a cumulative kWh sensor for this apartment’s grid consumption and set a reference from the official meter taken at the same time.", startSchedule:"For outages, open Building and outage group below. Building groups remain available to the bot; choosing your apartment’s group only changes its personal schedule.", startPrivacy:"The eye button reveals or hides the account number. Hide it before sharing a screenshot.",
     apartmentSettings:"This apartment", groupSettings:"Building and outage group", groupNote:"Choose the building and your apartment’s group. The bot keeps every building group.", reminders:"Reading reminders", remindersNote:"Choose when HA reminds you and whether to include a sensor estimate.", notices:"Meter notifications", noticesNote:"Verification year and meter replacement notices in HA.", cabinetSettings:"DTEK cabinet", cabinetNote:"Manage linked accounts and choose which ones HA monitors. This dashboard still displays the account selected above.", accountsSettings:"Add or unlink an account", monitoringSettings:"Choose accounts to monitor", advancedSettings:"Additional settings", checksSettings:"Scheduled reading checks", draftSettingsNote:"Opening integration settings requires closing unfinished readings or sensor edits. Nothing will be sent or saved.", discardOpen:"Discard and open settings", settingsSaved:"Settings updated.", settingsPending:"Settings were saved. Refresh the account list when HA finishes loading.",
     reload: "The dashboard still has an older version of the DTEK cards. Reload the page to open the new interface.", reloadAction: "Reload page", title: "My DTEK", overview: "Overview", schedule: "Schedule", readings: "Readings", consumption: "Consumption", settings: "Settings",
@@ -33,6 +35,8 @@ const words = {
     state_labels_hidden: "DTEK has hidden group labels.", state_address_unavailable: "The building connection is unavailable.", state_unavailable: "Schedule data is unavailable.",
   },
   uk: {
+    groupSource_cabinet:"За особовим рахунком ДТЕК", groupSource_user:"Обрано вручну", groupSource_building_single_group:"Єдина підтверджена група будинку", groupCandidates:"Кабінет указує кілька груп",
+    state_cabinet_group_mismatch:"Групи кабінету й будинку не збігаються. Перевірте адресу й оберіть свою групу вручну.", state_cabinet_unavailable:"Група з кабінету тимчасово недоступна. Можна обрати її вручну; графіки будинку доступні окремо.",
     gettingStarted:"З чого почати", startAccounts:"Картка показує один особовий рахунок. Оберіть інший угорі або додайте окрему картку My DTEK для кожної квартири.", startReadings:"Покази: введіть накопичувальне значення з офіційного лічильника, перевірте зміну й підтвердьте передачу. Домашній датчик енергії необов’язковий і сам нічого не передає.", startSensor:"Для підказок датчика відкрийте «Домашній лічильник енергії» нижче. Потрібен накопичувальний сенсор кВт·год міського споживання саме цієї квартири та одночасно зняті покази офіційного лічильника для прив’язки.", startSchedule:"Для відключень відкрийте «Будинок і група відключень» нижче. Усі групи будинку залишаться доступними боту; вибір групи квартири впливає лише на її особистий графік.", startPrivacy:"Кнопка з оком показує або приховує номер рахунку. Приховайте його перед поширенням знімка екрана.",
     apartmentSettings:"Ця квартира", groupSettings:"Будинок і група відключень", groupNote:"Оберіть будинок і групу квартири. Бот зберігає графіки всіх груп будинку.", reminders:"Нагадування про покази", remindersNote:"Оберіть час нагадування в HA та чи додавати підказку датчика.", notices:"Сповіщення про лічильник", noticesNote:"Рік повірки та повідомлення про заміну лічильника в HA.", cabinetSettings:"Кабінет ДТЕК", cabinetNote:"Керуйте прив’язаними рахунками та обирайте, які з них відстежує HA. На цій панелі відображається рахунок, обраний вище.", accountsSettings:"Додати або відв’язати рахунок", monitoringSettings:"Обрати рахунки для моніторингу", advancedSettings:"Додаткові налаштування", checksSettings:"Перевірки показів за розкладом", draftSettingsNote:"Перед налаштуванням інтеграції потрібно закрити незавершене введення показів або редагування датчика. Нічого не буде передано чи збережено.", discardOpen:"Скасувати зміни й відкрити налаштування", settingsSaved:"Налаштування оновлено.", settingsPending:"Налаштування збережено. Оновіть список рахунків після завантаження HA.",
     reload: "На панелі залишилася попередня версія карток ДТЕК. Оновіть сторінку, щоб відкрити новий інтерфейс.", reloadAction: "Оновити сторінку", title: "Мій ДТЕК", overview: "Огляд", schedule: "Графік", readings: "Покази", consumption: "Споживання", settings: "Налаштування",
@@ -92,7 +96,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   static getStubConfig() { return {}; }
   getCardSize() { return 9; }
   getGridOptions() { return {columns: 12, rows: "auto", min_columns: 6}; }
-  get t() { return words[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
+  get t() { return words[isUkrainian(this._hass?.language) ? "uk" : "en"]; }
   setConfig(config) {
     if (config.entity !== undefined && typeof config.entity !== "string") throw new Error("entity must be a string");
     const changed = this._config?.entity !== config.entity;
@@ -248,7 +252,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
   _period(value) {
     if (!/^\d{4}-\d{2}$/.test(value || "")) return value || "—";
     const stamp=new Date(`${value}-01T12:00:00+03:00`);
-    return Number.isFinite(stamp.getTime()) ? new Intl.DateTimeFormat(this._hass.language || "en",{month:"long",year:"numeric",timeZone:"Europe/Kyiv"}).format(stamp) : "—";
+    return Number.isFinite(stamp.getTime()) ? new Intl.DateTimeFormat(languageLocale(this._hass.language || "en"),{month:"long",year:"numeric",timeZone:"Europe/Kyiv"}).format(stamp) : "—";
   }
   _state(role) { return this._hass.states?.[this._account?.roles?.[role]]; }
   _updateOverview() {
@@ -266,9 +270,12 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     consumption.replaceChildren(el("h3", t.usage), usageValue, el("small", this._period(usage?.attributes?.period)));
     const group=this._groupSummary, state=this._state("account_schedule_status:all"), selected=this._state("account_schedule_groups:all")?.attributes?.selected_groups || [];
     let status=state?.state || "unknown";
-    if (["selected","auto_selected"].includes(status)) status=state?.attributes?.schedule_status || "current";
+    if (["selected","auto_selected","cabinet_selected"].includes(status)) status=state?.attributes?.schedule_status || "current";
     if (status.startsWith("schedule_")) status=status.slice(9);
     group.replaceChildren(el("h3", t.group), el("strong", selected.length ? selected.map(g=>g.replace(/^GPV/, "")).join(", ") : t.groupEmpty), el("p", t[`state_${status}`] || t.state_unknown));
+    const source=state?.attributes?.selection_source, candidates=state?.attributes?.cabinet_groups || [];
+    if(source) group.append(el("small", t[`groupSource_${source}`] || ""));
+    if(!selected.length && candidates.length>1) group.append(el("small", `${t.groupCandidates}: ${candidates.map(g=>g.replace(/^GPV/, "")).join(", ")}`));
     const updated=this._state("account_updated:all") || this._hass.states?.[this._entity];
     this._overviewStamp.textContent=updated && !["unknown","unavailable"].includes(updated.state) ? `${t.dated}: ${date(updated.state,lang,true)}` : t.unavailable;
   }

@@ -12,11 +12,14 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
+from .localization import is_ukrainian
 from .coordinator import DTEKDataCoordinator
 from .schedule import KYIV_TZ
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT, CONF_ACCOUNTS
 from .schedule_status import status_attributes, schedule_status
+from .schedule_events import event_summary
 from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
+from .address_works import works_attributes, works_status
 
 _CALENDAR_TYPES: list[tuple[str, str, str]] = [
     # (event_type, translation_key, unique_id_suffix)
@@ -52,6 +55,7 @@ async def async_setup_entry(
                 for event_type, translation_key, uid_suffix in _CALENDAR_TYPES
             ),
             DTEKSnapshotCalendar(coordinator, entry),
+            DTEKWorksCalendar(coordinator, entry),
         ]
     )
 
@@ -155,6 +159,67 @@ class DTEKScheduleCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntit
         )
 
 
+class DTEKWorksCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntity):
+    """Currently reported repair windows; not a GPV forecast or an archive."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "address_works"
+    _attr_icon = "mdi:calendar-wrench"
+
+    def __init__(self, coordinator: DTEKDataCoordinator, entry: ConfigEntry):
+        super().__init__(coordinator)
+        self._attr_unique_id = build_entity_unique_id(entry, "address_works")
+        self.entity_id = suggested_entity_id(entry, "calendar", "address_works")
+        self._attr_device_info = build_device_info(entry)
+
+    @property
+    def available(self):
+        # A schedule request may fail while the address report is still fresh.
+        return works_status(self.coordinator) in ("reported", "empty")
+
+    @property
+    def extra_state_attributes(self):
+        return works_attributes(self.coordinator)
+
+    def _events(self, start, end):
+        uk = is_ukrainian(self.hass.config.language) if self.hass else True
+        source = (
+            "Джерело: повідомлення ДТЕК про роботи за адресою. Час завершення орієнтовний."
+            if uk
+            else "Source: DTEK address repair report. End time is an estimate."
+        )
+        return [
+            CalendarEvent(
+                start=work.start,
+                end=work.end,
+                summary="Ремонтні роботи ДТЕК" if uk else "DTEK repair works",
+                description=f"{work.description}\n{source}",
+            )
+            for work in self.coordinator.address_works or ()
+            if work.end > start and work.start < end
+        ]
+
+    @property
+    def event(self):
+        if not self.available:
+            return None
+        events = self._events(dt_util.now(), dt.datetime.max.replace(tzinfo=KYIV_TZ))
+        return events[0] if events else None
+
+    async def async_get_events(self, hass, start_date, end_date):
+        if not self.available:
+            raise HomeAssistantError(
+                translation_domain="dtek_monitor",
+                translation_key="address_works_" + works_status(self.coordinator),
+            )
+        start = (
+            start_date.replace(tzinfo=KYIV_TZ)
+            if start_date.tzinfo is None else start_date
+        )
+        end = end_date.replace(tzinfo=KYIV_TZ) if end_date.tzinfo is None else end_date
+        return self._events(start, end)
+
+
 class DTEKSnapshotCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntity):
     """Explicit display-only view of finite, previously verified events."""
 
@@ -184,18 +249,21 @@ class DTEKSnapshotCalendar(CoordinatorEntity[DTEKDataCoordinator], CalendarEntit
         snapshot = self.coordinator.snapshot
         assert snapshot is not None
         checked = snapshot.checked_at.astimezone(KYIV_TZ).strftime("%d.%m.%Y %H:%M")
-        status = (
-            "Перевірений"
-            if self.coordinator.notifications_ready
-            else "Актуальність не підтверджена"
-        )
+        language = self.coordinator.hass.config.language
+        if is_ukrainian(language):
+            label = "Збережений графік"
+            status = "Перевірений" if self.coordinator.notifications_ready else "Актуальність не підтверджена"
+            details = f"{status}. Перевірено: {checked}. Лише для перегляду, не для сповіщень."
+        else:
+            label = "Saved schedule"
+            status = "Verified" if self.coordinator.notifications_ready else "Freshness unconfirmed"
+            details = f"{status}. Checked: {checked}. For viewing only, not for notifications."
         return CalendarEvent(
             start=window.start,
             end=window.end,
-            summary=f"[Збережений графік] {window.summary}",
+            summary=f"[{label}] {event_summary(window.event_type, language)}",
             description=(
-                f"usage=display_only; {status}. Перевірено: {checked}. "
-                f"Лише для перегляду, не для сповіщень. {window.description}"
+                f"usage=display_only; {details} {window.description}"
             ),
         )
 

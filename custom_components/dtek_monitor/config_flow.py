@@ -85,7 +85,7 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
     async def _fetch_streets(self) -> dict[str, list[str]]:
         """Cache options, closing owned HTTP sessions even if the flow aborts."""
         if not self._streets_data:
-            provider = create_provider(self._provider_id)
+            provider = create_provider(self._provider_id, hass=self.hass)
             try:
                 self._streets_data = {
                     city: list(await provider.list_streets(city))
@@ -107,9 +107,20 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
                 errors[CONF_PROVIDER] = "invalid_provider"
             else:
                 if provider_id != self._provider_id:
+                    if self.context.get("source") == "reauth":
+                        return self.async_abort(reason="account_mismatch")
+                    await self._close_access()
+                    self._account_credentials = {}
+                    self._personal_accounts = {}
+                    self._link_identity = self._link_review = self._unlink_choices = (
+                        None
+                    )
+                    self._login_phone = self._access_completed = ""
+                    await self.async_set_unique_id(None)
                     self._streets_data = {}
                     self._city = self._street = self._house = ""
                     self._available_houses = []
+                    self._address_suggestion = {}
                 self._provider_id = provider_id
                 return await self.async_step_connection()
         return self.async_show_form(
@@ -140,7 +151,7 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
         provider_id = user_input.get(CONF_PROVIDER)
         if provider_id not in PROVIDERS or not PROVIDERS[provider_id].enabled:
             return self.async_abort(reason="invalid_provider")
-        provider = create_provider(provider_id)
+        provider = create_provider(provider_id, hass=self.hass)
         try:
             address = await verify_building(provider, user_input)
         except ProviderError:
@@ -153,7 +164,9 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
         self._city, self._street, self._house = address.parts
         await self.async_set_unique_id(address_unique_id(address))
         self._abort_if_unique_id_configured()
-        return await self.async_step_settings({CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL_SECONDS})
+        return await self.async_step_settings(
+            {CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL_SECONDS}
+        )
 
     async def async_step_city(
         self, user_input: dict[str, Any] | None = None
@@ -276,7 +289,7 @@ class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
             return await self.async_step_settings()
 
         try:
-            provider = create_provider(self._provider_id)
+            provider = create_provider(self._provider_id, hass=self.hass)
             try:
                 houses = await provider.list_houses(self._city, self._street)
             finally:

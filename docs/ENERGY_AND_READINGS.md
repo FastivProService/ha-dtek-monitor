@@ -99,7 +99,7 @@ only then use **Unlock new entry after checking**. Unlocking sends nothing and
 does not prove rejection. New values still require a fresh review/confirmation;
 pending DTEK readings can continue to prevent entry. Do not delete the local
 attempt record to retry an uncertain request. The latest attempt is retained
-in HA's `.storage`; include it when backing up/restoring this beta.
+in HA's `.storage`; include it when backing up/restoring this integration.
 
 History caches are invalidated after an attempted submission. An already open
 history card and account sensors still need their respective refresh actions;
@@ -285,3 +285,8 @@ the scheduled reminder for that period.
 For calendar presentation, use the [schedule card](REFERENCE.md#schedule-card).
 It distinguishes verified empty days, missing publication and actual request
 errors for both the building and the optional personal calendars.
+
+
+## Readings through a personal Telegram profile
+
+Monitor **2.0.0-rc1** and bot **0.5.0-rc1** let an authorized private chat enter readings or use the energy source configured here. Zone validation, freshness, calibration and duplicate protection remain in the integration. The HA administrator separately grants submission permission to the assigned Telegram user; every send requires confirmation. There is no unattended submission. [Profiles and permissions](PERSONAL_ACCOUNT.md#section-13).

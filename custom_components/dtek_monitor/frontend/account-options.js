@@ -1,4 +1,4 @@
-import {el} from "./account-ui.js?v=2.0.0b1";
+import { isUkrainian, el} from "./account-ui.js?v=2.0.0-rc1";
 
 // A small host for HA's existing options schemas. The backend owns validation,
 // confirmation steps and persistence; ordinary hass updates only reach ha-form.
@@ -22,7 +22,7 @@ class DtekAccountOptions extends HTMLElement{
   set hass(hass){this._hass=hass;if(this._form)this._form.hass=hass;}
   get busy(){return !!this._busy;}
   get active(){return !!this._dialog?.open;}
-  get t(){return words[this._hass.language?.startsWith("uk")?"uk":"en"];}
+  get t(){return words[isUkrainian(this._hass.language)?"uk":"en"];}
   disconnectedCallback(){this._seq++;this._cleanup();}
   api(method,data){return this._hass.callApi(method,`config/config_entries/options/flow/${this._flowId}`,data);}
   async _delete(hass,id){if(id)try{await hass.callApi("DELETE",`config/config_entries/options/flow/${id}`);}catch(_){/* already finished or disconnected */}}

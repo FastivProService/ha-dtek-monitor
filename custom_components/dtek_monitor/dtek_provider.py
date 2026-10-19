@@ -9,6 +9,7 @@ from types import MappingProxyType
 from typing import Any
 
 from .dtek_client import DTEKClient, parse_dtek_datetime
+from .address_works import address_works
 from .provider import (
     Address,
     AddressReading,
@@ -79,6 +80,8 @@ def normalize_address(
     publication = Publication(
         schedule, flag("showTableFact"), flag("showTablePlan"), flag("showUserGroup")
     )
+    external_operator = any(bool(e.get("cek")) for e in entries)
+    works, incomplete = address_works(values)
     return AddressReading(
         address,
         MappingProxyType(deepcopy(values)),
@@ -90,7 +93,9 @@ def normalize_address(
             else None
         ),
         publication,
-        any(bool(e.get("cek")) for e in entries),
+        external_operator,
+        None if external_operator else works,
+        incomplete,
     )
 
 
@@ -301,20 +306,28 @@ def normalize_overview(reading, raw, start, end, fetched_at):
 
 
 class DTEKWebProvider:
-    def __init__(self, spec: ProviderSpec, client: DTEKClient | None = None):
+    def __init__(
+        self, spec: ProviderSpec, client: DTEKClient | None = None, *, request_gate=None
+    ):
         self.spec = spec
         self.provider_id = spec.id
-        self._client = client if client is not None else DTEKClient(spec.base_url)
+        self._client = (
+            client if client is not None
+            else DTEKClient(spec.base_url, request_gate=request_gate)
+        )
         self._directory: dict[str, tuple[str, ...]] | None = None
         self._raw: dict[str, Any] = {}
 
     @property
     def diagnostics(self) -> dict[str, Any]:
+        gate = getattr(self._client, "request_gate", None)
         return {
             "transport_errors": self._client.transport_errors,
             "protection_challenges": self._client.waf_challenges,
             "protection_blocks": self._client.waf_hard_blocks,
             "browser_profile": self._client.impersonate_target,
+            "public_retry_in_seconds": getattr(gate, "retry_in", None),
+            "public_consecutive_failures": getattr(gate, "failures", None),
         }
 
     async def _get_directory(self) -> dict[str, tuple[str, ...]]:

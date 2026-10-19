@@ -47,7 +47,7 @@ async def configure(flow, entry, key, user_input):
     errors = {}
     choices = flow._building_choices.get(key)
     if choices is None:
-        provider = create_provider(entry.data[CONF_PROVIDER])
+        provider = create_provider(entry.data[CONF_PROVIDER], hass=flow.hass)
         try:
             if key == CONF_CITY:
                 choices = await provider.list_localities()
@@ -78,7 +78,7 @@ async def configure(flow, entry, key, user_input):
             if key == CONF_STREET:
                 flow._building_choices.pop(CONF_HOUSE, None)
                 return await flow.async_step_account_building_house()
-            provider = create_provider(entry.data[CONF_PROVIDER])
+            provider = create_provider(entry.data[CONF_PROVIDER], hass=flow.hass)
             try:
                 address = await verify_building(provider, flow._building_values)
                 if address is None:

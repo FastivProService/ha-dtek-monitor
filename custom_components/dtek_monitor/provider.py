@@ -52,6 +52,15 @@ class Group:
 
 
 @dataclass(frozen=True)
+class AddressWork:
+    """One operator-reported repair interval, independent of group schedules."""
+
+    start: datetime
+    end: datetime
+    description: str
+
+
+@dataclass(frozen=True)
 class AddressReading:
     address: Address
     # Already normalized legacy HA attributes, never a provider's wire response.
@@ -61,6 +70,9 @@ class AddressReading:
     source_updated_at: datetime | None
     publication: Publication
     external_operator: bool = False
+    # None: unsupported/unverified; (): verified response has no repair records.
+    works: tuple[AddressWork, ...] | None = None
+    works_incomplete: bool = False
 
     def as_ha_data(self) -> dict[str, Any]:
         return dict(self.values)

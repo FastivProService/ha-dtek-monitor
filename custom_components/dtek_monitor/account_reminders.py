@@ -11,6 +11,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
+from .localization import is_ukrainian
 from .account import CONF_ACCOUNTS, AccountError, account_key
 from .account_submission import SubmissionError
 from .providers import CONF_PROVIDER
@@ -175,7 +176,7 @@ class AccountReminders:
             )
 
     async def message(self, number, now, preview=False):
-        uk = self.hass.config.language == "uk"
+        uk = is_ukrainian(self.hass.config.language)
         title = ("ДТЕК · покази" if uk else "DTEK · readings") + f" · ••••{number[-4:]}"
         lines = [
             (

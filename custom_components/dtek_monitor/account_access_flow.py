@@ -12,9 +12,10 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from .account import ACCOUNT_PROVIDERS, AccountError, normalize_phone
+from .account import AccountError, normalize_phone
 from .account_access import AccessError, AccountAccessClient
-from .account_client import AUTH_ORIGIN
+from .account_providers import account_provider_supported, get_account_provider_spec
+from .providers import CONF_PROVIDER
 
 ACCESS_IDLE_TIMEOUT = 15 * 60
 
@@ -53,6 +54,21 @@ class AccountAccessFlowMixin:
         if client := self._detach_access():
             await client.close()
 
+    async def _active_access(self):
+        """A challenge may only continue inside the region where it was issued."""
+        client = self._access_client
+        if client and (
+            not account_provider_supported(self._provider_id)
+            or client.spec.provider_id != self._provider_id
+            or (
+                self.context.get("source") == "reauth"
+                and self._get_reauth_entry().data[CONF_PROVIDER] != self._provider_id
+            )
+        ):
+            await self._close_access()
+            return None
+        return client
+
     def async_remove(self):
         self._expire_access()
         self._account_credentials = {}
@@ -60,7 +76,7 @@ class AccountAccessFlowMixin:
         super().async_remove()
 
     async def async_step_account_access(self, user_input=None):
-        if self._provider_id not in ACCOUNT_PROVIDERS:
+        if not account_provider_supported(self._provider_id):
             return self.async_abort(reason="account_not_supported")
         await self._close_access()
         options = ["account_login", "account_recover"]
@@ -79,12 +95,16 @@ class AccountAccessFlowMixin:
         )
 
     async def _access_start(self, kind, step_id, user_input):
-        if self._provider_id not in ACCOUNT_PROVIDERS:
+        if not account_provider_supported(self._provider_id):
+            await self._close_access()
             return self.async_abort(reason="account_not_supported")
         errors = {}
         reauth = (
             self._get_reauth_entry() if self.context.get("source") == "reauth" else None
         )
+        if reauth and reauth.data[CONF_PROVIDER] != self._provider_id:
+            await self._close_access()
+            return self.async_abort(reason="account_mismatch")
         phone = reauth.data[CONF_USERNAME] if reauth else self._login_phone
         if user_input is not None:
             phone = user_input.get(CONF_USERNAME, "")
@@ -92,8 +112,10 @@ class AccountAccessFlowMixin:
                 phone = normalize_phone(phone)
                 if reauth and phone != normalize_phone(reauth.data[CONF_USERNAME]):
                     raise AccessError("access_phone_mismatch")
-                if not self._access_client:
-                    self._access_client = AccountAccessClient()
+                if not await self._active_access():
+                    self._access_client = AccountAccessClient(
+                        spec=get_account_provider_spec(self._provider_id)
+                    )
                 self._touch_access()
                 await self._access_client.start(kind, phone)
                 self._login_phone = phone
@@ -128,7 +150,7 @@ class AccountAccessFlowMixin:
         return None
 
     async def async_step_account_sms(self, user_input=None):
-        client = self._access_client
+        client = await self._active_access()
         if not client:
             return self.async_abort(reason="access_expired")
         self._touch_access()
@@ -164,7 +186,7 @@ class AccountAccessFlowMixin:
         )
 
     async def async_step_account_profile(self, user_input=None):
-        client = self._access_client
+        client = await self._active_access()
         if not client or client.phase != "profile":
             return self.async_abort(reason="access_expired")
         self._touch_access()
@@ -210,7 +232,7 @@ class AccountAccessFlowMixin:
         )
 
     async def _access_password(self, kind, step_id, user_input):
-        client = self._access_client
+        client = await self._active_access()
         if not client or client.phase != "password" or client.kind != kind:
             return self.async_abort(reason="access_expired")
         self._touch_access()
@@ -251,5 +273,7 @@ class AccountAccessFlowMixin:
                 }
             ),
             errors=errors,
-            description_placeholders={"signup_url": AUTH_ORIGIN + "/signup"},
+            description_placeholders={
+                "signup_url": client.spec.auth_origin + "/signup"
+            },
         )

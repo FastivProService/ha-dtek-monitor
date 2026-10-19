@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import re
-
 from .account import AccountError, AccountAPIChanged, PersonalAccount
+from .account_providers import AccountProviderSpec, get_account_provider_spec
 
 LINKS = "/api/billing/joint/objects"
 
@@ -17,11 +16,18 @@ class AccountLinkError(AccountError):
         self.code = code
 
 
-def household_number(value: str) -> str:
-    """Only modern OEM household IDs; legacy/commercial formats need other flows."""
-    if not isinstance(value, str) or not re.fullmatch(r"572[0-9]{9}", value.strip()):
+def household_number(value: str, spec: AccountProviderSpec | None = None) -> str:
+    """Only modern household IDs belonging to the selected operator."""
+    spec = spec if spec is not None else get_account_provider_spec()
+    number = value.strip() if isinstance(value, str) else ""
+    if (
+        len(number) != spec.household_length
+        or not number.isascii()
+        or not number.isdigit()
+        or not number.startswith(spec.household_prefixes)
+    ):
         raise AccountLinkError("link_invalid_number")
-    return value.strip()
+    return number
 
 
 def parse_lookup(payload, number: str) -> PersonalAccount:
@@ -51,14 +57,14 @@ class AccountLinksClientMixin:
     """Use the authenticated transport, with no retry of cabinet mutations."""
 
     async def lookup_account(self, number: str) -> PersonalAccount:
-        number = household_number(number)
+        number = household_number(number, self.spec)
         payload = await self._get(
             "/api/billing/joint/info/get_accounts", params={"account": number}
         )
         return parse_lookup(payload, number)
 
     async def link_account(self, candidate: PersonalAccount, authorize) -> None:
-        number = household_number(candidate.number)
+        number = household_number(candidate.number, self.spec)
         linked = {a.number: a for a in await self.list_accounts()}
         if number in linked:
             raise AccountLinkError("link_already_linked")
@@ -69,7 +75,7 @@ class AccountLinksClientMixin:
         await self._change_link("POST", "/add", json={"data": {"account": number}})
 
     async def unlink_account(self, candidate: PersonalAccount, authorize) -> None:
-        number = household_number(candidate.number)
+        number = household_number(candidate.number, self.spec)
         linked = {a.number: a for a in await self.list_accounts()}
         if number not in linked:
             raise AccountLinkError("link_not_linked")

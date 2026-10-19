@@ -1,5 +1,5 @@
-import { embeddedCSS } from "./account-ui.js?v=2.0.0b1";
-import "./schedule-grid.js?v=2.0.0b1";
+import { isUkrainian,  embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
+import "./schedule-grid.js?v=2.0.0-rc1";
 /* Publication status remains visible when HA's calendar cannot show events. */
 class DtekScheduleCard extends HTMLElement {
   constructor() {
@@ -26,9 +26,9 @@ class DtekScheduleCard extends HTMLElement {
   connectedCallback() { this._render(); }
   _render() {
     if(!this._hass || !this._config) return;
-    const uk=this._hass.language?.startsWith("uk"),state=this._hass.states[this._config.status_entity];
+    const uk=isUkrainian(this._hass.language),state=this._hass.states[this._config.status_entity];
     let status=state?.state || "unknown";
-    if(["selected","auto_selected"].includes(status))status=state.attributes.schedule_status || "current";
+    if(["selected","auto_selected","cabinet_selected"].includes(status))status=state.attributes.schedule_status || "current";
     if(status.startsWith("schedule_"))status=status.slice(9);
     const words=uk ? {
       current:"Графік на сьогодні опубліковано.",empty:"Сьогодні планових відключень немає — графік перевірено.",
@@ -42,6 +42,8 @@ class DtekScheduleCard extends HTMLElement {
       address_lookup_unavailable:"Довідник адрес ДТЕК тимчасово недоступний. Автопідбір повториться; дані рахунку працюють окремо.",
       no_address:"Прив’яжіть адресу будинку в налаштуваннях особистого кабінету.",
       not_selected:"У будинку кілька груп або групу ще не підтверджено. Оберіть свою в налаштуваннях.",
+      cabinet_unavailable:"Кабінет не підтвердив актуальну групу квартири. Можна обрати її вручну; графіки будинку доступні окремо.",
+      cabinet_group_mismatch:"Група з кабінету не збігається з групами будинку. Перевірте адресу й оберіть групу вручну.",
       group_unavailable:"ДТЕК більше не підтверджує обрану групу для будинку. Перевірте особистий вибір.",
       labels_hidden:"ДТЕК приховав групи. Особистий графік поки не визначено.",
       address_unavailable:"Дані адреси зараз недоступні. Перевірте підключення будинку.",
@@ -59,6 +61,8 @@ class DtekScheduleCard extends HTMLElement {
       address_lookup_unavailable:"The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.",
       no_address:"Link a building address in the personal account settings.",
       not_selected:"The building has multiple or unverified groups. Choose yours in settings.",
+      cabinet_unavailable:"The cabinet could not verify your apartment group. You can select it manually; building schedules remain separate.",
+      cabinet_group_mismatch:"The cabinet group does not match the building groups. Check the address and select your group manually.",
       group_unavailable:"DTEK no longer confirms the selected group for this building. Review your selection.",
       labels_hidden:"DTEK has hidden group labels. Your personal schedule is not determined yet.",
       address_unavailable:"Address data is unavailable. Check the building connection.",
@@ -70,6 +74,11 @@ class DtekScheduleCard extends HTMLElement {
     // The grid reports its selected date, independently of today's list status.
     feedback.hidden=this._view==="grid";
     feedback.textContent=words[status] || words.unknown;
+    if(state?.attributes.selection_source==="cabinet") {
+      const source=document.createElement("small");
+      source.textContent=uk?"Групу визначено за особовим рахунком ДТЕК.":"Group identified from your DTEK personal account.";
+      feedback.append(source);
+    }
     feedback.classList.toggle("error",status==="error");
     if(state?.attributes.status_date) {
       const small=document.createElement("small");

@@ -7,6 +7,7 @@ from .const import DOMAIN
 ISSUES_URL = "https://github.com/groove-max/ha-dtek-monitor/issues"
 RELEASES_URL = "https://github.com/groove-max/ha-dtek-monitor/releases"
 INTERFACES = {
+    "account_groups": "Optional legacy cabinet: account outage groups",
     "cabinet": "/api/billing/joint",
     "meter_details": "/api/billing-service/api/…/data",
     "meter_readings": "/api/billing-service/api/…/meters-with-readings",
@@ -20,18 +21,18 @@ INTERFACES = {
 }
 
 
-def report_api_issue(hass, provider, error):
+def report_api_issue(hass, provider, error, *, scope=None):
     interface = error.interface
     if interface not in INTERFACES:
         return
     ir.async_create_issue(
         hass,
         DOMAIN,
-        f"account_api_{provider}_{interface}",
+        f"account_api_{provider}_{interface}" + (f"_{scope}" if scope else ""),
         is_fixable=False,
         is_persistent=True,
-        severity=ir.IssueSeverity.ERROR,
-        translation_key="account_api_changed",
+        severity=ir.IssueSeverity.WARNING if interface == "account_groups" else ir.IssueSeverity.ERROR,
+        translation_key="account_groups_api_changed" if interface == "account_groups" else "account_api_changed",
         translation_placeholders={
             "interface": INTERFACES[interface],
             "reason": error.reason,
@@ -42,8 +43,8 @@ def report_api_issue(hass, provider, error):
     )
 
 
-def clear_api_issue(hass, provider, interface):
-    ir.async_delete_issue(hass, DOMAIN, f"account_api_{provider}_{interface}")
+def clear_api_issue(hass, provider, interface, *, scope=None):
+    ir.async_delete_issue(hass, DOMAIN, f"account_api_{provider}_{interface}" + (f"_{scope}" if scope else ""))
 
 
 def watch_api(hass, provider, client):

@@ -7,8 +7,8 @@ address, meter, readings and consumption in Home Assistant. You can also send
 readings after checking and confirming them. This connection is optional: outage
 schedules by address work without a phone login or energy sensor.
 
-This guide describes public beta **2.0.0b1**. Read the [installation, upgrade and
-rollback instructions](BETA.md) before installing it.
+This guide describes release candidate **2.0.0-rc1**. Read the [installation, upgrade and
+rollback instructions](UPGRADING.md) before installing it.
 
 [Schedules and groups](SCHEDULES.md) · [Readings, sensors and reminders](ENERGY_AND_READINGS.md)
 
@@ -39,6 +39,11 @@ rollback instructions](BETA.md) before installing it.
    For sign-in, enter the phone number and password used on the DTEK website.
 5. Choose accounts to monitor, or add a household account to DTEK first.
 6. Open the devices created under the new personal account connection.
+
+New connections show the operator name and the last four digits of your phone
+number in the integration list. **Open DTEK cabinet** in the reading form and the
+device's website link open that operator's cabinet. Opening the link does not
+submit readings or transfer your HA login to the website.
 
 Home Assistant stores the login credentials in its configuration; protect your
 configuration and backups. Authentication cookies and API tokens are held in
@@ -196,7 +201,7 @@ account list in the DTEK cabinet before starting another attempt.
 
 Official [registration](https://auth.my.dtek-oem.com.ua/signup) and
 [password recovery](https://auth.my.dtek-oem.com.ua/recovery) remain available
-if DTEK changes its API. This beta uses the official website's requests,
+if DTEK changes its API. This integration uses the official website's requests,
 not a documented public API.
 
 
@@ -214,7 +219,7 @@ measurements. A new fetch does not mean a new meter reading. Missing data stays
 unknown, and unavailable accounts do not report zero consumption.
 
 Monthly corrections can be negative. Historical records do not currently feed
-the Energy dashboard: this beta deliberately sets no statistics `state_class`.
+the Energy dashboard: the integration deliberately sets no statistics `state_class`.
 Historical statistics need a separate implementation that respects reporting
 dates and retrospective corrections.
 
@@ -363,7 +368,7 @@ start with that year. The default is the current year in Kyiv. The month table
 below the chart also shows returned tariff-zone values. The readings table has
 ten rows per page and shows Kyiv dates, values, scale, energy type, source and
 status. **Active**, **inactive**, **blocked** and **unknown** reflect DTEK's flags;
-inactive does not necessarily mean a rejected submission.
+inactive does not necessarily mean a rejected submission. Inactive records are hidden by default; blocked and unknown statuses stay visible. Select **Show all DTEK records** to include inactive records. The selection survives refreshes and HA state updates. Filtering applies before pagination and never merges equal readings across dates or tariff zones. It does not modify monthly consumption, source history or submission verification.
 
 Only closed months are plotted. Zero is a real returned value; a gap means no
 data was returned. Open months are labeled separately. Negative corrections
@@ -460,6 +465,12 @@ entities:
 <a id="section-13"></a>
 ## Building monitoring and the Telegram bot
 
+Common address abbreviations, such as `вул.`/`вулиця`, `пров.`/`провулок` and
+`с.`/`село`, are matched against the operator's directory. Similar street names,
+different settlement types, district qualifiers and building sections are not
+interchangeable. If the address cannot be matched uniquely, select the building
+in **Settings → Building and outage group**.
+
 Building monitoring connects automatically after an unambiguous match in the
 operator's directory. If it needs confirmation, open **My DTEK → Settings →
 Building and outage group → Choose another building from the directory**.
@@ -471,11 +482,11 @@ its address monitoring. Several apartments can share one building while keeping
 separate personal group choices. Changing an apartment's group never removes
 other building groups. [Group selection and schedule display](SCHEDULES.md).
 
-Configure [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot)
-against that public building separately. It can send to a channel, group or private
-chat; follow the bot's setup guide. It receives no cabinet credentials, account
-numbers or private meter readings from this integration. Installing this beta
-does not change existing bot destinations or its physical power sensors.
+Configure [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot) separately for a building or personal account. Building mode supports channels, groups and private chats and retains all building groups.
+
+**Monitor 2.0.0-rc1 and bot 0.5.0-rc1** support personal mode: cabinet API groups, reminders, reading history, confirmed submissions and an all-groups PNG table. It works only in the explicitly assigned user’s private chat. DTEK credentials stay in the integration; the HA administrator configures profiles and permissions. Calibration and detailed settings stay in My DTEK. [Personal bot setup](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
+
+Installing the integration does not create Telegram profiles or change existing recipients or physical sensors. Older Monitor 2.0.0b1 and bot 0.4.1 do not include personal Telegram mode: update both projects to use it.
 
 <a id="section-14"></a>
 ## If DTEK changes its API
@@ -508,7 +519,7 @@ extra account changes or meter readings to probe availability.
 - No automatic reading submissions, payments, applications, profile editing or photo uploads. Use the official cabinet for unsupported meter schemes, replacements and corrections.
 - Billing history does not populate HA's Energy dashboard. Monthly consumption and cumulative readings are different values.
 - Automatic building matching happens for newly monitored accounts. Existing manual links are preserved; changed cabinet addresses do not silently move your building connection.
-- Private cabinet reminders are HA notifications. A personal Telegram assistant is not included.
+- HA cabinet reminders and optional personal Telegram reminders have separate settings; enabling one does not enable the other.
 
 ## If something does not work
 

@@ -77,6 +77,17 @@ class ScheduleCardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(await self.page.locator(".calendar").inner_text(), "")
 
+    async def test_cabinet_selection_source_and_loss_are_explicit(self):
+        await self.update("cabinet_selected", "off")
+        await self.page.evaluate("hass.states['sensor.status'].attributes.selection_source='cabinet';card.hass={...hass}")
+        await self.page.locator(".test-calendar").wait_for()
+        self.assertIn("Group identified from your DTEK personal account", await self.page.locator(".status").inner_text())
+        await self.update("cabinet_unavailable", "off")
+        self.assertIn("could not verify", await self.page.locator(".status").inner_text())
+        self.assertEqual(await self.page.locator(".test-calendar").count(), 0)
+        await self.update("cabinet_group_mismatch", "off")
+        self.assertIn("does not match", await self.page.locator(".status").inner_text())
+
     async def test_updates_keep_calendar_instance_and_separate_personal_selection(self):
         await self.update("current", "off")
         await self.page.locator(".test-calendar").wait_for()

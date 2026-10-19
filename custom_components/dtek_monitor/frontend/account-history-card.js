@@ -1,13 +1,14 @@
-import { embeddedCSS, date } from "./account-ui.js?v=2.0.0b1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0b1";
+import { isUkrainian,  embeddedCSS, date } from "./account-ui.js?v=2.0.0-rc1";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=2.0.0b1";
+import { accountNumber } from "./account-number.js?v=2.0.0-rc1";
 const words = {
   en: {
     compare: "Compare with previous year", comparison: "Consumption for matching periods", pairNote: "Only months closed and published in both years are included. Partial totals cover the listed months, not the whole year or season. Winter here means January, February and December of the same calendar year. Negative corrections remain included.", yearTotal: "Year", winter: "Winter", spring: "Spring", summer: "Summer", autumn: "Autumn", coverage: "Included months", difference: "Difference", complete: "Complete", partial: "Partial", title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
     consumption: "Monthly consumption", readings: "Meter readings", period: "Month", value: "Value",
     zone: "Tariff scale", energy: "Energy type", source: "Source", status: "Status", date: "Date (Kyiv)",
     active: "Active", inactive: "Inactive", blocked: "Blocked", unknown: "Unknown",
+    showAll: "Show all DTEK records", hiddenInactive: "Inactive records hidden", onlyInactive: "Only inactive records are available. Select ‘Show all DTEK records’ to view them.",
     missing: "No data", open: "Open month", future: "Future month", closed: "Closed month",
     fetched: "Data fetched", empty: "No readings returned for this year.", previous: "Previous", next: "Next",
     note: "Only closed months are plotted. Missing periods are gaps. Negative values are retained as reported by DTEK.",
@@ -23,6 +24,7 @@ const words = {
     consumption: "Місячне споживання", readings: "Покази лічильника", period: "Місяць", value: "Значення",
     zone: "Тарифна шкала", energy: "Тип енергії", source: "Джерело", status: "Статус", date: "Дата (Київ)",
     active: "Активний", inactive: "Неактивний", blocked: "Заблокований", unknown: "Невідомо",
+    showAll: "Показати всі записи ДТЕК", hiddenInactive: "Приховано неактивних записів", onlyInactive: "Є лише неактивні записи. Увімкніть «Показати всі записи ДТЕК», щоб переглянути їх.",
     missing: "Немає даних", open: "Незакритий місяць", future: "Майбутній місяць", closed: "Закритий місяць",
     fetched: "Дані отримано", empty: "За цей рік показів не отримано.", previous: "Назад", next: "Далі",
     note: "Графік містить лише закриті місяці. Пропуски означають відсутність даних. Від'ємні значення збережено так, як їх надає ДТЕК.",
@@ -78,22 +80,22 @@ function svgElement(tag, attrs = {}, text) {
 }
 class DtekAccountHistoryCard extends HTMLElement {
   static get workspaceVersion() { return 1; }
-  constructor() { super(); this.attachShadow({mode:"open"}); this._seq=0; this._page=0; }
+  constructor() { super(); this.attachShadow({mode:"open"}); this._seq=0; this._page=0; this._showInactive=false; }
   setConfig(config) {
     if (!config.entity || typeof config.entity !== "string") throw new Error("Specify an account sensor in entity.");
     const year = config.year ?? Number(new Intl.DateTimeFormat("en", {year:"numeric", timeZone:"Europe/Kyiv"}).format(new Date()));
     if (!Number.isInteger(year) || year < 2000 || year > Number(new Intl.DateTimeFormat("en", {year:"numeric", timeZone:"Europe/Kyiv"}).format(new Date()))) throw new Error("Invalid history year.");
     const changed = !this._config || config.entity !== this._config.entity || config.year !== this._config.year;
     this._config = {...config}; this.toggleAttribute("embedded", !!config.embedded);
-    if (changed) { this._year=year; this._compare=false; this._data=null; this._error=null; this._seq++; this._busy=false; this._page=0; }
+    if (changed) { this._year=year; this._compare=false; this._showInactive=false; this._data=null; this._error=null; this._seq++; this._busy=false; this._page=0; }
     this._render();
     if (changed && this.isConnected && this._hass) this._load(false);
   }
   set hass(hass) {
     const changedUser = this._hass && (this._hass.user?.id !== hass.user?.id || this._hass.connection !== hass.connection);
     const initial = !this._hass || changedUser;
-    if (changedUser) { this._seq++; this._data=null; this._error=null; this._busy=false; this._render(); }
-    const lang = hass.language?.startsWith("uk") ? "uk" : "en";
+    if (changedUser) { this._seq++; this._showInactive=false; this._page=0; this._data=null; this._error=null; this._busy=false; this._render(); }
+    const lang = isUkrainian(hass.language) ? "uk" : "en";
     const languageChanged = lang !== this._lang;
     this._hass=hass; this._lang=lang;
     if (languageChanged) this._render();
@@ -165,14 +167,20 @@ class DtekAccountHistoryCard extends HTMLElement {
     }
     }
     if (this._config.view === "consumption") { [...root.querySelectorAll("details")].forEach((d,i) => d.open=opened[i]||false); return; }
-    card.append(element("h3",`${t.readings} · ${data.readings.length}`));card.append(element("p",t.scope,"muted"));
-    if(!data.readings.length) {card.append(element("p",t.empty));return;}
+    const inactiveCount=data.readings.filter(r=>r.status==="inactive").length;
+    const readings=data.readings.filter(r=>this._showInactive||r.status!=="inactive");
+    card.append(element("h3",`${t.readings} · ${readings.length}`));card.append(element("p",t.scope,"muted"));
+    const filter=element("label"),showAll=element("input");showAll.type="checkbox";showAll.checked=this._showInactive;
+    showAll.addEventListener("change",()=>{this._showInactive=showAll.checked;this._page=0;this._render();});
+    filter.append(showAll,document.createTextNode(t.showAll));card.append(filter);
+    if(!this._showInactive&&inactiveCount)card.append(element("p",`${t.hiddenInactive}: ${inactiveCount}`,"muted"));
+    if(!readings.length) {card.append(element("p",data.readings.length?t.onlyInactive:t.empty));return;}
     const table=this._table([t.date,t.value,t.status,t.zone,t.energy,t.source]);
     table.wrap.querySelector("table").classList.add("readings");
-    const pageSize=10, pages=Math.ceil(data.readings.length/pageSize);this._page=Math.min(this._page,pages-1);
-    for(const record of data.readings.slice(this._page*pageSize,(this._page+1)*pageSize)) {
+    const pageSize=10, pages=Math.ceil(readings.length/pageSize);this._page=Math.min(this._page,pages-1);
+    for(const record of readings.slice(this._page*pageSize,(this._page+1)*pageSize)) {
       const row=element("tr",undefined,record.status);
-      const local=date(record.date_time, this._lang);
+      const local=date(record.date_time, this._lang, true);
       row.append(element("td",local,"numeric"),element("td",this.format(record.value),"numeric"));
       const status=element("td");status.append(element("span",t[record.status]||t.unknown,"pill"));row.append(status,element("td",this.zone(record.zone)),element("td",record.energy),element("td",record.source||"—"));table.body.append(row);
     }

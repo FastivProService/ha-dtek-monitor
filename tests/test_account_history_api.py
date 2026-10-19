@@ -37,11 +37,37 @@ class HistoryAccessTests(unittest.IsolatedAsyncioTestCase):
     ):
         self.connection.user.is_admin = False
         await self.identity(False)
-        self.connection.send_result.assert_called_with(2, {"masked": "••••0001"})
+        metadata = {
+            "masked": "••••0001",
+            "provider_id": "dtek_oem",
+            "cabinet_url": "https://my.dtek-oem.com.ua/",
+        }
+        self.connection.send_result.assert_called_with(2, metadata)
         await self.identity(True)
         self.connection.send_result.assert_called_with(
-            2, {"masked": "••••0001", "number": "100001"}
+            2, {**metadata, "number": "100001"}
         )
+        self.account_coord.history.get.assert_not_awaited()
+
+    async def test_cabinet_navigation_is_local_region_scoped_and_never_reveals_number(
+        self,
+    ):
+        for provider in ("dtek_oem", "dtek_kem", "dtek_krem", "dtek_dnem", "unknown"):
+            self.entry.data["provider_id"] = provider
+            identity = runtime.account.account_key(provider, "100001")
+            self.entity.unique_id = f"account:{identity}:account_updated:all"
+            await self.identity(False)
+            data = self.connection.send_result.call_args.args[1]
+            self.assertEqual(data["provider_id"], provider)
+            self.assertEqual(
+                data["cabinet_url"],
+                f"https://my.{provider.replace('_', '-')}.com.ua/"
+                if provider != "unknown"
+                else None,
+            )
+            for private in ("number", "username", "password"):
+                self.assertNotIn(private, data)
+        self.account_client.authenticate.assert_not_awaited()
         self.account_coord.history.get.assert_not_awaited()
 
     async def test_identity_reveal_rechecks_permissions_and_account_membership(self):
@@ -206,36 +232,80 @@ class HistoryAccessTests(unittest.IsolatedAsyncioTestCase):
         self.account_client.list_accounts.assert_not_awaited()
 
     async def test_workspace_roles_use_registry_and_respect_control_permissions(self):
-        reading = SimpleNamespace(**{
-            **vars(self.entity), "entity_id": "sensor.renamed_by_user",
-            "unique_id": self.entity.unique_id.replace("account_updated:all", "account_reading:GENERAL"),
-        })
+        reading = SimpleNamespace(
+            **{
+                **vars(self.entity),
+                "entity_id": "sensor.renamed_by_user",
+                "unique_id": self.entity.unique_id.replace(
+                    "account_updated:all", "account_reading:GENERAL"
+                ),
+            }
+        )
         result = self.account_list([self.entity, reading])
-        self.assertEqual(result[0]["roles"]["account_reading:GENERAL"], "sensor.renamed_by_user")
+        self.assertEqual(
+            result[0]["roles"]["account_reading:GENERAL"], "sensor.renamed_by_user"
+        )
         self.assertTrue(result[0]["can_submit"])
         self.connection.user.is_admin = False
         result = self.account_list([self.entity, reading])
         self.assertFalse(result[0]["can_submit"])
         self.assertIn("account_reading:GENERAL", result[0]["roles"])
         self.connection.user.is_admin = True
-        self.connection.user.permissions.check_entity.side_effect = lambda entity, policy: policy == "read"
+        self.connection.user.permissions.check_entity.side_effect = (
+            lambda entity, policy: policy == "read"
+        )
         self.assertFalse(self.account_list([self.entity, reading])[0]["can_submit"])
 
     async def test_workspace_never_invents_or_exposes_unreadable_building_links(self):
-        from custom_components.dtek_monitor.account_schedule import CONF_ACCOUNT_SCHEDULES
+        from custom_components.dtek_monitor.account_schedule import (
+            CONF_ACCOUNT_SCHEDULES,
+        )
         from custom_components.dtek_monitor.helpers import build_entity_unique_id
 
-        address = SimpleNamespace(entry_id="building", unique_id="building-unique", data={"provider_id": "dtek_oem"})
-        self.entry.options = {CONF_ACCOUNT_SCHEDULES: {"100001": {"address_entry_id": "building"}}}
-        entities = [SimpleNamespace(entity_id="calendar.house", platform="dtek_monitor", disabled_by=None,
-                                    unique_id=build_entity_unique_id(address, "outage_schedule")),
-                    SimpleNamespace(entity_id="calendar.private", platform="dtek_monitor", disabled_by=None,
-                                    unique_id=build_entity_unique_id(address, "possible_schedule"))]
+        address = SimpleNamespace(
+            entry_id="building",
+            unique_id="building-unique",
+            data={"provider_id": "dtek_oem"},
+        )
+        self.entry.options = {
+            CONF_ACCOUNT_SCHEDULES: {"100001": {"address_entry_id": "building"}}
+        }
+        entities = [
+            SimpleNamespace(
+                entity_id="calendar.house",
+                platform="dtek_monitor",
+                disabled_by=None,
+                unique_id=build_entity_unique_id(address, "outage_schedule"),
+            ),
+            SimpleNamespace(
+                entity_id="calendar.private",
+                platform="dtek_monitor",
+                disabled_by=None,
+                unique_id=build_entity_unique_id(address, "possible_schedule"),
+            ),
+        ]
         self.hass.config_entries.async_entries.return_value = [self.entry, address]
-        self.connection.user.permissions.check_entity.side_effect = lambda entity, policy: entity != "calendar.private"
-        with patch.object(api.er, "async_get", return_value=self.registry), patch.object(api.er, "async_entries_for_config_entry", return_value=entities):
-            self.assertEqual(api._building_schedule(self.hass, self.connection, self.entry, "100001"), {"outage_schedule": "calendar.house"})
-            self.assertEqual(api._building_schedule(self.hass, self.connection, self.entry, "100002"), {})
+        self.connection.user.permissions.check_entity.side_effect = (
+            lambda entity, policy: entity != "calendar.private"
+        )
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er, "async_entries_for_config_entry", return_value=entities
+            ),
+        ):
+            self.assertEqual(
+                api._building_schedule(
+                    self.hass, self.connection, self.entry, "100001"
+                ),
+                {"outage_schedule": "calendar.house"},
+            )
+            self.assertEqual(
+                api._building_schedule(
+                    self.hass, self.connection, self.entry, "100002"
+                ),
+                {},
+            )
 
     async def test_card_choices_filter_unselected_unloaded_disabled_and_restricted_accounts(
         self,

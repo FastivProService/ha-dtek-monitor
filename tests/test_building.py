@@ -24,6 +24,109 @@ class BuildingTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(address.parts, ("Одеса", "дорога Прикладна", "12А"))
         self.assertNotIn("58", str(suggestion))
 
+    async def test_regional_street_and_settlement_types_match_without_changing_public_spelling(
+        self,
+    ):
+        # Synthetic addresses with types observed in the public regional directories.
+        cases = [
+            (
+                "dtek_kem",
+                "місто Київ",
+                "м. Київ",
+                "проспект Прикладний",
+                "просп. Прикладний",
+            ),
+            (
+                "dtek_krem",
+                "м. Бровари",
+                "м. Бровари",
+                "бульвар Прикладний",
+                "бул. Прикладний",
+            ),
+            (
+                "dtek_dnem",
+                "Дніпро",
+                "м. Дніпро",
+                "провулок Прикладний",
+                "пров. Прикладний",
+            ),
+            (
+                "dtek_krem",
+                "село Прикладне",
+                "с. Прикладне",
+                "площа Прикладна",
+                "пл. Прикладна",
+            ),
+            (
+                "dtek_dnem",
+                "селище Прикладне",
+                "с-ще Прикладне",
+                "узв. Прикладний",
+                "узвіз Прикладний",
+            ),
+            (
+                "dtek_krem",
+                "селище міського типу Прикладне",
+                "смт Прикладне",
+                "вулиця Прикладна",
+                "вул. Прикладна",
+            ),
+            (
+                "dtek_krem",
+                "хутір Прикладний",
+                "хут. Прикладний",
+                "пр-т Прикладний",
+                "просп. Прикладний",
+            ),
+        ]
+        for pid, city, canonical_city, street, canonical_street in cases:
+            with self.subTest(provider=pid, city=city):
+                provider = self.provider()
+                provider.provider_id = pid
+                provider.list_localities.return_value = [canonical_city]
+                provider.list_streets.return_value = [canonical_street]
+                for separator, house_label in [(" ", "буд."), (", ", "будинок")]:
+                    text = f"{city}, {street}{separator}{house_label} 12а, кв.58"
+                    suggestion = mod.building_suggestion(text)
+                    address = await mod.resolve_building(provider, suggestion)
+                    self.assertEqual(
+                        address.parts, (canonical_city, canonical_street, "12А")
+                    )
+                    self.assertEqual(address.provider_id, pid)
+                    self.assertNotIn("58", str(suggestion))
+
+    async def test_normalization_preserves_address_type_district_and_corpus(self):
+        mismatches = [
+            ("city", "село Прикладне", "селище Прикладне"),
+            ("city", "с. Прикладне", "Прикладне"),
+            ("city", "смт Прикладне", "с-ще Прикладне"),
+            ("city", "с. Прикладне (Північний р-н)", "с. Прикладне (Південний р-н)"),
+            ("street", "вул. Прикладна", "площа Прикладна"),
+            ("street", "пров. Прикладний", "просп. Прикладний"),
+            ("street", "вул. Прикладна", "Дарницький р-н, вул. Прикладна"),
+            ("house_num", "12/1", "12"),
+        ]
+        for key, value, choice in mismatches:
+            with self.subTest(key=key, value=value):
+                self.assertIsNone(mod.unique_choice(value, [choice], key))
+        self.assertEqual(
+            mod.building_suggestion(
+                "м. Київ, Дарницький р-н, вул. Прикладна буд. 12, кв.1"
+            ),
+            {},
+        )
+        self.assertEqual(
+            mod.building_suggestion("м. Київ, вул. Прикладна буд. 12 корпус 2, кв.1"),
+            {},
+        )
+        self.assertIsNone(
+            mod.unique_choice(
+                "провулок Прикладний",
+                ["пров. Прикладний", "провулок Прикладний"],
+                "street",
+            )
+        )
+
     async def test_unknown_format_street_and_suffix_never_fall_back(self):
         for text in [
             "Одеса, Прикладна 12А, 58",

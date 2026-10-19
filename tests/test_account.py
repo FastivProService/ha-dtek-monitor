@@ -153,7 +153,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
                 return response(
                     302,
                     headers={
-                        "location": client_module.CALLBACK
+                        "location": self.client.spec.callback
                         + "?code=synthetic-code&state="
                         + params["state"]
                     },
@@ -174,7 +174,7 @@ class ClientTests(unittest.IsolatedAsyncioTestCase):
     async def test_redirect_attack_or_state_mismatch_does_not_exchange_code(self):
         for location in [
             "https://example.invalid/oauth/callback?code=x&state=x",
-            client_module.CALLBACK + "?code=x&state=wrong",
+            self.client.spec.callback + "?code=x&state=wrong",
         ]:
             self.session.request.reset_mock()
             self.session.request.side_effect = [

@@ -7,6 +7,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .account import CONF_ACCOUNTS, account_key
+from .account_providers import account_cabinet_url
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
 from .account_checks import STATUSES
@@ -100,7 +101,7 @@ class AccountSensor(CoordinatorEntity, SensorEntity):
             identifiers={(DOMAIN, f"account:{identity}")},
             name=f"DTEK • ••••{number[-4:]}",
             manufacturer="DTEK",
-            configuration_url="https://my.dtek-oem.com.ua/",
+            configuration_url=account_cabinet_url(entry.data[CONF_PROVIDER]),
         )
         if key in ("account_consumption", "account_reading"):
             self._attr_device_class = SensorDeviceClass.ENERGY

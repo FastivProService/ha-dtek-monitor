@@ -22,6 +22,7 @@ from .account import (
 )
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
+from .account_providers import account_cabinet_url
 from .account_profile import public_profile
 from .account_analysis import compare_consumption, match_readback
 from .account_history import KYIV
@@ -50,11 +51,15 @@ async def async_setup_history(hass):
     from .account_submission_api import async_setup_submissions
     from .account_energy_api import async_setup_energy
 
-    from .schedule_grid_api import websocket_grid
+    from .schedule_grid_api import websocket_grid, websocket_refresh
     from .account_options_api import websocket_options
+    from .bot_api import websocket_bot_account
+
+    websocket_api.async_register_command(hass, websocket_bot_account)
 
     websocket_api.async_register_command(hass, websocket_options)
     websocket_api.async_register_command(hass, websocket_grid)
+    websocket_api.async_register_command(hass, websocket_refresh)
     await async_setup_submissions(hass)
     await async_setup_energy(hass)
     websocket_api.async_register_command(hass, websocket_history)
@@ -136,7 +141,7 @@ async def async_setup_history(hass):
         if "frontend" in hass.config.components:
             from homeassistant.components.frontend import add_extra_js_url
 
-            add_extra_js_url(hass, "/dtek_monitor/account-loader.js?v=2.0.0b1")
+            add_extra_js_url(hass, "/dtek_monitor/account-loader.js?v=2.0.0-rc1")
 
 
 class AccountAccessError(Exception):
@@ -271,11 +276,15 @@ def resolve_readable_account(hass, connection, entity_id):
 def websocket_identity(hass, connection, msg):
     # Local registry/config data only: no DTEK request and no state attributes.
     try:
-        _, number, _ = resolve_readable_account(hass, connection, msg["entity_id"])
+        entry, number, _ = resolve_readable_account(hass, connection, msg["entity_id"])
     except AccountAccessError as error:
         connection.send_error(msg["id"], error.code, "Personal account is unavailable")
         return
-    result = {"masked": f"••••{number[-4:]}"}
+    result = {
+        "masked": f"••••{number[-4:]}",
+        "provider_id": entry.data[CONF_PROVIDER],
+        "cabinet_url": account_cabinet_url(entry.data[CONF_PROVIDER]),
+    }
     if msg["reveal"]:
         result["number"] = number
     connection.send_result(msg["id"], result)

@@ -10,12 +10,35 @@ from homeassistant.helpers.entity import Entity, DeviceInfo
 from homeassistant.util import dt as dt_util
 
 from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT, account_key
+from .account_providers import account_cabinet_url
 from .const import DOMAIN
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID
 from .schedule import KYIV_TZ
 from .schedule_status import SCHEDULE_STATUSES, schedule_status, status_attributes
+from .schedule_events import ScheduledEvent, scheduled_event
 
 CONF_ACCOUNT_SCHEDULES = "account_schedules"
+SELECTED_STATUSES = ("selected", "auto_selected", "cabinet_selected")
+
+
+def cabinet_groups(entry, number):
+    manager = getattr(getattr(entry, "runtime_data", None), "groups", None)
+    return manager.get(number) if manager is not None else None
+
+
+def automatic_selection(building_groups, cabinet):
+    """Resolve an unambiguous assignment without guessing from an ordered list."""
+    if cabinet and cabinet.status == "current" and cabinet.groups:
+        if not set(cabinet.groups).issubset(building_groups):
+            return [], "cabinet_group_mismatch"
+        if len(cabinet.groups) == 1:
+            return list(cabinet.groups), "cabinet_selected"
+        return [], "not_selected"
+    if len(building_groups) == 1:
+        return list(building_groups), "auto_selected"
+    if cabinet and cabinet.status in ("unavailable", "expired", "api_changed"):
+        return [], "cabinet_unavailable"
+    return [], "not_selected"
 
 
 def address_entries(hass, entry):
@@ -48,11 +71,7 @@ def selection(hass, entry, number):
             status = "labels_hidden"
         elif not groups:
             building_groups = coordinator.address_data.get("schedule_groups", [])
-            if len(building_groups) == 1:
-                groups = list(building_groups)
-                status = "auto_selected"
-            else:
-                status = "not_selected"
+            groups, status = automatic_selection(building_groups, cabinet_groups(entry, number))
         elif not set(groups).issubset(
             coordinator.address_data.get("schedule_groups", [])
         ):
@@ -77,7 +96,7 @@ class AccountScheduleEntity(Entity):
             identifiers={(DOMAIN, f"account:{identity}")},
             name=f"DTEK • ••••{number[-4:]}",
             manufacturer="DTEK",
-            configuration_url="https://my.dtek-oem.com.ua/",
+            configuration_url=account_cabinet_url(entry.data[CONF_PROVIDER]),
         )
         self._listened = None
         self._unsubscribe_address = None
@@ -127,16 +146,23 @@ class AccountScheduleEntity(Entity):
     @property
     def extra_state_attributes(self):
         address, coordinator, groups, status = self.selected
+        cabinet = cabinet_groups(self.entry, self.number)
+        visible = coordinator and coordinator.address_success and coordinator.address_data.get("group_labels_visible", False)
         return {
             "selection_status": status,
             "selection_source": (
                 "building_single_group"
                 if status == "auto_selected"
+                else "cabinet"
+                if status == "cabinet_selected"
                 else "user"
                 if groups
                 else None
             ),
             "selected_groups": groups,
+            "cabinet_group_status": cabinet.status if cabinet else "unsupported",
+            "cabinet_groups": list(cabinet.groups) if cabinet and visible else [],
+            "cabinet_groups_checked_at": cabinet.checked_at.isoformat() if cabinet and cabinet.checked_at else None,
             "building_groups": (
                 coordinator.address_data.get("schedule_groups", [])
                 if coordinator
@@ -171,6 +197,9 @@ class AccountScheduleStatusSensor(AccountScheduleEntity, SensorEntity):
         "not_selected",
         "selected",
         "auto_selected",
+        "cabinet_selected",
+        "cabinet_group_mismatch",
+        "cabinet_unavailable",
         "address_unavailable",
         "group_unavailable",
         "labels_hidden",
@@ -178,15 +207,18 @@ class AccountScheduleStatusSensor(AccountScheduleEntity, SensorEntity):
         *("schedule_" + status for status in SCHEDULE_STATUSES),
     ]
 
-    def __init__(self, entry, number):
-        super().__init__(entry, number, "account_schedule_status")
+    def __init__(self, entry, number, *, day_offset=0):
+        self.day_offset = day_offset
+        super().__init__(entry, number, (
+            "account_schedule_tomorrow_status" if day_offset else "account_schedule_status"
+        ))
 
     @property
     def native_value(self):
         _, coordinator, groups, status = self.selected
-        if status in ("selected", "auto_selected"):
-            publication = schedule_status(coordinator, groups)
-            if publication != "current":
+        if status in SELECTED_STATUSES:
+            publication = schedule_status(coordinator, groups, day_offset=self.day_offset)
+            if self.day_offset or publication != "current":
                 return "schedule_" + publication
         return status
 
@@ -195,8 +227,38 @@ class AccountScheduleStatusSensor(AccountScheduleEntity, SensorEntity):
         _, coordinator, groups, _ = self.selected
         return {
             **super().extra_state_attributes,
-            **(status_attributes(coordinator, groups) if coordinator else {}),
+            **(status_attributes(coordinator, groups, day_offset=self.day_offset) if coordinator else {}),
         }
+
+
+class AccountScheduleEventSensor(AccountScheduleEntity, SensorEntity):
+    """Private timestamps use the apartment selection, leaving the building intact."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, entry, number, key):
+        self.key = key
+        super().__init__(entry, number, "account_" + key)
+
+    @property
+    def _event(self):
+        _, coordinator, groups, status = self.selected
+        if status not in SELECTED_STATUSES:
+            return ScheduledEvent(status="group_selection_unavailable")
+        return scheduled_event(coordinator, self.key, groups)
+
+    @property
+    def available(self):
+        return self._event.available
+
+    @property
+    def native_value(self):
+        return self._event.value
+
+    @property
+    def extra_state_attributes(self):
+        return {**super().extra_state_attributes, **self._event.attributes}
 
 
 class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
@@ -210,7 +272,7 @@ class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
     def available(self):
         _, coordinator, _, status = self.selected
         return (
-            status in ("selected", "auto_selected")
+            status in SELECTED_STATUSES
             and coordinator.notifications_ready
             and any(c.kind == self.kind for c in coordinator.schedule.coverage)
         )
@@ -241,7 +303,7 @@ class AccountScheduleCalendar(AccountScheduleEntity, CalendarEntity):
                 translation_key=(
                     "schedule_" + schedule_status(coordinator)
                     if coordinator
-                    and status in ("selected", "auto_selected")
+                    and status in SELECTED_STATUSES
                     and not coordinator.notifications_ready
                     else "personal_schedule_unavailable"
                 ),

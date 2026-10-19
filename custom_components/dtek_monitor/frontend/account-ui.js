@@ -1,4 +1,10 @@
 /* Shared presentation helpers. No credentials, account state or network calls. */
+export function isUkrainian(language) {
+  return ["uk", "ru"].includes(String(language || "en").toLowerCase().split(/[-_]/)[0]);
+}
+export function languageLocale(language) {
+  return isUkrainian(language) ? "uk-UA" : (language || "en");
+}
 export function el(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;
@@ -7,13 +13,13 @@ export function el(tag, text, className) {
 }
 export function number(value, language = "en") {
   if (value === null || value === undefined || value === "" || !Number.isFinite(Number(value))) return "—";
-  return new Intl.NumberFormat(language, {maximumFractionDigits: 3}).format(Number(value));
+  return new Intl.NumberFormat(languageLocale(language), {maximumFractionDigits: 3}).format(Number(value));
 }
 export function date(value, language = "en", time = false) {
   if (!value) return "—";
   const stamp = new Date(value);
   if (!Number.isFinite(stamp.getTime())) return "—";
-  return new Intl.DateTimeFormat(language, {
+  return new Intl.DateTimeFormat(languageLocale(language), {
     dateStyle: "medium", ...(time ? {timeStyle: "short"} : {}), timeZone: "Europe/Kyiv",
   }).format(stamp);
 }

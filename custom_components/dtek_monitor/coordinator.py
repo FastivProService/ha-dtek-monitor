@@ -5,13 +5,18 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import random
+import asyncio
+import math
+from time import monotonic
 from datetime import timedelta
 from typing import Any
 from collections.abc import Callable
 
 from homeassistant.components.calendar import CalendarEvent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -29,6 +34,8 @@ from .schedule import (
     KYIV_TZ,
     ScheduleWindow,
 )
+from .schedule_events import event_summary, merge_schedule_intervals, next_schedule_boundary
+from .schedule_updates import ScheduleUpdates
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,6 +78,8 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.snapshot: ScheduleSnapshot | None = None
         self.notifications_ready = False
         self.address_data: dict[str, Any] | None = None
+        self.address_works = None
+        self.works_incomplete = False
         self.address_success = False
         self.address_last_success: dt.datetime | None = None
         self.schedule_last_success: dt.datetime | None = None
@@ -81,6 +90,11 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass, 1, f"dtek_monitor.{entry.entry_id}.schedule_snapshot"
         )
         self._diagnostic_listeners: set[Callable[[], None]] = set()
+        self._clock_started = False
+        self._cancel_clock: Callable[[], None] | None = None
+        self.changes = ScheduleUpdates(hass, entry, self)
+        self._manual_refresh_lock = asyncio.Lock()
+        self._last_manual_refresh: float | None = None
 
         scan_interval = entry.options.get(
             CONF_SCAN_INTERVAL,
@@ -97,12 +111,74 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             config_entry=entry,
         )
 
+    async def async_manual_refresh(self):
+        """Refresh an address with a shared per-entry limit for all UI callers."""
+        async with self._manual_refresh_lock:
+            remaining = max(
+                60 - (monotonic() - self._last_manual_refresh)
+                if self._last_manual_refresh is not None else 0,
+                self.provider.diagnostics.get("public_retry_in_seconds", 0) or 0,
+            )
+            if remaining > 0:
+                raise ServiceValidationError(
+                    translation_domain="dtek_monitor", translation_key="schedule_refresh_cooldown",
+                    translation_placeholders={"seconds": str(math.ceil(remaining))},
+                )
+            self._last_manual_refresh = monotonic()
+            await self.async_refresh()
+            if not self.last_update_success:
+                raise HomeAssistantError(
+                    translation_domain="dtek_monitor", translation_key="schedule_refresh_failed",
+                )
+
     def async_add_diagnostic_listener(
         self, listener: Callable[[], None]
     ) -> Callable[[], None]:
         """Notify diagnostics even when HA suppresses repeated failed updates."""
         self._diagnostic_listeners.add(listener)
         return lambda: self._diagnostic_listeners.discard(listener)
+
+    @callback
+    def async_start_schedule_clock(self):
+        """Keep derived states current between network polls."""
+        self._clock_started = True
+        self._schedule_clock()
+
+    @callback
+    def async_stop_schedule_clock(self):
+        self._clock_started = False
+        if self._cancel_clock:
+            self._cancel_clock()
+            self._cancel_clock = None
+
+    @callback
+    def _schedule_clock(self):
+        if self._cancel_clock:
+            self._cancel_clock()
+            self._cancel_clock = None
+        if self._clock_started:
+            self._cancel_clock = async_track_point_in_utc_time(
+                self.hass, self._clock_tick,
+                next_schedule_boundary(
+                    self.schedule if self.notifications_ready else None,
+                    dt.datetime.now(dt.timezone.utc),
+                ),
+            )
+
+    @callback
+    def _clock_tick(self, now):
+        self._cancel_clock = None
+        self.async_update_listeners()
+        self._notify_diagnostics()
+        self._schedule_clock()
+
+    @callback
+    def _notify_diagnostics(self):
+        for listener in tuple(self._diagnostic_listeners):
+            try:
+                listener()
+            except Exception:
+                _LOGGER.exception("Failed to update DTEK connection diagnostics")
 
     @property
     def snapshot_attributes(self) -> dict[str, Any]:
@@ -164,7 +240,11 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_error = str(err)
             self.consecutive_failures += 1
             delay = min(60 * 2 ** min(self.consecutive_failures - 1, 4), 600)
-            self.update_interval = timedelta(seconds=delay * random.uniform(0.9, 1.1))
+            retry_in = self.provider.diagnostics.get("public_retry_in_seconds", 0)
+            retry_in = retry_in if type(retry_in) is int else 0
+            self.update_interval = timedelta(
+                seconds=max(retry_in, delay * random.uniform(0.9, 1.1))
+            )
             raise UpdateFailed(f"Error fetching DTEK data: {err}") from err
         else:
             self.connection_state = "ok"
@@ -201,19 +281,19 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.notifications_ready = True
             return data
         finally:
+            await self.changes.update()
             # HA normally suppresses listeners on consecutive failures. Address
             # status and display snapshots still need updates during that time.
             if not self.last_update_success:
                 self.hass.loop.call_soon(self.async_update_listeners)
-            for listener in tuple(self._diagnostic_listeners):
-                try:
-                    listener()
-                except Exception:
-                    _LOGGER.exception("Failed to update DTEK connection diagnostics")
+            self._notify_diagnostics()
+            self._schedule_clock()
 
     async def _fetch_data(self) -> dict[str, Any]:
         """Only normalized provider results cross into Home Assistant."""
         self.address_success = False
+        self.address_works = None
+        self.works_incomplete = False
         self.overview = None
         self.address_error = self.schedule_error = None
         self.schedule_state = "missing"
@@ -242,6 +322,8 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "group_labels_visible": result.address.publication.group_labels is True,
             }
             self.address_success = True
+            self.address_works = result.address.works
+            self.works_incomplete = result.address.works_incomplete
             self.address_last_success = result.address.fetched_at
         if result.schedule_checked_at is not None:
             self.schedule_last_success = result.schedule_checked_at
@@ -260,7 +342,7 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             or tuple(g.id for g in schedule.groups) != result.address.groups
         ):
             raise ProviderError("Schedule does not match the verified address/groups")
-        self.schedule = schedule
+        self.schedule = merge_schedule_intervals(schedule)
         if result.overview is not None and result.overview.address != self.address:
             raise ProviderError("Overview belongs to a different address")
         self.overview = result.overview
@@ -285,7 +367,7 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         start = start.replace(tzinfo=KYIV_TZ) if start.tzinfo is None else start
         end = end.replace(tzinfo=KYIV_TZ) if end.tzinfo is None else end
         return [
-            _window_to_calendar_event(i.as_window())
+            _window_to_calendar_event(i.as_window(), self.hass.config.language)
             for i in self.schedule.intervals
             if i.group_id in groups
             and (event_type is None or i.kind == event_type)
@@ -308,11 +390,11 @@ class DTEKDataCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return events[0] if events else None
 
 
-def _window_to_calendar_event(window: ScheduleWindow) -> CalendarEvent:
+def _window_to_calendar_event(window: ScheduleWindow, language="en") -> CalendarEvent:
     """Convert a pure schedule window into a Home Assistant CalendarEvent."""
     return CalendarEvent(
         start=window.start,
         end=window.end,
-        summary=window.summary,
+        summary=event_summary(window.event_type, language),
         description=window.description,
     )

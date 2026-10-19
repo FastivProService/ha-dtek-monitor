@@ -29,6 +29,11 @@ from .account_client import create_account_provider
 from .account import AccountAPIChanged
 from .account_api_health import report_api_issue, clear_api_issue, watch_api
 from .account_links import AccountLinkError, household_number
+from .account_providers import (
+    account_connection_title,
+    account_provider_supported,
+    get_account_provider_spec,
+)
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
 
@@ -52,7 +57,9 @@ class AccountLinkFlowMixin:
         provider = (
             data.get(CONF_PROVIDER) if entry else getattr(self, "_provider_id", None)
         )
-        if provider != "dtek_oem" or not data.get(CONF_ACCOUNT_SUBJECT):
+        if not account_provider_supported(provider) or not data.get(
+            CONF_ACCOUNT_SUBJECT
+        ):
             raise AccountLinkError("link_session_changed")
         if entry and (
             entry.data.get(CONF_ENTRY_KIND) != ENTRY_ACCOUNT
@@ -75,10 +82,11 @@ class AccountLinkFlowMixin:
 
     def _assert_unlink_safe(self, number):
         # Registry objects remain until unload has drained in-flight submissions.
-        prefix = f"account:{account_key('dtek_oem', number)}:"
+        provider = self._link_context()[0]
+        prefix = f"account:{account_key(provider, number)}:"
         for entry in self.hass.config_entries.async_entries(DOMAIN):
             if (
-                entry.data.get(CONF_PROVIDER) == "dtek_oem"
+                entry.data.get(CONF_PROVIDER) == provider
                 and entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT
                 and number in entry.data.get(CONF_ACCOUNTS, {})
             ):
@@ -113,7 +121,7 @@ class AccountLinkFlowMixin:
 
     def _link_error(self, error):
         if isinstance(error, AccountAPIChanged):
-            report_api_issue(self.hass, "dtek_oem", error)
+            report_api_issue(self.hass, self._link_identity[0], error)
             return "account_api_changed"
         if isinstance(error, AccountLinkError):
             return error.code
@@ -136,7 +144,7 @@ class AccountLinkFlowMixin:
             return self.async_abort(reason="link_session_changed")
         credentials, self._account_credentials = self._account_credentials, {}
         return self.async_create_entry(
-            title=f"Personal account • ••••{credentials['username'][-4:]}",
+            title=account_connection_title(self._provider_id, credentials["username"]),
             description="account_connected_empty",
             data={
                 CONF_ENTRY_KIND: ENTRY_ACCOUNT,
@@ -154,10 +162,15 @@ class AccountLinkFlowMixin:
 
     async def async_step_account_link(self, user_input=None):
         errors = {}
+        try:
+            provider = self._link_context()[0]
+            spec = get_account_provider_spec(provider)
+        except AccountError as err:
+            return self.async_abort(reason=self._link_error(err))
         if user_input is not None:
             self._link_review = None
             try:
-                number = household_number(user_input.get("account_number", ""))
+                number = household_number(user_input.get("account_number", ""), spec)
 
                 async def lookup(client):
                     if number in {a.number for a in await client.list_accounts()}:
@@ -165,7 +178,7 @@ class AccountLinkFlowMixin:
                     return await client.lookup_account(number)
 
                 candidate = await self._with_link_client(lookup)
-                clear_api_issue(self.hass, "dtek_oem", "link_lookup")
+                clear_api_issue(self.hass, provider, "link_lookup")
                 self._link_review = ("link", candidate, monotonic())
                 return await self.async_step_account_link_confirm()
             except AccountError as err:
@@ -181,6 +194,10 @@ class AccountLinkFlowMixin:
                 }
             ),
             errors=errors,
+            description_placeholders={
+                "account_length": str(spec.household_length),
+                "account_prefixes": ", ".join(spec.household_prefixes),
+            },
         )
 
     async def async_step_account_unlink(self, user_input=None):
@@ -272,7 +289,7 @@ class AccountLinkFlowMixin:
                     await self._with_link_client(change)
                     clear_api_issue(
                         self.hass,
-                        "dtek_oem",
+                        self._link_identity[0],
                         "link_add" if action == "link" else "link_remove",
                     )
                 except AccountError as err:

@@ -121,7 +121,9 @@ class AccountBuildingLinks:
             provider = None
             try:
                 async with asyncio.timeout(30):
-                    provider = create_provider(self.entry.data[CONF_PROVIDER])
+                    provider = create_provider(
+                        self.entry.data[CONF_PROVIDER], hass=self.hass
+                    )
                     address = await resolve_building(provider, suggestion)
                 if address is None:
                     self._state(number, "address_confirmation")

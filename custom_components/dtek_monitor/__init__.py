@@ -26,6 +26,7 @@ PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.CALENDAR,
     Platform.SENSOR,
+    Platform.BUTTON,
 ]
 ACCOUNT_PLATFORMS = [Platform.SENSOR, Platform.BUTTON, Platform.CALENDAR]
 
@@ -58,7 +59,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             await coordinator.checks.start()
             await coordinator.meter_notifications.start()
             coordinator.buildings.start()
+            coordinator.groups.start()
+            await coordinator.schedule_updates.start()
         except BaseException:
+            await coordinator.schedule_updates.close()
+            await coordinator.groups.close()
             await coordinator.buildings.close()
             await coordinator.meter_notifications.close()
             await coordinator.checks.close()
@@ -70,7 +75,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return True
     await _async_migrate_registry_identifiers(hass, entry)
 
-    provider = create_provider(entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID))
+    provider = create_provider(
+        entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID), hass=hass
+    )
 
     coordinator = DTEKDataCoordinator(hass, provider, entry)
     await coordinator.async_load_snapshot()
@@ -91,7 +98,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     try:
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        coordinator.async_start_schedule_clock()
+        entry.async_on_unload(coordinator.async_stop_schedule_clock)
     except Exception:
+        coordinator.async_stop_schedule_clock()
         await provider.close()
         raise
 
@@ -130,6 +140,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
+            await entry.runtime_data.schedule_updates.close()
+            await entry.runtime_data.groups.close()
             await entry.runtime_data.buildings.close()
             await entry.runtime_data.meter_notifications.close()
             await entry.runtime_data.checks.close()
@@ -142,6 +154,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if unload_ok:
         coordinator: DTEKDataCoordinator = entry.runtime_data
+        coordinator.async_stop_schedule_clock()
         await coordinator.provider.close()
 
     return unload_ok
@@ -150,6 +163,24 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the config entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Remove this connection's optional-service repair without affecting others."""
+    if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+        from .account_api_health import clear_api_issue
+        from .account_schedule_updates import remove_account_schedule_updates
+
+        await remove_account_schedule_updates(hass, entry)
+
+        clear_api_issue(
+            hass, entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID),
+            "account_groups", scope=entry.entry_id,
+        )
+    else:
+        from .schedule_updates import remove_schedule_updates
+
+        await remove_schedule_updates(hass, entry)
 
 
 async def _async_migrate_registry_identifiers(

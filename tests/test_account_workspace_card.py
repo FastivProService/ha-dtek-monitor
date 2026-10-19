@@ -192,6 +192,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         for language, message, connect in [
             ("en", "No personal accounts are connected yet.", "Connect DTEK"),
             ("uk", "Особові рахунки ще не підключені.", "Підключити ДТЕК"),
+            ("ru", "Особові рахунки ще не підключені.", "Підключити ДТЕК"),
         ]:
             with self.subTest(language=language):
                 await self.page.evaluate("""async language => {
@@ -203,6 +204,18 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(await self.page.locator(".account-picker").is_visible())
                 self.assertEqual(await self.page.evaluate("card._config.entity"), "sensor.account_1")
                 self.assertEqual(await self.page.get_by_role("tab").count(), 0)
+
+    async def test_russian_preference_uses_ukrainian_cards_and_date_format(self):
+        await self.page.evaluate("hass.language='ru';card.hass=hass")
+        await self.page.get_by_role("tab", name="Огляд", exact=True).wait_for()
+        text = await self.page.locator("#panel-overview").inner_text()
+        self.assertIn("вересень", text)
+        self.assertNotIn("September", text)
+        self.assertNotIn("сентябрь", text)
+        await self.page.get_by_role("tab", name="Покази", exact=True).click()
+        await self.page.get_by_role("button", name="Перевірити покази", exact=True).wait_for()
+        await self.page.evaluate("hass.language='en';card.hass=hass")
+        await self.page.get_by_role("tab", name="Overview", exact=True).wait_for()
 
     async def test_empty_to_new_account_keeps_explicit_choice_accessible(self):
         await self.page.evaluate("""async () => {
@@ -304,3 +317,18 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         await self.page.locator(".status:visible").filter(has_text="Choose yours in settings.").wait_for()
         await self.page.get_by_label("Show schedule for", exact=True).select_option("building")
         await self.page.locator(".test-calendar").wait_for()
+
+    async def test_group_source_and_multiple_cabinet_candidates_are_visible(self):
+        await self.page.evaluate("""() => {
+          hass.states['sensor.schedule_1']={state:'cabinet_selected',attributes:{selection_source:'cabinet',schedule_status:'current'}};
+          card.hass={...hass};
+        }""")
+        self.assertIn("From the DTEK personal account", await self.page.locator(".group").inner_text())
+        await self.page.evaluate("""() => {
+          hass.states['sensor.group_1'].attributes.selected_groups=[];
+          hass.states['sensor.schedule_1']={state:'not_selected',attributes:{cabinet_groups:['GPV3.1','GPV5.1']}};
+          card.hass={...hass};
+        }""")
+        text = await self.page.locator(".group").inner_text()
+        self.assertIn("The cabinet lists several groups: 3.1, 5.1", text)
+        self.assertIn("Not selected", text)

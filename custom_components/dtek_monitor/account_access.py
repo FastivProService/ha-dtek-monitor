@@ -9,6 +9,7 @@ from functools import wraps
 
 from .account import AccountError, normalize_phone
 from .account_client import DTEKAccountClient
+from .account_providers import AccountProviderSpec
 
 SMS_INTERVAL = 60
 MAX_CODE_ATTEMPTS = 5
@@ -51,8 +52,8 @@ def validate_password(password: str, confirmation: str) -> None:
 class AccountAccessClient(DTEKAccountClient):
     """One short-lived challenge; no automatic SMS or finalization retries."""
 
-    def __init__(self, session=None):
-        super().__init__(session)
+    def __init__(self, session=None, *, spec: AccountProviderSpec | None = None):
+        super().__init__(session, spec=spec)
         self.kind = ""
         self.phone = ""
         self.phase = "new"

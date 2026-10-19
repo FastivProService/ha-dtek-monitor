@@ -10,6 +10,8 @@ from homeassistant.helpers.selector import (
 
 from .account import CONF_ACCOUNTS
 from .account_schedule import CONF_ACCOUNT_SCHEDULES, address_entries
+from .account_groups import USE_CABINET_GROUPS
+from .account_providers import ACCOUNT_PROVIDER_SPECS
 
 
 def selector(choices, multiple=False, translation_key=None):
@@ -150,9 +152,11 @@ async def schedule_groups(flow, entry, user_input):
         else []
     )
     errors = {}
+    use_cabinet = old.get(USE_CABINET_GROUPS, True)
     if user_input is not None:
         groups = user_input.get("schedule_groups", [])
-        if not isinstance(groups, list) or any(
+        use_cabinet = user_input.get(USE_CABINET_GROUPS, use_cabinet)
+        if type(use_cabinet) is not bool or not isinstance(groups, list) or any(
             not isinstance(g, str) or g not in choices or g not in current
             for g in groups
         ):
@@ -167,12 +171,14 @@ async def schedule_groups(flow, entry, user_input):
                     "address_entry_id": address.entry_id,
                     "groups": sorted(set(groups)),
                     "selection_source": "user" if groups else "automatic",
+                    USE_CABINET_GROUPS: use_cabinet,
                 },
             )
         if isinstance(groups, list):
             default = [g for g in groups if isinstance(g, str) and g in choices]
     elif not current:
         errors["base"] = "schedule_groups_unavailable"
+    spec = ACCOUNT_PROVIDER_SPECS.get(entry.data.get("provider_id"))
     return flow.async_show_form(
         step_id="account_schedule_groups",
         errors=errors,
@@ -182,7 +188,9 @@ async def schedule_groups(flow, entry, user_input):
                 vol.Optional("schedule_groups", default=default): selector(
                     [{"value": group, "label": group} for group in choices],
                     multiple=True,
-                )
+                ),
+                **({vol.Optional(USE_CABINET_GROUPS, default=use_cabinet if type(use_cabinet) is bool else True): bool}
+                   if spec and spec.group_origin else {}),
             }
         ),
     )

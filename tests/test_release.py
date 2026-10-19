@@ -35,6 +35,7 @@ class ReleaseTests(unittest.TestCase):
             ("2.0.0b1", True),
             ("2.0.0a2", True),
             ("2.0.0rc1", True),
+            ("2.0.0-rc1", True),
             ("2.0.0", False),
         ]:
             with self.subTest(version=version):
@@ -45,7 +46,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_invalid_tag_mismatch_and_missing_notes_stop_release(self):
         self.prepare("2.0.0b1")
-        for tag in ["2.0.0b1", "v2.0.0-beta.1", "v2.0.0", "v02.0.0b1", "v2.0.0b1\n"]:
+        for tag in ["2.0.0b1", "v2.0.0-beta.1", "v2.0.0", "v02.0.0b1", "v2.0.0b1\n", "v2.0.0-rc0"]:
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 release.metadata(self.root, tag)
         (self.root / "CHANGELOG.md").write_text("## [2.0.0b1] - 2026-10-18\n\n")
@@ -60,6 +61,13 @@ class ReleaseTests(unittest.TestCase):
             release.metadata(self.root, "v2.0.0b1")
         path.write_text('import("./account-workspace-card.js?v=2.0.0b1");')
         self.assertTrue(release.metadata(self.root, "v2.0.0b1")["prerelease"])
+
+    def test_release_documentation_links_point_to_the_tag(self):
+        self.prepare("2.0.0-rc1")
+        path = self.root / "CHANGELOG.md"
+        path.write_text(path.read_text().replace("Beta notes.", "[Upgrade](docs/UPGRADING.md)"))
+        notes = release.metadata(self.root, "v2.0.0-rc1")["notes"]
+        self.assertIn("/blob/v2.0.0-rc1/docs/UPGRADING.md)", notes)
 
     def test_archive_excludes_untracked_secrets_and_has_correct_root(self):
         self.prepare("2.0.0b1")

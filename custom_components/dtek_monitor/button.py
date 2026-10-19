@@ -1,4 +1,4 @@
-"""Explicit read-only cabinet refresh; every account shares the same limit."""
+"""Explicit read-only building and cabinet refresh with shared request limits."""
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.const import EntityCategory
@@ -9,6 +9,7 @@ from .account import CONF_ACCOUNTS, CONF_ENTRY_KIND, ENTRY_ACCOUNT, account_key
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
 from .account_submission import SubmissionError
+from .helpers import build_device_info, build_entity_unique_id, suggested_entity_id
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -27,6 +28,24 @@ async def async_setup_entry(hass, entry, async_add_entities):
                 for number in entry.data[CONF_ACCOUNTS]
             ]
         )
+    else:
+        async_add_entities([ScheduleRefreshButton(entry)])
+
+
+class ScheduleRefreshButton(ButtonEntity):
+    _attr_has_entity_name = True
+    _attr_translation_key = "schedule_refresh"
+    _attr_icon = "mdi:calendar-refresh"
+
+    def __init__(self, entry):
+        self.coordinator = entry.runtime_data
+        self._attr_unique_id = build_entity_unique_id(entry, "schedule_refresh")
+        self._attr_device_info = build_device_info(entry)
+        if entity_id := suggested_entity_id(entry, "button", "schedule_refresh"):
+            self.entity_id = entity_id
+
+    async def async_press(self):
+        await self.coordinator.async_manual_refresh()
 
 
 class AccountRefreshButton(ButtonEntity):

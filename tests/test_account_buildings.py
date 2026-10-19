@@ -116,6 +116,23 @@ class BuildingLinkTests(unittest.IsolatedAsyncioTestCase):
             self.entries[1].entry_id,
         )
 
+    async def test_regional_cabinet_discovers_building_in_its_own_directory(self):
+        self.entry.data["provider_id"] = "dtek_kem"
+        self.provider.provider_id = "dtek_kem"
+        with patch.object(
+            mod, "create_provider", return_value=self.provider
+        ) as factory:
+            await self.worker.reconcile()
+        factory.assert_called_once_with("dtek_kem", hass=self.hass)
+        public = self.entries[-1]
+        self.assertEqual(public.data["provider_id"], "dtek_kem")
+        self.assertNotIn("username", public.data)
+        self.assertNotIn("password", public.data)
+        self.assertNotIn("accounts", public.data)
+        self.assertEqual(
+            self.entry.options[mod.LINKS]["100001"]["address_entry_id"], public.entry_id
+        )
+
     async def test_two_cabinets_serialize_creation_and_keep_independent_links(self):
         second = SimpleNamespace(
             entry_id="account-two",

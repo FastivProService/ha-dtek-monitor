@@ -54,4 +54,5 @@ jobs:
           name: DTEK Monitor ${{ needs.verify-version.outputs.version }}
           body_path: release-notes.md
           prerelease: ${{ needs.verify-version.outputs.prerelease == 'true' }}
-          make_latest: ${{ needs.verify-version.outputs.prerelease == 'true' && 'false' || 'true' }}
+          make_latest: >-
+            ${{ needs.verify-version.outputs.prerelease == 'true' && 'false' || 'true' }}

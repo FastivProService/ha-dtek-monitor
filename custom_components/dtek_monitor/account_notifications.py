@@ -10,6 +10,7 @@ from homeassistant.core import callback
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
 
+from .localization import is_ukrainian
 from .account import CONF_ACCOUNTS, account_key
 from .providers import CONF_PROVIDER
 from .schedule import KYIV_TZ
@@ -196,7 +197,7 @@ class AccountMeterNotifications:
                     previous = self._fingerprints.get(marker)
                     if marker in self._shown and previous == event["fingerprint"]:
                         continue
-                    uk = self.hass.config.language == "uk"
+                    uk = is_ukrainian(self.hass.config.language)
                     title = (
                         "ДТЕК · лічильник" if uk else "DTEK · meter"
                     ) + f" · ••••{number[-4:]}"

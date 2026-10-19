@@ -1,4 +1,4 @@
-"""Odessa household cabinet API with explicit, non-retried reading submissions."""
+"""Shared household cabinet API with explicit, non-retried reading submissions."""
 
 from __future__ import annotations
 
@@ -19,7 +19,6 @@ from curl_cffi.requests import AsyncSession
 from curl_cffi.requests.exceptions import RequestException
 
 from .account import (
-    ACCOUNT_PROVIDERS,
     AccountAuthError,
     AccountAPIChanged,
     AccountError,
@@ -39,26 +38,24 @@ from .account_history import (
 )
 from .account_profile import parse_profile
 from .account_links import AccountLinksClientMixin
+from .account_providers import AccountProviderSpec, get_account_provider_spec
+from .account_group_client import AccountGroupAuthorizationMixin
 
-AUTH_ORIGIN = "https://auth.my.dtek-oem.com.ua"
-CABINET_ORIGIN = "https://my.dtek-oem.com.ua"
-# Public OAuth application identifier shipped by DTEK's own web frontend.
-OAUTH_CLIENT_ID = "ee2b502c-e74e-476c-bb1a-dc7e075e2c47"
-CALLBACK = CABINET_ORIGIN + "/oauth/callback"
 BILLING = "/api/billing-service/api"
 
 
 def create_account_provider(provider_id: str) -> DTEKAccountClient:
     """Load transport at module import time, outside HA's event loop."""
-    if provider_id not in ACCOUNT_PROVIDERS:
-        raise AccountError("Personal accounts are not supported for this operator")
-    return DTEKAccountClient()
+    return DTEKAccountClient(spec=get_account_provider_spec(provider_id))
 
 
-class DTEKAccountClient(AccountLinksClientMixin):
+class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin):
     """Own cookie jar, PKCE login and serialized short-lived API token renewal."""
 
-    def __init__(self, session: Any = None) -> None:
+    def __init__(
+        self, session: Any = None, *, spec: AccountProviderSpec | None = None
+    ) -> None:
+        self._spec = spec if spec is not None else get_account_provider_spec()
         self._session = session or AsyncSession(
             impersonate="chrome136", timeout=25, allow_redirects=False
         )
@@ -70,6 +67,11 @@ class DTEKAccountClient(AccountLinksClientMixin):
         self.subject: str | None = None
         self.api_issue_handler = None
         self.api_recovered_handler = None
+
+    @property
+    def spec(self) -> AccountProviderSpec:
+        """A session cannot switch operators while retaining cookies or tokens."""
+        return self._spec
 
     async def close(self) -> None:
         await self._session.close()
@@ -110,7 +112,7 @@ class DTEKAccountClient(AccountLinksClientMixin):
         )
 
     async def _request(self, method: str, path: str, *, auth=False, **kwargs):
-        origin = AUTH_ORIGIN if auth else CABINET_ORIGIN
+        origin = self.spec.auth_origin if auth else self.spec.cabinet_origin
         headers = {
             "Accept": "application/json",
             "Origin": origin,
@@ -184,6 +186,7 @@ class DTEKAccountClient(AccountLinksClientMixin):
             self._token = ""
             self._accounts.clear()
             self._linked_profiles.clear()
+            self.subject = None
             self._check(await self._request("GET", "/login", auth=True))
             self._check(
                 await self._request(
@@ -206,8 +209,8 @@ class DTEKAccountClient(AccountLinksClientMixin):
                 "/api/oauth/authorize",
                 auth=True,
                 params={
-                    "redirect_uri": CALLBACK,
-                    "client_id": OAUTH_CLIENT_ID,
+                    "redirect_uri": self.spec.callback,
+                    "client_id": self.spec.oauth_client_id,
                     "response_type": "code",
                     "state": state,
                     "code_challenge_method": "S256",
@@ -220,7 +223,7 @@ class DTEKAccountClient(AccountLinksClientMixin):
             target = urlsplit(response.headers.get("location", ""))
             query = parse_qs(target.query)
             if (
-                target._replace(query="", fragment="").geturl() != CALLBACK
+                target._replace(query="", fragment="").geturl() != self.spec.callback
                 or query.get("state") != [state]
                 or len(query.get("code", [])) != 1
             ):
@@ -231,8 +234,8 @@ class DTEKAccountClient(AccountLinksClientMixin):
                     "/api/oauth/token",
                     data={
                         "grant_type": "authorization_code",
-                        "client_id": OAUTH_CLIENT_ID,
-                        "redirect_uri": CALLBACK,
+                        "client_id": self.spec.oauth_client_id,
+                        "redirect_uri": self.spec.callback,
                         "code": query["code"][0],
                         "code_verifier": verifier,
                     },
@@ -253,7 +256,10 @@ class DTEKAccountClient(AccountLinksClientMixin):
                 await self._request(
                     "POST",
                     "/api/oauth/token",
-                    data={"grant_type": "refresh_token", "client_id": OAUTH_CLIENT_ID},
+                    data={
+                        "grant_type": "refresh_token",
+                        "client_id": self.spec.oauth_client_id,
+                    },
                 ),
                 credentials=True,
             )

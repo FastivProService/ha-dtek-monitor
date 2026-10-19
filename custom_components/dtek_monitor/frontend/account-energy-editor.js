@@ -1,4 +1,4 @@
-import { date, number, embeddedCSS } from "./account-ui.js?v=2.0.0b1";
+import { isUkrainian,  date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
 /* Local references only. No operation in this editor submits readings to DTEK. */
 const words = {
   en: {
@@ -58,7 +58,7 @@ const words = {
     history: "Історія опорних пар", noContext: "Для нової прив’язки спочатку завантажте доступний лічильник ДТЕК.", mismatch: "Прив’язка стосується іншого лічильника. Замініть її перед використанням підказки.",
   },
 };
-export function energyMessage(language, code) { const w = words[language?.startsWith("uk") ? "uk" : "en"]; return w[code]; }
+export function energyMessage(language, code) { const w = words[isUkrainian(language) ? "uk" : "en"]; return w[code]; }
 function el(tag, text) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; return e; }
 
 export class DtekEnergyEditor extends HTMLElement {
@@ -72,7 +72,7 @@ export class DtekEnergyEditor extends HTMLElement {
   set locked(value) { if(this._locked!==value){this._locked=value;this.render();} }
   emit(name, detail) { this.dispatchEvent(new CustomEvent(name,{detail,bubbles:true,composed:true})); }
   invalidate() { this._seq++;this._busy=false;this._data=null;this._error=null;this.render(); }
-  get w() { return words[this._hass?.language?.startsWith("uk") ? "uk" : "en"]; }
+  get w() { return words[isUkrainian(this._hass?.language) ? "uk" : "en"]; }
   request(action, extra = {}) { return this._hass.callWS({type: "dtek_monitor/account_energy", entity_id: this._entity, action, ...extra}); }
   async act(action) {
     if (this._busy || (this._locked && action!=="get")) return;
@@ -124,7 +124,7 @@ export class DtekEnergyEditor extends HTMLElement {
     if (!this._hass) return;
     if (this._compact && !this._settingsOpen && !this._draft) { this.renderCompact(); return; }
     const w = this.w, root = el("section"), binding = this._data?.binding;
-    if (this._compact) root.append(this.button(this._hass.language?.startsWith("uk") ? "Закрити налаштування датчика" : "Close sensor settings", () => {this._settingsOpen=false;this.render();}));
+    if (this._compact) root.append(this.button(isUkrainian(this._hass.language) ? "Закрити налаштування датчика" : "Close sensor settings", () => {this._settingsOpen=false;this.render();}));
     if(!this._options.settingsOnly)root.append(el("h3", w.title));
     if(!this._options.settingsOnly || this._editing || !binding)root.append(el("p", w.help));
     if(this._locked){const note=el("p",w.locked);note.setAttribute("role","status");root.append(note);}
@@ -150,18 +150,18 @@ export class DtekEnergyEditor extends HTMLElement {
           root.append(el("h4", w[zone.toLowerCase()]), el("p", this._options.settingsOnly?(this._hass.states?.[row.entity_id]?.attributes?.friendly_name || row.entity_id):row.entity_id));
           if (binding.mode === "offset" && !this._options.settingsOnly) root.append(el("p", `${w.reference} — ${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)} kWh; ${w.source}: ${number(row.anchor_source,this._hass.language)} kWh`));
           if (reading?.error) root.append(el("p", w[reading.error] || w.unavailable));
-          else if (reading) root.append(el("p", this._options.settingsOnly?`${w.proposal}: ${number(reading.send_value,this._hass.language)} ${this._hass.language?.startsWith("uk")?"кВт·год":"kWh"}`:`${w.proposal}: ${reading.value} kWh → ${reading.send_value}`), el("p", `${w.at}: ${date(reading.source.at,this._hass.language,true)}`));
+          else if (reading) root.append(el("p", this._options.settingsOnly?`${w.proposal}: ${number(reading.send_value,this._hass.language)} ${isUkrainian(this._hass.language)?"кВт·год":"kWh"}`:`${w.proposal}: ${reading.value} kWh → ${reading.send_value}`), el("p", `${w.at}: ${date(reading.source.at,this._hass.language,true)}`));
         }
         if (!this._options.settingsOnly && this._data.ready && matches && this._context?.serial && !this._context.blocked) root.append(this.button(w.use, () => this.dispatchEvent(new CustomEvent("energy-proposal", {detail: {values: Object.fromEntries(Object.entries(this._data.readings).map(([z, r]) => [z, r.send_value])), token: this._data.proposal}, bubbles: true, composed: true}))));
         const history = el("details"); history.append(el("summary", w.history));
-        if(this._options.settingsOnly){history.append(el("p",`${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));for(const [zone,row] of Object.entries(binding.zones)){history.append(el("p",`${w[zone.toLowerCase()]} · ${row.entity_id}`));if(binding.mode==="offset")history.append(el("p",`${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)}; ${w.source}: ${number(row.anchor_source,this._hass.language)} ${this._hass.language?.startsWith("uk")?"кВт·год":"kWh"}`));}}
+        if(this._options.settingsOnly){history.append(el("p",`${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));for(const [zone,row] of Object.entries(binding.zones)){history.append(el("p",`${w[zone.toLowerCase()]} · ${row.entity_id}`));if(binding.mode==="offset")history.append(el("p",`${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)}; ${w.source}: ${number(row.anchor_source,this._hass.language)} ${isUkrainian(this._hass.language)?"кВт·год":"kWh"}`));}}
         for (const record of [...binding.history].reverse()) {
           history.append(el("p", date(record.at,this._hass.language,true)));
           for (const [zone, row] of Object.entries(record.changes)) history.append(el("p", `${w[zone.toLowerCase()]}: ${row.actual ?? "—"} / ${row.source} kWh · ${w.correction}: ${row.correction ?? "—"}`));
         }
         root.append(history);
       }
-      if(this._options.settingsOnly && this._data && !this._editing)root.append(this.button(this._hass.language?.startsWith("uk")?"Оновити покази датчика":"Refresh sensor readings",()=>this.act("get")));
+      if(this._options.settingsOnly && this._data && !this._editing)root.append(this.button(isUkrainian(this._hass.language)?"Оновити покази датчика":"Refresh sensor readings",()=>this.act("get")));
       if (this._data && !this._editing) root.append(this.button(binding ? w.replace : w.link, () => {
         this._editing = true; this._fields = {mode: binding?.mode || "offset", freshness: binding?.freshness || "reported", entities: Object.fromEntries(Object.entries(binding?.zones || {}).map(([z,r])=>[z,r.entity_id])), references: {}, age: String((binding?.max_age || 900)/60), power: binding?.max_power_kw || "30"}; this.render();
       }));
@@ -205,7 +205,7 @@ export class DtekEnergyEditor extends HTMLElement {
     this.shadowRoot.replaceChildren(style, root);
   }
   renderCompact() {
-    const uk=this._hass.language?.startsWith("uk"), w=this.w, root=el("section"), binding=this._data?.binding;
+    const uk=isUkrainian(this._hass.language), w=this.w, root=el("section"), binding=this._data?.binding;
     const title=el("h3",uk?"Підказка від домашнього лічильника":"Home meter suggestion");root.append(title);
     if(this._error){const message=el("p",w[this._error]||w.unavailable);message.setAttribute("role","alert");root.append(message);}
     if(binding){

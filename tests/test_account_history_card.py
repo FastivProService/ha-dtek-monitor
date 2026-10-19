@@ -42,10 +42,10 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
             language,
         )
         (
-            await self.page.get_by_text("Meter readings · 12", exact=True).wait_for()
+            await self.page.get_by_text("Meter readings · 11", exact=True).wait_for()
             if language == "en"
             else await self.page.get_by_text(
-                "Покази лічильника · 12", exact=True
+                "Покази лічильника · 11", exact=True
             ).wait_for()
         )
 
@@ -53,6 +53,8 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
         await self.load()
         self.assertEqual(await self.page.locator("rect.bar").count(), 2)
         self.assertEqual(await self.page.locator("rect.negative").count(), 1)
+        self.assertEqual(await self.page.get_by_text("Inactive", exact=True).count(), 0)
+        await self.page.get_by_label("Show all DTEK records", exact=True).check()
         self.assertEqual(await self.page.locator("img").count(), 0)
         self.assertIsNone(await self.page.evaluate("window.injected"))
         self.assertEqual(await self.page.get_by_text("Inactive", exact=True).count(), 1)
@@ -90,6 +92,43 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
             0,
         )
         self.assertFalse(await self.page.evaluate("requests.at(-1).compare"))
+
+    async def test_filter_preserves_warnings_values_and_user_choice_during_refresh(self):
+        await self.load("uk")
+        await self.page.evaluate("""() => {
+          card._data.readings[1].status='blocked';card._data.readings[2].status='unknown';
+          card._data.readings[2].value=card._data.readings[1].value;card._render();
+        }""")
+        self.assertEqual(await self.page.locator('table.readings tr.blocked').count(), 1)
+        self.assertEqual(await self.page.locator('table.readings tr.unknown').count(), 1)
+        self.assertEqual(await self.page.locator('table.readings tr.inactive').count(), 0)
+        await self.page.get_by_label("Показати всі записи ДТЕК", exact=True).check()
+        await self.page.get_by_role("button", name="Далі", exact=True).click()
+        for _ in range(3):
+            await self.page.evaluate("card.hass={...hass,states:{changed:Math.random()}}")
+        self.assertEqual(await self.page.get_by_text("Сторінка 2 / 2", exact=True).count(), 1)
+        self.assertTrue(await self.page.get_by_label("Показати всі записи ДТЕК", exact=True).is_checked())
+        await self.page.evaluate("""() => {const base=hass.callWS;hass.callWS=msg=>msg.type==='dtek_monitor/account_history'?new Promise(resolve=>pending.push({msg,resolve})):base(msg);card.hass=hass;} """)
+        await self.page.get_by_role("button", name="Оновити історію", exact=True).click()
+        await self.page.get_by_label("Показати всі записи ДТЕК", exact=True).uncheck()
+        await self.page.evaluate("pending[0].resolve(result(2026))")
+        await self.page.get_by_role("button", name="Оновити історію", exact=True).wait_for()
+        self.assertFalse(await self.page.get_by_label("Показати всі записи ДТЕК", exact=True).is_checked())
+        self.assertEqual(await self.page.locator('table.readings tr.inactive').count(), 0)
+        self.assertEqual(await self.page.get_by_text("Сторінка 1 / 2", exact=True).count(), 1)
+        self.assertEqual(await self.page.evaluate("requests.length"), 1)  # Toggle never fetches.
+
+    async def test_all_inactive_is_explained_and_available_without_refetch(self):
+        await self.load()
+        await self.page.evaluate("card._data.readings.forEach(r=>r.status='inactive');card._render()")
+        self.assertEqual(await self.page.get_by_text("Only inactive records are available.", exact=False).count(), 1)
+        self.assertEqual(await self.page.get_by_text("No readings returned for this year.", exact=True).count(), 0)
+        await self.page.get_by_label("Show all DTEK records", exact=True).check()
+        await self.page.get_by_role("button", name="Next", exact=True).click()
+        self.assertEqual(await self.page.locator('table.readings tbody tr').count(), 2)
+        self.assertEqual(await self.page.evaluate("requests.length"), 1)
+        await self.page.get_by_label("Show all DTEK records", exact=True).uncheck()
+        self.assertEqual(await self.page.locator('table.readings').count(), 0)
 
     async def test_late_response_cannot_overwrite_user_year_choice(self):
         await self.page.evaluate(
@@ -191,4 +230,4 @@ class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(await self.page.evaluate("pending.length"), 2)
         await self.page.evaluate("pending[1].resolve(result(2026))")
-        await self.page.get_by_text("Meter readings · 12", exact=True).wait_for()
+        await self.page.get_by_text("Meter readings · 11", exact=True).wait_for()

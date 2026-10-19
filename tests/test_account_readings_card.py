@@ -24,9 +24,9 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
         await install_card(self.page, SCRIPT)
         await self.page.evaluate("""() => {
           window.ctx={account:'••••0001',address:'Example address',serial:'TEST',date:'2026-10-18',digits:6,revision:'revision',blocked:false,zones:[{zone:'GENERAL',previous:'100',date:'2026-09-30'}]};
-          window.calls=[];window.pending=[];window.deferConfirm=false;
+          window.calls=[];window.pending=[];window.deferConfirm=false;window.cabinetUrl='https://my.dtek-oem.com.ua/';
           window.hass={language:'en',callWS:async msg=>{
-            if(msg.type==='dtek_monitor/account_identity')return {masked:'••••0001'};
+            if(msg.type==='dtek_monitor/account_identity')return {masked:'••••0001',cabinet_url:cabinetUrl};
             calls.push(msg);
             if(msg.action==='context')return structuredClone(ctx);
             if(msg.action==='prepare')return {confirmation:'draft',readings:[{zone:'GENERAL',value:123,previous:'100',increase:'23'}]};
@@ -54,6 +54,71 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
             "button", name="Review readings", exact=True
         ).click()
         await self.page.get_by_role("checkbox").wait_for()
+
+    async def test_cabinet_link_uses_selected_region_and_never_falls_back(self):
+        for region in ["oem", "kem", "krem", "dnem"]:
+            url = f"https://my.dtek-{region}.com.ua/"
+            await self.page.evaluate("url => {cabinetUrl=url;card.render();}", url)
+            link = self.page.get_by_role("link", name="Open DTEK cabinet", exact=True)
+            await link.wait_for()
+            self.assertEqual(await link.get_attribute("href"), url)
+            self.assertEqual(await link.get_attribute("rel"), "noopener noreferrer")
+        for invalid in [
+            None,
+            "",
+            "javascript:alert(1)",
+            "https://example.invalid/",
+            "https://my.dtek-kem.com.ua/other",
+            "https://my.dtek-kem.com.ua@evil.invalid/",
+        ]:
+            await self.page.evaluate("url => {cabinetUrl=url;card.render();}", invalid)
+            self.assertEqual(
+                await self.page.get_by_role(
+                    "link", name="Open DTEK cabinet", exact=True
+                ).count(),
+                0,
+            )
+        self.assertEqual(await self.page.evaluate("calls.length"), 0)
+
+    async def test_late_cabinet_link_does_not_replace_typed_readings(self):
+        await self.load()
+        await self.page.get_by_label("Single zone (kWh)", exact=True).fill("123")
+        await self.page.evaluate("""() => {
+          const original=hass.callWS;
+          hass.callWS=msg=>msg.type==='dtek_monitor/account_identity'
+            ? new Promise(resolve=>pending.push({resolve})) : original(msg);
+          card.render();
+        }""")
+        field = self.page.get_by_label("Single zone (kWh)", exact=True)
+        await field.fill("456")
+        await self.page.evaluate(
+            "pending.forEach(p=>p.resolve({masked:'••••0001',cabinet_url:'https://my.dtek-kem.com.ua/'}))"
+        )
+        await self.page.get_by_role(
+            "link", name="Open DTEK cabinet", exact=True
+        ).wait_for()
+        self.assertEqual(await field.input_value(), "456")
+        self.assertEqual(
+            await self.page.evaluate("calls.map(x=>x.action)"), ["context"]
+        )
+
+    async def test_late_link_from_old_account_cannot_reappear_after_switch(self):
+        await self.page.evaluate("""() => {
+          const original=hass.callWS;
+          hass.callWS=msg=>msg.type==='dtek_monitor/account_identity'
+            ? new Promise(resolve=>pending.push({resolve,entity:msg.entity_id})) : original(msg);
+          card.render();
+          card.setConfig({entity:'sensor.other'});
+          pending.filter(p=>p.entity==='sensor.other').forEach(p=>p.resolve({masked:'••••0002',cabinet_url:'https://my.dtek-dnem.com.ua/'}));
+        }""")
+        link = self.page.get_by_role("link", name="Open DTEK cabinet", exact=True)
+        await link.wait_for()
+        await self.page.evaluate(
+            "pending.filter(p=>p.entity==='sensor.example').forEach(p=>p.resolve({masked:'••••0001',cabinet_url:'https://my.dtek-oem.com.ua/'}))"
+        )
+        self.assertEqual(
+            await link.get_attribute("href"), "https://my.dtek-dnem.com.ua/"
+        )
 
     async def test_opening_and_hass_updates_never_send_or_erase_input(self):
         self.assertEqual(await self.page.evaluate("calls.length"), 0)

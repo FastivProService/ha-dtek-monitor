@@ -1,4 +1,5 @@
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0b1";
+import { isUkrainian } from "./account-ui.js?v=2.0.0-rc1";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
 export async function copyValue(value){
   if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(value);return;}
   const input=document.createElement('textarea');input.value=value;input.style.cssText='position:fixed;left:-10000px';document.body.append(input);
@@ -20,7 +21,7 @@ class DtekAccountNumber extends HTMLElement {
   connectedCallback() { this._load(false); }
   disconnectedCallback() { this._seq++; this._number=null; this._pending=false; this._render(); }
   get words() {
-    return this._hass?.language?.startsWith("uk")
+    return isUkrainian(this._hass?.language)
       ? {account:"Особовий рахунок",show:"Показати номер рахунку",hide:"Сховати номер рахунку",error:"Номер недоступний",loading:"Завантаження…",copy:"Копіювати номер рахунку",copied:"Скопійовано",copyError:"Копіювання недоступне; виділіть номер."}
       : {account:"Account number",show:"Show account number",hide:"Hide account number",error:"Account number unavailable",loading:"Loading…",copy:"Copy account number",copied:"Copied",copyError:"Copy unavailable; select the number."};
   }
@@ -71,6 +72,44 @@ if(!customElements.get("dtek-account-number"))customElements.define("dtek-accoun
 
 export function accountNumber(hass, entity) {
   const el=document.createElement("dtek-account-number");el.hass=hass;el.entity=entity;return el;
+}
+
+/* Resolve navigation locally through the same account permission check as the eye.
+ * No DTEK request, full account number, or default-to-Odesa link is needed. */
+class DtekCabinetLink extends HTMLElement {
+  constructor() {super();this.attachShadow({mode:"open"});this._seq=0;}
+  set hass(value) {
+    const changed=this._hass && (this._hass.user?.id!==value?.user?.id || this._hass.connection!==value?.connection || this._hass.user?.is_admin!==value?.user?.is_admin);
+    this._hass=value;
+    if(changed){this._seq++;this.shadowRoot.replaceChildren();if(this.isConnected)this._load();}
+  }
+  set entity(value) {
+    if(this._entity===value)return;
+    this._entity=value;this._seq++;this.shadowRoot.replaceChildren();
+    if(this.isConnected)this._load();
+  }
+  connectedCallback(){this._load();}
+  disconnectedCallback(){this._seq++;this.shadowRoot.replaceChildren();}
+  async _load() {
+    if(!this._hass || !this._entity)return;
+    const seq=++this._seq;
+    try {
+      const data=await this._hass.callWS({type:"dtek_monitor/account_identity",entity_id:this._entity,reveal:false});
+      if(seq!==this._seq || !this.isConnected)return;
+      // Accept only the operator cabinet root, never arbitrary navigation URLs.
+      if(typeof data.cabinet_url!=="string" || !/^https:\/\/my\.dtek-[a-z]+\.com\.ua\/$/.test(data.cabinet_url))return;
+      const style=document.createElement("style");style.textContent="a{color:var(--primary-color,#0288d1)}";
+      const link=document.createElement("a");link.textContent=this.label;link.href=data.cabinet_url;link.target="_blank";link.rel="noopener noreferrer";
+      this.shadowRoot.replaceChildren(style,link);
+    } catch(_) {
+      // Missing/unauthorized accounts have no link; the meter form owns its errors.
+      if(seq===this._seq)this.shadowRoot.replaceChildren();
+    }
+  }
+}
+if(!customElements.get("dtek-cabinet-link"))customElements.define("dtek-cabinet-link",DtekCabinetLink);
+export function cabinetLink(hass, entity, label) {
+  const el=document.createElement("dtek-cabinet-link");el.hass=hass;el.entity=entity;el.label=label;return el;
 }
 
 class DtekAccountNumberCard extends HTMLElement {
