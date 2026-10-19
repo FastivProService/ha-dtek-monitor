@@ -37,6 +37,10 @@ from .const import (
 )
 from .provider import Address, ProviderError
 from .providers import CONF_PROVIDER, DEFAULT_PROVIDER_ID, PROVIDERS, create_provider
+from .account import CONF_ENTRY_KIND, ENTRY_ACCOUNT
+from .account_flow import AccountFlowMixin, account_options, select_account_options
+from .account_link_flow import AccountLinkFlowMixin
+from .building import address_unique_id, unique_choice, verify_building
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,10 +61,10 @@ def _combo_select(options: list[str]) -> SelectSelector:
     )
 
 
-class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
+class DTEKMonitorConfigFlow(AccountFlowMixin, ConfigFlow, domain=DOMAIN):
     """Handle a config flow for DTEK Monitor."""
 
-    VERSION = 3
+    VERSION = 4
 
     @staticmethod
     @callback
@@ -76,11 +80,12 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
         self._street: str = ""
         self._house: str = ""
         self._available_houses: list[str] = []
+        self._address_suggestion: dict[str, str] = {}
 
     async def _fetch_streets(self) -> dict[str, list[str]]:
         """Cache options, closing owned HTTP sessions even if the flow aborts."""
         if not self._streets_data:
-            provider = create_provider(self._provider_id)
+            provider = create_provider(self._provider_id, hass=self.hass)
             try:
                 self._streets_data = {
                     city: list(await provider.list_streets(city))
@@ -102,14 +107,22 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors[CONF_PROVIDER] = "invalid_provider"
             else:
                 if provider_id != self._provider_id:
+                    if self.context.get("source") == "reauth":
+                        return self.async_abort(reason="account_mismatch")
+                    await self._close_access()
+                    self._account_credentials = {}
+                    self._personal_accounts = {}
+                    self._link_identity = self._link_review = self._unlink_choices = (
+                        None
+                    )
+                    self._login_phone = self._access_completed = ""
+                    await self.async_set_unique_id(None)
                     self._streets_data = {}
                     self._city = self._street = self._house = ""
                     self._available_houses = []
+                    self._address_suggestion = {}
                 self._provider_id = provider_id
-                if spec.fixed_city:
-                    self._city = spec.fixed_city
-                    return await self.async_step_street()
-                return await self.async_step_city()
+                return await self.async_step_connection()
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -131,6 +144,28 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    async def async_step_import(self, user_input):
+        """Create a verified public building, with no cabinet or apartment data."""
+        provider_id = user_input.get(CONF_PROVIDER)
+        if provider_id not in PROVIDERS or not PROVIDERS[provider_id].enabled:
+            return self.async_abort(reason="invalid_provider")
+        provider = create_provider(provider_id, hass=self.hass)
+        try:
+            address = await verify_building(provider, user_input)
+        except ProviderError:
+            return self.async_abort(reason="cannot_connect")
+        finally:
+            await provider.close()
+        if address is None:
+            return self.async_abort(reason="invalid_building")
+        self._provider_id = provider_id
+        self._city, self._street, self._house = address.parts
+        await self.async_set_unique_id(address_unique_id(address))
+        self._abort_if_unique_id_configured()
+        return await self.async_step_settings(
+            {CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL_SECONDS}
         )
 
     async def async_step_city(
@@ -168,7 +203,9 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="city",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_CITY): _combo_select(cities),
+                    vol.Required(
+                        CONF_CITY, **self._suggested_default(CONF_CITY, cities)
+                    ): _combo_select(cities),
                 }
             ),
             errors=errors,
@@ -212,7 +249,9 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="street",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_STREET): _combo_select(streets),
+                    vol.Required(
+                        CONF_STREET, **self._suggested_default(CONF_STREET, streets)
+                    ): _combo_select(streets),
                 }
             ),
             errors=errors,
@@ -227,6 +266,12 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             house = str(user_input[CONF_HOUSE]).strip()
+            if self.context.get("source") == "integration_discovery" and (
+                not self._available_houses or house not in self._available_houses
+            ):
+                result = await self.async_step_house()
+                result["errors"] = {"house_num": "invalid_house"}
+                return result
             self._house = house
 
             # Keep the legacy OEM identifier so duplicate detection and existing
@@ -244,7 +289,7 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_settings()
 
         try:
-            provider = create_provider(self._provider_id)
+            provider = create_provider(self._provider_id, hass=self.hass)
             try:
                 houses = await provider.list_houses(self._city, self._street)
             finally:
@@ -276,7 +321,10 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="house",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOUSE): _combo_select(self._available_houses),
+                    vol.Required(
+                        CONF_HOUSE,
+                        **self._suggested_default(CONF_HOUSE, self._available_houses),
+                    ): _combo_select(self._available_houses),
                 }
             ),
             errors=errors,
@@ -285,6 +333,10 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                 "street": self._street,
             },
         )
+
+    def _suggested_default(self, key: str, choices: list[str]) -> dict:
+        value = unique_choice(self._address_suggestion.get(key), choices, key)
+        return {"default": value} if value is not None else {}
 
     async def async_step_settings(
         self, user_input: dict[str, Any] | None = None
@@ -300,6 +352,7 @@ class DTEKMonitorConfigFlow(ConfigFlow, domain=DOMAIN):
                     else f"{self._city} • {self._street}, {self._house} ({PROVIDERS[self._provider_id].name})"
                 ),
                 data={
+                    CONF_ENTRY_KIND: "address",
                     CONF_PROVIDER: self._provider_id,
                     CONF_CITY: self._city,
                     CONF_STREET: self._street,
@@ -346,7 +399,7 @@ def _natural_sort_key(value: str) -> tuple:
     return tuple(result)
 
 
-class DTEKMonitorOptionsFlow(OptionsFlow):
+class DTEKMonitorOptionsFlow(AccountLinkFlowMixin, OptionsFlow):
     """Handle DTEK Monitor options."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
@@ -357,6 +410,12 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage runtime options for an existing entry."""
+        if self._config_entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
+            from .account_options_api import CONTEXT_KEY, open_workspace_step
+
+            if context := self.context.get(CONTEXT_KEY):
+                return await open_workspace_step(self, self._config_entry, context)
+            return await self.async_step_account_menu()
         if user_input is not None:
             return self.async_create_entry(
                 title="",
@@ -394,3 +453,85 @@ class DTEKMonitorOptionsFlow(OptionsFlow):
                 }
             ),
         )
+
+    async def async_step_account(self, user_input=None):
+        return await account_options(self, self._config_entry, user_input)
+
+    async def async_step_account_menu(self, user_input=None):
+        if not self._config_entry.data.get("accounts"):
+            return await self.async_step_account_management()
+        return self.async_show_menu(
+            step_id="account_menu",
+            menu_options=[
+                "account_management",
+                "account_selection",
+                "account",
+                "account_schedule",
+                "account_reminders",
+                "account_checks",
+                "account_notices",
+            ],
+        )
+
+    async def async_step_account_reminders(self, user_input=None):
+        from .account_reminder_flow import choose_account
+
+        return await choose_account(self, self._config_entry, user_input)
+
+    async def async_step_account_notices(self, user_input=None):
+        from .account_notification_flow import choose_account
+
+        return await choose_account(self, self._config_entry, user_input)
+
+    async def async_step_account_notice_settings(self, user_input=None):
+        from .account_notification_flow import configure
+
+        return await configure(self, self._config_entry, user_input)
+
+    async def async_step_account_checks(self, user_input=None):
+        from .account_check_flow import choose_account
+
+        return await choose_account(self, self._config_entry, user_input)
+
+    async def async_step_account_check_settings(self, user_input=None):
+        from .account_check_flow import configure
+
+        return await configure(self, self._config_entry, user_input)
+
+    async def async_step_account_reminder_settings(self, user_input=None):
+        from .account_reminder_flow import configure
+
+        return await configure(self, self._config_entry, user_input)
+
+    async def async_step_account_schedule(self, user_input=None):
+        from .account_schedule_flow import schedule_account
+
+        return await schedule_account(self, self._config_entry, user_input)
+
+    async def async_step_account_schedule_address(self, user_input=None):
+        from .account_schedule_flow import schedule_address
+
+        return await schedule_address(self, self._config_entry, user_input)
+
+    async def async_step_account_schedule_groups(self, user_input=None):
+        from .account_schedule_flow import schedule_groups
+
+        return await schedule_groups(self, self._config_entry, user_input)
+
+    async def async_step_account_building_city(self, user_input=None):
+        from .account_building_flow import configure
+
+        return await configure(self, self._config_entry, CONF_CITY, user_input)
+
+    async def async_step_account_building_street(self, user_input=None):
+        from .account_building_flow import configure
+
+        return await configure(self, self._config_entry, CONF_STREET, user_input)
+
+    async def async_step_account_building_house(self, user_input=None):
+        from .account_building_flow import configure
+
+        return await configure(self, self._config_entry, CONF_HOUSE, user_input)
+
+    async def async_step_account_selection(self, user_input=None):
+        return await select_account_options(self, self._config_entry, user_input)

@@ -339,7 +339,8 @@ class ProviderAsyncTests(unittest.IsolatedAsyncioTestCase):
         result = await self.refresh()
         self.assertEqual(result.schedule.state, "unpublished")
         self.assertFalse(result.schedule.intervals)
-        self.assertIsNotNone(result.schedule_error)
+        self.assertIsNone(result.schedule_error)
+        self.assertIsNotNone(result.schedule.reason)
 
     async def test_failed_delta_does_not_commit_candidate_raw_schedule(self):
         first = await self.refresh()

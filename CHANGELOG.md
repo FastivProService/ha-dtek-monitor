@@ -2,6 +2,75 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0-rc1] - 2026-10-20
+
+**Release candidate — for testing before the final 2.0 release.** Requires Home Assistant 2026.3.0+. Public address schedules support Odesa oblast, Kyiv oblast, Dnipropetrovsk oblast and Kyiv city; personal cabinets remain **Odesa household accounts only**.
+
+### Start here
+
+- New to 2.0? Add an address for schedules, or sign in to the cabinet for **My DTEK**: account details, meter readings, monthly consumption, schedules and sensor-calibrated reading suggestions.
+- Pair with **DTEK Telegram Bot 0.5.0-rc1** for a private account menu, notifications, history, reminders and explicitly confirmed submissions. Existing building bots remain independent and compatible.
+- Update in place and reload the HA page. Existing addresses, account selections and sensor calibration are preserved. Before leaving 1.7.0, back up configuration and code; reverting to 1.7.0 requires restoring that backup.
+- No unattended reading submissions or new regional cabinets are enabled by this release.
+
+[English: installation and upgrade](docs/UPGRADING.md) · [Українська: встановлення та оновлення](docs/UPGRADING.uk.md)
+
+[English user guide](README.md) · [Український посібник](README.uk.md)
+
+### Changes since 2.0.0b1
+
+- Add a permission-checked local WebSocket bridge for explicitly configured personal Telegram profiles. Supply cabinet-only groups, verified calendars, grid images' source data, reminder eligibility and existing reading submission/energy/readback operations. Bind confirmation drafts to HA principal, bot, Telegram user and profile; never export cabinet credentials or silently fall back to a building/manual group.
+- Document the companion bot's private profile setup and preserve independent building monitoring, cabinet UI and HA reminder settings.
+
+- Notify in HA when verified building or apartment groups change, without creating a Repair. Follow automatic assignments and replace a disappeared manual selection only when a single verified replacement is available; retain all building/bot groups and never guess during ambiguity or API failures. Persist comparison baselines across restarts.
+- Add a building refresh button and make the grid's refresh action query DTEK with shared cooldown and permission checks. Preserve date/filter choices and ignore replies for a previously selected account.
+- Emit `dtek_monitor_schedule_changed` for meaningful verified future daily schedule changes and `dtek_monitor_groups_changed` for building assignments. Ignore timestamp-only changes, expired intervals, missing coverage and weekly forecasts; comparison caches never supply live alerts.
+
+- Join verified adjacent calendar intervals across midnight without mixing groups, event types or sources. Localize live and saved calendar titles to HA's system language while preserving machine-readable event descriptions.
+- Add building and personal timestamp sensors for the next planned/possible outage and scheduled outage end, plus tomorrow's publication status. Keep missing coverage, empty schedules and errors distinct; never infer restoration at an unverified publication boundary. Update derived states at event boundaries and Kyiv midnight without additional API requests.
+- Coordinate public requests across addresses, setup flows and reloads with an operator-wide queue and bounded failure cooldown. Respect Retry-After, preserve independent cabinet/other-operator access, and expose shared retry health in diagnostics.
+- Add an independent address repair calendar and availability sensor. Keep all reported repairs, distinguish incomplete times from no reports and failed requests, and never invent end times or reuse old repairs as current.
+
+- Add optional Odesa account-group lookup using a separate legacy cabinet session. A single fresh group can select the private schedule when verified against the building; multiple groups require a choice. Manual choices take priority, all building/bot groups remain, and lookup can be disabled per account.
+- Refresh optional groups independently every 15 minutes and after account updates; distinguish empty, unavailable, expired and conflicting assignments. Retired/incompatible legacy routes produce a scoped HA Repair without blocking meter data or submissions. Show the group source on the dashboard and safe metadata health in diagnostics.
+- Recognize planned repair records with dates even when DTEK omits their description. Empty records still mean no reported outage; malformed repair dates remain unavailable instead of confirming power.
+- Add Home Assistant diagnostic downloads for address and personal-account connections, including failed setup. Exports contain technical health, freshness and counts, without credentials, addresses, account identifiers, meter readings or raw responses/errors.
+- Prepare a shared regional personal-account client with separate cabinet/auth domains, OAuth settings and modern household account-number rules. Only Odesa cabinets remain enabled; Kyiv city, Kyiv oblast and Dnipropetrovsk oblast await authenticated live validation.
+- Keep SMS challenges, account-link confirmations, API repair notices and unlink protection scoped to the selected operator. Changing the region clears unfinished cabinet setup.
+- Show the selected operator's account-number format and registration/recovery links in setup. Existing Odesa account and building identities are unchanged.
+- Use the selected regional cabinet for device and reading-form links; distinguish new cabinet connections by operator and masked phone number. Loading a link never replaces edited readings.
+- Match explicit street and settlement abbreviations when connecting a cabinet address to a public building. Ambiguous names, district qualifiers and building sections still require manual confirmation.
+
+- Hide inactive history records by default while keeping blocked/unknown warnings visible. A show-all switch restores every source record; preserve dates, tariff zones, calculations and readback matching. The personal bot gets filtered pagination.
+- Use Ukrainian when Home Assistant's language is Russian; maintain English and Ukrainian source translations and version all frontend assets together.
+- Refresh English/Ukrainian user guides, compatibility, first setup, data meanings, sensor calibration and upgrade/rollback instructions.
+
+## [2.0.0b1] - 2026-10-18
+
+First public beta of DTEK Monitor 2.0. This is a testing release, not a release candidate or a stable update. Address monitoring remains available without a personal cabinet.
+
+### New in 2.0
+
+- Optional Odesa household cabinet: phone login, SMS registration/recovery, account linking/unlinking, and independent selection of the accounts monitored by HA.
+- My DTEK dashboard in English and Ukrainian: address, account visibility control, EIC/meter details, readings, monthly consumption and per-card apartment selection.
+- Automatic verified building matching with manual confirmation when needed. All building groups remain available; a personal group can be selected separately, or chosen automatically when the building has one group.
+- Half-hour schedule grid for all published operator groups, building/apartment highlights, list view and PNG export. Unpublished data stays distinct from empty schedules and connection errors.
+- Explicitly confirmed meter-reading submissions with a durable attempt journal, ambiguous-result protection and read-back checks. No automatic submissions.
+- Optional generic cumulative energy sensor: direct official-meter readings or estimates from paired references, calibration corrections, continuity checks and separate tariff zones.
+- Optional HA reading reminders, meter verification/replacement notices and scheduled checks without submission.
+- Account-scoped permissions, input preservation during HA updates, API-change repair notices and automatic recovery from directory failures.
+
+### Installation and limits
+
+- Requires Home Assistant 2026.3.0 or newer. Public address schedules support Odesa oblast, Kyiv oblast, Dnipropetrovsk oblast and Kyiv city. Personal cabinets are Odesa household accounts only.
+- Back up before upgrading: configuration migration is automatic, but returning to 1.7.0 requires restoring the earlier configuration and code. Existing building entities and bot settings are preserved.
+- One consumption meter per account; manual submission supports one zone or Day/Night. Only single-zone Odesa submission has been verified live. No automatic submissions, payments, photo uploads or Energy-dashboard statistics from billing history.
+- DTEK Telegram Bot 0.3.13 remains compatible and independent; private account data is not sent to the building bot.
+
+[English installation and beta guide](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.md) · [Українська: встановлення та бета](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.uk.md)
+
+[English user guide](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.md) · [Український посібник](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.uk.md) · [Report a problem](https://github.com/groove-max/ha-dtek-monitor/issues)
+
 ## [1.7.0] - 2026-10-17
 
 - License new releases under PolyForm Noncommercial 1.0.0; earlier MIT releases keep their original terms.

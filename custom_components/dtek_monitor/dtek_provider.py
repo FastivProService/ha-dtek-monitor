@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import MappingProxyType
 from typing import Any
 
 from .dtek_client import DTEKClient, parse_dtek_datetime
+from .address_works import address_works
 from .provider import (
     Address,
     AddressReading,
@@ -78,6 +80,8 @@ def normalize_address(
     publication = Publication(
         schedule, flag("showTableFact"), flag("showTablePlan"), flag("showUserGroup")
     )
+    external_operator = any(bool(e.get("cek")) for e in entries)
+    works, incomplete = address_works(values)
     return AddressReading(
         address,
         MappingProxyType(deepcopy(values)),
@@ -89,7 +93,9 @@ def normalize_address(
             else None
         ),
         publication,
-        any(bool(e.get("cek")) for e in entries),
+        external_operator,
+        None if external_operator else works,
+        incomplete,
     )
 
 
@@ -201,7 +207,7 @@ def normalize_schedule(
             if not has_daily and not has_weekly:
                 continue
             # Weekly forecasts alone cannot confirm the daily outage calendar.
-            for kind in (("outage", "possible") if has_daily else ("possible",)):
+            for kind in ("outage", "possible") if has_daily else ("possible",):
                 coverage.append(
                     Coverage(group.id, kind, max(day, start), min(day_end, end))
                 )
@@ -257,21 +263,71 @@ def normalize_schedule(
     )
 
 
+def normalize_overview(reading, raw, start, end, fetched_at):
+    """All published operator groups, isolated from the address notification contract."""
+    ids = (
+        set(_data(raw, "preset"))
+        | set(reading.groups)
+        | set(raw["preset"].get("sch_names", {}))
+    )
+    for day in _data(raw, "fact").values():
+        if isinstance(day, dict):
+            ids.update(day)
+    if len(ids) > 64 or any(
+        not isinstance(g, str) or not g or len(g) > 64 for g in ids
+    ):
+        raise ProviderError("Invalid overview groups")
+    groups, intervals, coverage = [], [], []
+    for group in sorted(ids):
+        groups.append(Group(group, group))
+        try:
+            item = normalize_schedule(
+                replace(reading, groups=(group,)), raw, start, end, fetched_at
+            )
+        except ProviderError:
+            # A malformed unrelated group is shown as unknown; it cannot break
+            # the home's verified calendar or acquire a reassuring empty row.
+            continue
+        groups[-1] = item.groups[0]
+        intervals.extend(item.intervals)
+        coverage.extend(item.coverage)
+    return ScheduleReading(
+        reading.address,
+        tuple(groups),
+        tuple(intervals),
+        tuple(coverage),
+        fetched_at,
+        parse_dtek_datetime(
+            raw["fact"].get("update") or raw["preset"].get("updateFact")
+        ),
+        reading.publication,
+        "unsupported" if reading.external_operator else "current",
+    )
+
+
 class DTEKWebProvider:
-    def __init__(self, spec: ProviderSpec, client: DTEKClient | None = None):
+    def __init__(
+        self, spec: ProviderSpec, client: DTEKClient | None = None, *, request_gate=None
+    ):
         self.spec = spec
         self.provider_id = spec.id
-        self._client = client if client is not None else DTEKClient(spec.base_url)
+        self._client = (
+            client if client is not None
+            else DTEKClient(spec.base_url, request_gate=request_gate)
+        )
         self._directory: dict[str, tuple[str, ...]] | None = None
         self._raw: dict[str, Any] = {}
 
     @property
     def diagnostics(self) -> dict[str, Any]:
+        gate = getattr(self._client, "request_gate", None)
         return {
             "transport_errors": self._client.transport_errors,
             "protection_challenges": self._client.waf_challenges,
             "protection_blocks": self._client.waf_hard_blocks,
             "browser_profile": self._client.impersonate_target,
+            "public_retry_in_seconds": getattr(gate, "retry_in", None),
+            "public_consecutive_failures": getattr(gate, "failures", None),
         }
 
     async def _get_directory(self) -> dict[str, tuple[str, ...]]:
@@ -303,7 +359,7 @@ class DTEKWebProvider:
     ) -> RefreshResult:
         if address.provider_id != self.provider_id:
             raise ProviderError("Address provider mismatch")
-        reading = schedule = None
+        reading = schedule = overview = None
         address_error = schedule_error = None
         checked = None
         try:
@@ -353,12 +409,21 @@ class DTEKWebProvider:
             checked = datetime.now(timezone.utc)
             if reading is not None:
                 schedule = normalize_schedule(reading, candidate, start, end, checked)
-                if schedule.state != "current":
-                    schedule_error = schedule.reason
+                try:
+                    overview = normalize_overview(
+                        reading, candidate, start, end, checked
+                    )
+                except ProviderError:
+                    overview = None
+                # Publication/coverage is data, not a transport failure.
+                # Keep the reason on ScheduleReading; errors mean failed requests
+                # or an invalid response, never a legitimate absent schedule.
             self._raw = candidate
         except ProviderError as err:
             schedule_error = str(err)
-        return RefreshResult(reading, schedule, address_error, schedule_error, checked)
+        return RefreshResult(
+            reading, schedule, address_error, schedule_error, checked, overview
+        )
 
     async def close(self) -> None:
         await self._client.close()

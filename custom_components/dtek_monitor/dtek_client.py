@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from curl_cffi.requests import AsyncSession
 
-from .provider import ProviderError
+from .public_requests import PublicRequestError, PublicRequestGate, retry_after_seconds
 
 from .const import (
     DTEK_BASE_URL,
@@ -109,7 +109,7 @@ XHR_HEADERS = {
 }
 
 
-class DTEKApiError(ProviderError):
+class DTEKApiError(PublicRequestError):
     """Base exception for DTEK API errors."""
 
 
@@ -169,7 +169,13 @@ class DTEKClient:
     the Incapsula interstitial instead of the real shutdowns page.
     """
 
-    def __init__(self, base_url: str = DTEK_BASE_URL) -> None:
+    def __init__(
+        self,
+        base_url: str = DTEK_BASE_URL,
+        *,
+        request_gate: PublicRequestGate | None = None,
+    ) -> None:
+        self.request_gate = request_gate or PublicRequestGate()
         self.base_url = base_url.rstrip("/")
         self.shutdowns_url = f"{self.base_url}/ua/shutdowns"
         self.ajax_url = f"{self.base_url}/ua/ajax"
@@ -338,6 +344,13 @@ class DTEKClient:
                 continue
             consecutive_transport_errors = 0
             html = resp.text
+            if resp.status_code == 429 or resp.status_code >= 500:
+                raise DTEKApiError(
+                    f"Failed to load shutdowns page: HTTP {resp.status_code}",
+                    retry_after=retry_after_seconds(
+                        getattr(resp, "headers", {}).get("Retry-After")
+                    ),
+                )
             # Incapsula serves its stub with 200 *or* 403; either way the
             # next GET with the freshly set cookies usually passes.
             if _is_protection_page(html):
@@ -375,6 +388,14 @@ class DTEKClient:
         retry: bool = True,
         require_result: bool = True,
     ) -> dict[str, Any]:
+        """Run one bounded AJAX operation through the shared operator gate."""
+        return await self.request_gate.run(
+            lambda: self._post_unlocked(data, retry, require_result)
+        )
+
+    async def _post_unlocked(
+        self, data: dict[str, str], retry: bool = True, require_result: bool = True
+    ) -> dict[str, Any]:
         """Send POST request to the DTEK AJAX endpoint.
 
         Automatically refreshes CSRF on auth errors and retries once.
@@ -394,11 +415,18 @@ class DTEKClient:
                 headers=headers,
                 timeout=REQUEST_TIMEOUT,
             )
+            if resp.status_code == 429 or resp.status_code >= 500:
+                raise DTEKApiError(
+                    f"DTEK API returned HTTP {resp.status_code}",
+                    retry_after=retry_after_seconds(
+                        getattr(resp, "headers", {}).get("Retry-After")
+                    ),
+                )
             if resp.status_code == 400:
                 if retry:
                     _LOGGER.debug("Got 400, refreshing CSRF and retrying")
                     await self._refresh_session()
-                    return await self._post(
+                    return await self._post_unlocked(
                         data,
                         retry=False,
                         require_result=require_result,
@@ -415,7 +443,7 @@ class DTEKClient:
                 if retry:
                     _LOGGER.debug("AJAX answered with WAF page, re-handshaking")
                     await self._refresh_session()
-                    return await self._post(
+                    return await self._post_unlocked(
                         data,
                         retry=False,
                         require_result=require_result,
@@ -452,7 +480,7 @@ class DTEKClient:
                     "AJAX transport error, retrying on a new connection: %s", err
                 )
                 await self._recycle_connection()
-                return await self._post(
+                return await self._post_unlocked(
                     data,
                     retry=False,
                     require_result=require_result,
@@ -719,17 +747,38 @@ def _classify_outage_type(sub_type: str) -> str:
 
 def _parse_single_outage(entry: dict[str, Any]) -> dict[str, Any]:
     """Parse a single outage entry from DTEK API."""
-    sub_type = entry.get("sub_type", "")
+    def text_field(name: str) -> str:
+        value = entry.get(name)
+        if value is None:
+            return ""
+        if not isinstance(value, str):
+            raise DTEKApiError(f"Malformed outage field: {name}")
+        return value.strip()
+
+    sub_type = text_field("sub_type")
     raw_type = entry.get("type", "")
-    start_str = entry.get("start_date", "")
-    end_str = entry.get("end_date", "")
+    start_str = text_field("start_date")
+    end_str = text_field("end_date")
     groups = _normalize_groups(entry.get("sub_type_reason", []))
+    start = parse_dtek_datetime(start_str)
+    end = parse_dtek_datetime(end_str)
+
+    # DTEK's public page supplies its own caption for type 1 repair records.
+    # An entirely empty record still means no outage, even with that type code.
+    if str(raw_type).strip() == "1" and not sub_type and (start_str or end_str):
+        if (
+            (start_str and start is None)
+            or (end_str and end is None)
+            or (start is not None and end is not None and end <= start)
+        ):
+            raise DTEKApiError("Malformed planned repair dates")
+        sub_type = "Планові ремонтні роботи"
 
     return {
         "outage_type": _classify_outage_type(sub_type),
         "outage_description": sub_type,
-        "outage_start": parse_dtek_datetime(start_str),
-        "outage_end": parse_dtek_datetime(end_str),
+        "outage_start": start,
+        "outage_end": end,
         "schedule_groups": groups,
         "raw_type": raw_type,
     }

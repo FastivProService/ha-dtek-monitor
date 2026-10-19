@@ -38,6 +38,145 @@
         "data_description": {
           "scan_interval": "How often to check DTEK for outage updates. Default is 300 seconds (5 minutes). Minimum 60 seconds, maximum 3600 seconds (1 hour)."
         }
+      },
+      "connection": {
+        "title": "What would you like to connect?",
+        "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details; it is currently available for the Odessa region.",
+        "menu_options": {
+          "address": "Outage schedules by address",
+          "account_access": "Personal account and meter readings"
+        }
+      },
+      "account_login": {
+        "title": "Sign in to your personal account",
+        "description": "Enter your DTEK phone number and password. Readings are sent only after your confirmation.\n\n[Create an account]({signup_url}) · [Forgot your password?]({recovery_url})\n\nReturn here after registration or password recovery. Your password is stored in Home Assistant configuration. Use the same account when signing in again.",
+        "data": {
+          "username": "Phone number",
+          "password": "Password"
+        }
+      },
+      "accounts": {
+        "title": "Select personal accounts",
+        "description": "Choose the accounts to connect. Each keeps its own readings and settings. View them separately in My DTEK or add a card for each. Apartment data is not shared with the building bot. You can configure the building schedule and home sensor later.",
+        "data": {
+          "accounts": "Personal accounts"
+        }
+      },
+      "account_access": {
+        "title": "Connect your DTEK account",
+        "description": "Sign in, create an account or recover access by SMS. Opening a form does not send an SMS.",
+        "menu_options": {
+          "account_login": "Sign in",
+          "account_register": "Create a DTEK account",
+          "account_recover": "Forgot your password?"
+        }
+      },
+      "account_register": {
+        "title": "Create a DTEK account · phone",
+        "description": "Enter your phone number. Continuing sends an SMS from DTEK. Already registered? Choose Sign in or Forgot your password instead.",
+        "data": {
+          "username": "Phone number"
+        }
+      },
+      "account_recover": {
+        "title": "Recover access · phone",
+        "description": "Enter the phone number registered with DTEK. Continuing sends an SMS. Checking the code does not change your password; you choose a new password in a separate step.",
+        "data": {
+          "username": "Phone number"
+        }
+      },
+      "account_sms": {
+        "title": "Enter the SMS code",
+        "description": "DTEK sent a four-digit code to {phone}. Enter it and continue. To request another SMS, select Resend; leave the code empty. Allow at least 60 seconds between requests.",
+        "data": {
+          "verification_code": "Four-digit SMS code",
+          "resend": "Send another SMS instead of checking a code"
+        }
+      },
+      "account_profile": {
+        "title": "Create a DTEK account · your name",
+        "description": "DTEK needs your name to create the account. These details are sent to DTEK and are not saved in the HA connection settings.",
+        "data": {
+          "last_name": "Last name",
+          "first_name": "First name",
+          "middle_name": "Middle name (optional)"
+        }
+      },
+      "account_registration_password": {
+        "title": "Create a DTEK account · password",
+        "description": "Choose 8–64 characters, with at least two uppercase letters, one lowercase letter and one digit; no spaces. Continuing creates the account on DTEK and signs you in to HA. HA stores the password in its configuration.\n\nReview the registration information on the [official DTEK website]({signup_url}).",
+        "data": {
+          "password": "New DTEK password",
+          "confirm_password": "Repeat the password",
+          "accept_terms": "I agree to DTEK processing my personal data and to creating the account"
+        }
+      },
+      "account_recovery_password": {
+        "title": "Set a new DTEK password",
+        "description": "Your phone number is confirmed. Continuing changes your password on the DTEK website and signs you in to HA. Cancel now to keep the current password.\n\nChoose 8–64 characters, with at least two uppercase letters, one lowercase letter and one digit; no spaces. HA stores the new password in its configuration.",
+        "data": {
+          "password": "New DTEK password",
+          "confirm_password": "Repeat the password",
+          "confirm_change": "Change my DTEK password to the one entered above"
+        }
+      },
+      "account_access_login": {
+        "title": "Finish connecting your account",
+        "description": "DTEK confirmed account creation or the password change. The HA connection is not complete yet. Sign in with the new password; SMS and password changes will not be repeated.",
+        "data": {
+          "username": "Phone number",
+          "password": "Password"
+        }
+      },
+      "account_setup": {
+        "title": "Choose household accounts",
+        "description": "Connect accounts already linked to your DTEK cabinet, or add one by its number and verify the address. A new cabinet may be empty.",
+        "menu_options": {
+          "accounts": "Choose accounts to monitor in HA",
+          "account_link": "Add an account to the DTEK cabinet",
+          "account_finish_empty": "Connect the cabinet without monitoring accounts yet"
+        }
+      },
+      "account_management": {
+        "title": "Household accounts",
+        "description": "DTEK cabinet links and HA monitoring are separate. Unlinking an account does not close its electricity contract.",
+        "menu_options": {
+          "account_link": "Add to the DTEK cabinet",
+          "account_selection": "Choose which accounts HA monitors",
+          "account_unlink": "Unlink from the DTEK cabinet"
+        }
+      },
+      "account_link": {
+        "title": "Find a household account",
+        "description": "Enter the modern {account_length}-digit account number from your DTEK receipt for the selected operator (number starts with: {account_prefixes}). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_link_confirm": {
+        "title": "Add this account to DTEK?",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nConfirm that this is your account. This adds it to your DTEK cabinet. You will choose HA monitoring separately afterwards.",
+        "data": {
+          "confirm": "The account and address are correct; add it to my DTEK cabinet"
+        }
+      },
+      "account_linked": {
+        "title": "Account added to DTEK",
+        "description": "The DTEK cabinet link is saved. Continue to choose which accounts HA monitors. Closing this window keeps the DTEK link and leaves your current HA selection unchanged."
+      },
+      "account_unlink": {
+        "title": "Unlink an account from DTEK",
+        "description": "Choose an account linked to this cabinet. First deselect it under “Choose which accounts HA monitors” and wait for HA to reload. Another confirmation will follow.",
+        "data": {
+          "account_number": "Linked household account"
+        }
+      },
+      "account_unlink_confirm": {
+        "title": "Confirm unlinking from DTEK",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nThe account will disappear from this DTEK cabinet. Its electricity contract and billing history are not deleted. Stored HA sensor references are retained.",
+        "data": {
+          "confirm": "Unlink this account from my DTEK cabinet"
+        }
       }
     },
     "error": {
@@ -47,10 +186,81 @@
       "no_houses": "No houses found for the selected street. You can enter the number manually.",
       "invalid_city": "City not found in the DTEK database. Please select from the list.",
       "invalid_street": "Street not found in the DTEK database. Please select from the list.",
-      "invalid_provider": "This operator is not supported yet."
+      "invalid_provider": "This operator is not supported yet.",
+      "invalid_phone": "Enter a Ukrainian phone number in +380… format.",
+      "invalid_auth": "Sign-in failed. Check your credentials or complete any required account update on the DTEK website.",
+      "account_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
+      "no_accounts": "No supported household accounts were found.",
+      "select_accounts": "Select at least one available account.",
+      "invalid_house": "Select a house confirmed by the public DTEK directory.",
+      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added.",
+      "access_password_rules": "Use 8–64 characters, at least two uppercase letters (Latin or Ukrainian), one lowercase letter and one digit; no spaces.",
+      "access_password_mismatch": "The passwords do not match.",
+      "access_consent_required": "Confirm your consent before creating a DTEK account.",
+      "access_confirm_change": "Confirm that you want to change your DTEK password.",
+      "access_phone_mismatch": "Use the phone number of this HA connection.",
+      "access_cannot_connect": "DTEK did not complete the request. Check your connection and try again later.",
+      "access_wait": "Please wait before requesting another SMS. At least 60 seconds must pass between requests; DTEK may require longer.",
+      "access_rate_limit": "DTEK has limited requests. Wait before trying again; no automatic retry will be made.",
+      "access_not_registered": "This phone number is not registered with DTEK. Choose Create a DTEK account.",
+      "access_already_registered": "This phone number is already registered. Choose Sign in or Forgot your password.",
+      "access_invalid_code": "DTEK did not accept the code. Check the most recent SMS.",
+      "access_invalid_data": "DTEK did not accept these details. Check the form and try again.",
+      "access_code_format": "Enter exactly four digits from the SMS, including any leading zeros.",
+      "access_attempts_exhausted": "Five code checks have been used. Wait, then explicitly request another SMS.",
+      "access_start_uncertain": "DTEK did not confirm the SMS request. An SMS may still arrive. Wait before starting again; the request was not repeated.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links."
     },
     "abort": {
-      "already_configured": "This address is already configured."
+      "already_configured": "This address or account is already configured.",
+      "account_not_supported": "Personal accounts are not supported for this operator yet.",
+      "account_mismatch": "Sign in to the same DTEK account.",
+      "reauth_successful": "Reauthentication successful.",
+      "access_expired": "This SMS session has expired or is no longer valid. Start again to request a new code.",
+      "access_finalize_uncertain": "DTEK did not confirm the result. Your account may have been created or your password changed. No retry was made. Try signing in with the new password, or recover access on the official DTEK website.",
+      "access_registered_no_accounts": "Your DTEK account was created. Link your household accounts on the DTEK website, then add this integration again and choose Sign in.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
+      "invalid_building": "The building address needs directory confirmation.",
+      "invalid_provider": "The operator is not supported.",
+      "cannot_connect": "The DTEK directory is temporarily unavailable."
+    },
+    "create_entry": {
+      "account_connected": "**Your cabinet is connected.**\n\nTo open it on a dashboard:\n\n1. Finish setup and reload the HA page.\n2. Open your dashboard → Edit dashboard → Add card, then search for **My DTEK**.\n3. Choose the personal account for this card and save. You can add another card for a different account.\n\nIn My DTEK, open **Settings** to connect a building schedule. A **home energy sensor is optional**: any suitable cumulative kWh sensor can suggest readings; you can also enter readings manually. Nothing is submitted to DTEK without confirmation.\n\nThe building for outage schedules is matched automatically. If the address is ambiguous, confirm it in Building and outage group. A single verified cabinet group or the building’s only group is selected automatically. Otherwise, choose your apartment group in settings.",
+      "account_connected_empty": "**Your cabinet is connected; no personal accounts are monitored yet.**\n\nOpen **Settings → Devices & services → DTEK Monitor → Configure** to add an account or choose which existing accounts HA monitors. You do not need to sign in again.\n\nThen reload the HA page, edit a dashboard, choose **Add card → My DTEK**, and select an account. Building schedules and a home energy sensor can be configured later."
     }
   },
   "options": {
@@ -64,7 +274,217 @@
         "data_description": {
           "scan_interval": "How often to check DTEK for outage updates. Changes apply immediately after the integration reloads."
         }
+      },
+      "account": {
+        "title": "Add building monitoring",
+        "description": "Choose an account to review or change its building and outage group.",
+        "data": {
+          "address_account": "Account address"
+        }
+      },
+      "account_menu": {
+        "title": "Personal account settings",
+        "menu_options": {
+          "account_selection": "Select personal accounts",
+          "account": "Add building monitoring",
+          "account_schedule": "My group and schedule",
+          "account_reminders": "Reading reminders",
+          "account_checks": "Scheduled reading checks",
+          "account_notices": "Meter verification and replacement",
+          "account_management": "Household accounts in the DTEK cabinet"
+        }
+      },
+      "account_selection": {
+        "title": "Accounts to monitor",
+        "description": "Choose the accounts HA monitors. You may deselect all: the cabinet connection remains, while its monitored entities are removed. DTEK cabinet links and stored sensor references are retained. Each dashboard card chooses its account separately.",
+        "data": {
+          "accounts": "Personal accounts"
+        }
+      },
+      "account_schedule": {
+        "title": "My group and schedule",
+        "description": "Choose the apartment account. This private selection keeps every group in the building schedules and bot.",
+        "data": {
+          "schedule_account": "Personal account"
+        }
+      },
+      "account_schedule_address": {
+        "title": "Apartment building",
+        "description": "The building is matched automatically when the address is unambiguous. Review it or choose another from the directory. Do not link a building disables automatic linking for this account; the building and bot schedules remain.",
+        "data": {
+          "schedule_address": "Building address"
+        }
+      },
+      "account_schedule_groups": {
+        "title": "My group",
+        "description": "Building: {building}. Leave the group selection empty to use one verified cabinet group, or the only building group. If several groups remain, select your apartment group. Manual choices take priority and never change automatically. Building calendars and the bot keep all groups. You can turn off cabinet group lookup below.",
+        "data": {
+          "schedule_groups": "My apartment groups",
+          "use_cabinet_groups": "Look up apartment groups in the DTEK cabinet"
+        }
+      },
+      "account_reminders": {
+        "title": "Reading reminders",
+        "data": {
+          "reminder_account": "Personal account"
+        }
+      },
+      "account_reminder_settings": {
+        "title": "Home Assistant reminders",
+        "description": "One reminder per period: the last two days of the month and the first three of the next, in Kyiv time. Dismissing it stops reminders for that period. Notifications are visible to users of this HA; the account number is masked. No readings are submitted automatically. Use the account device button to preview.",
+        "data": {
+          "enabled": "Enable HA reminders",
+          "time": "Time (Europe/Kyiv)",
+          "include_estimate": "Include the linked sensor estimate"
+        }
+      },
+      "account_checks": {
+        "title": "Scheduled reading checks",
+        "description": "Choose the account for local checks. Nothing is submitted to DTEK.",
+        "data": {
+          "check_account": "Personal account"
+        }
+      },
+      "account_check_settings": {
+        "title": "Reading checks · {account}",
+        "description": "A check calculates readings from the bound sensor and compares them with the cabinet. It never submits readings or changes calibration. See the result and journal in the Reading check sensor. Time zone: Europe/Kyiv. After downtime, only today’s check is performed.",
+        "data": {
+          "enabled": "Enable checks without submission",
+          "time": "Check time (Kyiv)",
+          "frequency": "Frequency"
+        }
+      },
+      "account_notices": {
+        "title": "Meter notifications",
+        "data": {
+          "notice_account": "Personal account"
+        }
+      },
+      "account_notice_settings": {
+        "title": "Home Assistant notifications",
+        "description": "Separate notifications for this account, off by default. Verification: a reminder in the year specified by DTEK and subsequent years, without assuming an exact due date. Replacement: a changed meter number after the first observation. Data refreshes every 6 hours; dismissed notices stay dismissed until a new event. Sensor bindings do not transfer to a new meter automatically. Notifications are visible to users of this HA; the account number is masked.",
+        "data": {
+          "verification": "Remind about verification year",
+          "replacement": "Notify when meter number changes"
+        }
+      },
+      "account_management": {
+        "title": "Household accounts",
+        "description": "DTEK cabinet links and HA monitoring are separate. Unlinking an account does not close its electricity contract.",
+        "menu_options": {
+          "account_link": "Add to the DTEK cabinet",
+          "account_selection": "Choose which accounts HA monitors",
+          "account_unlink": "Unlink from the DTEK cabinet"
+        }
+      },
+      "account_link": {
+        "title": "Find a household account",
+        "description": "Enter the modern {account_length}-digit account number from your DTEK receipt for the selected operator (number starts with: {account_prefixes}). This step only looks up the address. Legacy numbers and commercial accounts are not supported here.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_link_confirm": {
+        "title": "Add this account to DTEK?",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nConfirm that this is your account. This adds it to your DTEK cabinet. You will choose HA monitoring separately afterwards.",
+        "data": {
+          "confirm": "The account and address are correct; add it to my DTEK cabinet"
+        }
+      },
+      "account_linked": {
+        "title": "Account added to DTEK",
+        "description": "The DTEK cabinet link is saved. Continue to choose which accounts HA monitors. Closing this window keeps the DTEK link and leaves your current HA selection unchanged."
+      },
+      "account_unlink": {
+        "title": "Unlink an account from DTEK",
+        "description": "Choose an account linked to this cabinet. First deselect it under “Choose which accounts HA monitors” and wait for HA to reload. Another confirmation will follow.",
+        "data": {
+          "account_number": "Linked household account"
+        }
+      },
+      "account_unlink_confirm": {
+        "title": "Confirm unlinking from DTEK",
+        "description": "Account: **{number}**\n\nAddress: **{address}**\n\nThe account will disappear from this DTEK cabinet. Its electricity contract and billing history are not deleted. Stored HA sensor references are retained.",
+        "data": {
+          "confirm": "Unlink this account from my DTEK cabinet"
+        }
+      },
+      "account_building_city": {
+        "title": "City or locality",
+        "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
+        "data": {
+          "city": "City or locality"
+        }
+      },
+      "account_building_street": {
+        "title": "Street",
+        "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
+        "data": {
+          "street": "Street"
+        }
+      },
+      "account_building_house": {
+        "title": "Building number",
+        "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
+        "data": {
+          "house_num": "Building number"
+        }
       }
+    },
+    "error": {
+      "select_accounts": "Select at least one available account.",
+      "accounts_already_configured": "One of these accounts is already connected. Select only accounts that have not been added.",
+      "invalid_schedule_address": "Select an existing address for this operator.",
+      "invalid_schedule_groups": "Groups changed or the selection is invalid. Verify the address and reopen settings.",
+      "schedule_groups_unavailable": "Building groups are unverified or hidden by DTEK. You can save the address without selecting groups.",
+      "invalid_reminder_settings": "Check the reminder time and switches.",
+      "invalid_check_settings": "Check the time and frequency.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
+      "cannot_connect": "The DTEK directory is unavailable. Try again later.",
+      "invalid_building": "Choose a verified address from the directory.",
+      "building_not_found": "DTEK returned no choices for this address."
+    },
+    "abort": {
+      "address_setup_started": "Open the integrations page and complete the discovered DTEK address setup.",
+      "account_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "account_cannot_connect": "Cannot connect to DTEK. Try again later.",
+      "no_accounts": "No supported household accounts were found.",
+      "account_mismatch": "Sign in to the same DTEK account.",
+      "account_auth_required": "Sign in to the same DTEK account again before managing links.",
+      "link_invalid_number": "Enter a modern household account number for the selected operator. Check the length and prefix shown in the form.",
+      "link_lookup_failed": "DTEK did not return one matching account with a complete address. Nothing was added.",
+      "link_not_found": "No matching household account was found. Check the number on your receipt.",
+      "link_already_linked": "This account is already linked to your DTEK cabinet. Select it for HA monitoring instead.",
+      "link_not_linked": "This account is no longer linked to this cabinet. Refresh the list.",
+      "link_changed": "The account details changed after review. Start again and check the new address.",
+      "link_session_changed": "The connection changed or expired. Reopen its settings and try again.",
+      "link_review_expired": "This confirmation expired or has already been used. Review the account again; no request was repeated.",
+      "link_in_use": "HA still monitors this account. Deselect it in HA monitoring settings and wait for reload before unlinking it from DTEK.",
+      "link_confirm_required": "Confirm the account and action before continuing.",
+      "link_uncertain": "DTEK did not confirm the result. The change may have been applied. No retry was made. Check your cabinet or refresh its linked-account list before trying again.",
+      "link_rejected": "DTEK rejected the change. Check the account in the official cabinet before trying again.",
+      "link_rate_limit": "DTEK has limited requests. Wait before trying again.",
+      "link_none": "There are no household accounts linked to this cabinet.",
+      "link_unlinked": "The account was unlinked from your DTEK cabinet. Its electricity contract remains active.",
+      "account_api_changed": "The DTEK interface is unavailable or incompatible. Open Home Assistant Repairs to check integration updates or contact the developer.",
+      "building_context_changed": "The account settings changed. Reopen building selection."
     }
   },
   "entity": {
@@ -110,6 +530,152 @@
           "ok": "Connected",
           "error": "Error"
         }
+      },
+      "account_consumption": {
+        "name": "Latest closed-month consumption"
+      },
+      "account_meter_model": {
+        "name": "Meter model"
+      },
+      "account_verification_year": {
+        "name": "Next verification year"
+      },
+      "account_updated": {
+        "name": "Account data updated"
+      },
+      "account_reading": {
+        "name": "Recorded reading ({zone})"
+      },
+      "account_reading_date": {
+        "name": "Reading date ({zone})"
+      },
+      "account_reading_general": {
+        "name": "Recorded reading"
+      },
+      "account_reading_date_general": {
+        "name": "Reading date"
+      },
+      "schedule_status": {
+        "name": "Schedule availability",
+        "state": {
+          "current": "Schedule available today",
+          "empty": "No planned outages today (verified)",
+          "partial": "Incomplete schedule today",
+          "forecast": "Forecast only; planned outages unconfirmed",
+          "missing": "No verified schedule for today",
+          "unpublished": "DTEK paused schedule publication",
+          "unsupported": "Operator not supported",
+          "error": "Failed to fetch schedule"
+        }
+      },
+      "account_schedule_groups": {
+        "name": "My group"
+      },
+      "account_schedule_status": {
+        "name": "My schedule status",
+        "state": {
+          "no_address": "No building linked",
+          "not_selected": "Select an apartment group",
+          "selected": "Group selected by user",
+          "address_unavailable": "Building unavailable",
+          "group_unavailable": "Selected group no longer verified for building",
+          "labels_hidden": "DTEK has hidden group labels",
+          "schedule_unavailable": "Schedule unavailable",
+          "auto_selected": "Automatic — only building group",
+          "schedule_current": "Schedule available today",
+          "schedule_empty": "No planned outages today (verified)",
+          "schedule_partial": "Incomplete schedule today",
+          "schedule_forecast": "Forecast only; planned outages unconfirmed",
+          "schedule_missing": "No verified schedule for today",
+          "schedule_unpublished": "DTEK paused schedule publication",
+          "schedule_unsupported": "Operator not supported",
+          "schedule_error": "Failed to fetch schedule",
+          "address_pending": "Finding the building for this account…",
+          "address_confirmation": "Confirm the building in Building and outage group settings.",
+          "address_lookup_unavailable": "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.",
+          "cabinet_selected": "Automatic — verified personal account group",
+          "cabinet_group_mismatch": "Cabinet and building groups disagree",
+          "cabinet_unavailable": "Cabinet group temporarily unavailable"
+        }
+      },
+      "account_reading_check": {
+        "name": "Reading check",
+        "state": {
+          "idle": "Not checked yet",
+          "checking": "Checking…",
+          "ready": "Ready to review — not sent",
+          "blocked": "Needs attention — not sent",
+          "error": "Check failed — not sent",
+          "interrupted": "Interrupted — not sent"
+        }
+      },
+      "address_works_status": {
+        "name": "Repair report availability",
+        "state": {
+          "reported": "DTEK reported repair works",
+          "empty": "No repair works in the DTEK response",
+          "incomplete": "Repair times are incomplete",
+          "unavailable": "Failed to fetch address data",
+          "unsupported": "Repair reports not supported"
+        }
+      },
+      "schedule_tomorrow_status": {
+        "name": "Tomorrow’s schedule availability",
+        "state": {
+          "current": "Schedule available tomorrow",
+          "empty": "No planned outages tomorrow (verified)",
+          "partial": "Incomplete schedule tomorrow",
+          "forecast": "Forecast only; planned outages unconfirmed",
+          "missing": "No verified schedule for tomorrow",
+          "unpublished": "DTEK paused schedule publication",
+          "unsupported": "Operator not supported",
+          "error": "Failed to fetch schedule"
+        }
+      },
+      "account_schedule_tomorrow_status": {
+        "name": "My schedule tomorrow",
+        "state": {
+          "no_address": "No building linked",
+          "not_selected": "Select an apartment group",
+          "selected": "Group selected by user",
+          "address_unavailable": "Building unavailable",
+          "group_unavailable": "Selected group no longer verified for building",
+          "labels_hidden": "DTEK has hidden group labels",
+          "schedule_unavailable": "Schedule unavailable",
+          "auto_selected": "Automatic — only building group",
+          "schedule_current": "Schedule available tomorrow",
+          "schedule_empty": "No planned outages tomorrow (verified)",
+          "schedule_partial": "Incomplete schedule tomorrow",
+          "schedule_forecast": "Forecast only; planned outages unconfirmed",
+          "schedule_missing": "No verified schedule for tomorrow",
+          "schedule_unpublished": "DTEK paused schedule publication",
+          "schedule_unsupported": "Operator not supported",
+          "schedule_error": "Failed to fetch schedule",
+          "address_pending": "Finding the building for this account…",
+          "address_confirmation": "Confirm the building in Building and outage group settings.",
+          "address_lookup_unavailable": "The DTEK address directory is temporarily unavailable. Matching will retry; account data works independently.",
+          "cabinet_selected": "Automatic — verified personal account group",
+          "cabinet_group_mismatch": "Cabinet and building groups disagree",
+          "cabinet_unavailable": "Cabinet group temporarily unavailable"
+        }
+      },
+      "next_planned_outage": {
+        "name": "Next planned outage (scheduled)"
+      },
+      "account_next_planned_outage": {
+        "name": "My next planned outage (scheduled)"
+      },
+      "next_possible_outage": {
+        "name": "Next possible outage (scheduled)"
+      },
+      "account_next_possible_outage": {
+        "name": "My next possible outage (scheduled)"
+      },
+      "scheduled_outage_end": {
+        "name": "Outage end (scheduled)"
+      },
+      "account_scheduled_outage_end": {
+        "name": "My outage end (scheduled)"
       }
     },
     "calendar": {
@@ -121,7 +687,101 @@
       },
       "last_known_schedule": {
         "name": "Last known schedule (view only)"
+      },
+      "account_outage_schedule": {
+        "name": "My outage schedule"
+      },
+      "account_possible_schedule": {
+        "name": "My possible outage schedule"
+      },
+      "address_works": {
+        "name": "Address repair works"
       }
+    },
+    "button": {
+      "account_refresh": {
+        "name": "Refresh all accounts"
+      },
+      "account_reminder_preview": {
+        "name": "Preview reading reminder"
+      },
+      "account_check_now": {
+        "name": "Check readings without submission"
+      },
+      "schedule_refresh": {
+        "name": "Refresh schedule"
+      }
+    }
+  },
+  "exceptions": {
+    "account_refresh_cooldown": {
+      "message": "Another refresh is available in {seconds} seconds."
+    },
+    "account_refresh_failed": {
+      "message": "Not all accounts could be refreshed. Check the connection status; unavailable data is not replaced with zero."
+    },
+    "schedule_missing": {
+      "message": "No verified schedule for today."
+    },
+    "schedule_unpublished": {
+      "message": "DTEK paused schedule publication."
+    },
+    "schedule_unsupported": {
+      "message": "Operator not supported."
+    },
+    "schedule_error": {
+      "message": "Failed to fetch schedule."
+    },
+    "schedule_range_missing": {
+      "message": "DTEK has not published a schedule for all selected groups in this range."
+    },
+    "personal_schedule_unavailable": {
+      "message": "Personal schedule unavailable. Check the schedule status and group selection."
+    },
+    "check_cooldown": {
+      "message": "Wait 60 seconds between manual account checks."
+    },
+    "check_unavailable": {
+      "message": "Local checks are unavailable. Check the integration and the check journal."
+    },
+    "address_works_incomplete": {
+      "message": "DTEK reported repairs without a complete valid time interval. Check the address status; no end time is assumed."
+    },
+    "address_works_unavailable": {
+      "message": "Could not verify address repair reports. Retry after the connection recovers."
+    },
+    "address_works_unsupported": {
+      "message": "This provider does not supply verified repair reports for the address."
+    },
+    "schedule_refresh_cooldown": {
+      "message": "Another schedule refresh is available in {seconds} seconds."
+    },
+    "schedule_refresh_failed": {
+      "message": "Could not refresh the DTEK schedule. Check the connection status; the integration will retry automatically."
+    }
+  },
+  "selector": {
+    "check_frequency": {
+      "options": {
+        "daily": "Every day",
+        "reading_window": "Each day in the reporting window (last 2 and first 3 days of the month)"
+      }
+    },
+    "building_connection": {
+      "options": {
+        "none": "Do not link a building",
+        "create": "Choose another building from the directory"
+      }
+    }
+  },
+  "issues": {
+    "account_api_changed": {
+      "title": "Check DTEK API compatibility",
+      "description": "The **{interface}** interface is unavailable or returned an incompatible response ({reason}). DTEK may have changed or disabled it.\n\nCheck [DTEK Monitor updates]({releases_url}). If you already use the latest version, [report the problem]({issues_url}) with the interface and reason shown here. Do not include passwords, tokens or full account numbers.\n\nThis issue clears automatically after successful requests resume."
+    },
+    "account_groups_api_changed": {
+      "title": "Legacy cabinet group lookup needs an update",
+      "description": "The optional account-group service is unavailable or its response format changed ({reason}). This affects group lookup through the legacy cabinet. Meter data, reading submission and building schedules work independently. You can choose your group manually or disable cabinet lookup in group settings.\n\nCheck [integration updates]({releases_url}). If you already use the latest version, [report the issue]({issues_url}) with the reason and interface: {interface}. Omit credentials and full account numbers. This issue clears after recovery or after lookup is disabled for this connection."
     }
   }
 }

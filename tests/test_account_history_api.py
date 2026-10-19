@@ -1,0 +1,364 @@
+"""History access must remain scoped to the permitted, selected account."""
+
+from types import SimpleNamespace
+import unittest
+from unittest.mock import AsyncMock, Mock, patch
+import test_account_runtime as runtime
+from component_loader import load_component_module
+
+if runtime.runtime.HAS_HA:
+    api = load_component_module("account_history_api")
+    from homeassistant.config_entries import ConfigEntryState
+
+
+@unittest.skipUnless(runtime.runtime.HAS_HA, "Requires Home Assistant")
+class HistoryAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def identity(self, reveal):
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er,
+                "async_entries_for_config_entry",
+                return_value=[self.entity, *getattr(self, "extra_entities", [])],
+            ),
+        ):
+            api.websocket_identity(
+                self.hass,
+                self.connection,
+                {
+                    "id": 2,
+                    "entity_id": self.entity.entity_id,
+                    "reveal": reveal,
+                },
+            )
+
+    async def test_identity_defaults_masked_and_read_permission_allows_explicit_reveal(
+        self,
+    ):
+        self.connection.user.is_admin = False
+        await self.identity(False)
+        metadata = {
+            "masked": "••••0001",
+            "provider_id": "dtek_oem",
+            "cabinet_url": "https://my.dtek-oem.com.ua/",
+        }
+        self.connection.send_result.assert_called_with(2, metadata)
+        await self.identity(True)
+        self.connection.send_result.assert_called_with(
+            2, {**metadata, "number": "100001"}
+        )
+        self.account_coord.history.get.assert_not_awaited()
+
+    async def test_cabinet_navigation_is_local_region_scoped_and_never_reveals_number(
+        self,
+    ):
+        for provider in ("dtek_oem", "dtek_kem", "dtek_krem", "dtek_dnem", "unknown"):
+            self.entry.data["provider_id"] = provider
+            identity = runtime.account.account_key(provider, "100001")
+            self.entity.unique_id = f"account:{identity}:account_updated:all"
+            await self.identity(False)
+            data = self.connection.send_result.call_args.args[1]
+            self.assertEqual(data["provider_id"], provider)
+            self.assertEqual(
+                data["cabinet_url"],
+                f"https://my.{provider.replace('_', '-')}.com.ua/"
+                if provider != "unknown"
+                else None,
+            )
+            for private in ("number", "username", "password"):
+                self.assertNotIn(private, data)
+        self.account_client.authenticate.assert_not_awaited()
+        self.account_coord.history.get.assert_not_awaited()
+
+    async def test_identity_reveal_rechecks_permissions_and_account_membership(self):
+        await self.identity(True)
+        self.connection.send_result.reset_mock()
+        self.connection.user.permissions.check_entity.return_value = False
+        await self.identity(True)
+        self.connection.send_result.assert_not_called()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "unauthorized")
+        self.connection.user.permissions.check_entity.return_value = True
+        self.entry.data = {**self.entry.data, "accounts": {}}
+        await self.identity(True)
+        self.connection.send_result.assert_not_called()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "not_available")
+
+    async def asyncSetUp(self):
+        await runtime.AccountRuntimeTests.asyncSetUp(self)
+        self.entry.state = ConfigEntryState.LOADED
+        self.entry.domain = "dtek_monitor"
+        self.entry.runtime_data = self.account_coord
+        self.account_coord.history = SimpleNamespace(
+            get=AsyncMock(return_value={"year": 2026, "readings": []})
+        )
+        self.hass.config_entries.async_get_entry.return_value = self.entry
+        self.entity = SimpleNamespace(
+            entity_id="sensor.example",
+            config_entry_id=self.entry.entry_id,
+            platform="dtek_monitor",
+            disabled_by=None,
+            unique_id=f"account:{runtime.account.account_key('dtek_oem', '100001')}:account_updated:all",
+        )
+        self.registry = SimpleNamespace(async_get=Mock(return_value=self.entity))
+        self.connection = Mock()
+        self.connection.user.permissions.check_entity.return_value = True
+        self.msg = {
+            "id": 1,
+            "type": "dtek_monitor/account_history",
+            "entity_id": "sensor.example",
+            "year": 2026,
+            "force": False,
+        }
+
+    async def invoke(self):
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er,
+                "async_entries_for_config_entry",
+                return_value=[self.entity, *getattr(self, "extra_entities", [])],
+            ),
+        ):
+            await api.websocket_history.__wrapped__(
+                self.hass, self.connection, self.msg
+            )
+
+    async def test_timestamp_permission_cannot_bypass_restricted_consumption(self):
+        self.extra_entities = [
+            SimpleNamespace(
+                entity_id="sensor.private_consumption",
+                platform="dtek_monitor",
+                unique_id=self.entity.unique_id.replace(
+                    "account_updated", "account_consumption"
+                ),
+            )
+        ]
+        self.connection.user.permissions.check_entity.side_effect = (
+            lambda entity_id, policy: entity_id != "sensor.private_consumption"
+        )
+        await self.invoke()
+        self.account_coord.history.get.assert_not_awaited()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "unauthorized")
+
+    async def test_permitted_entity_resolves_one_selected_account_only(self):
+        await self.invoke()
+        self.account_coord.history.get.assert_awaited_once_with(
+            "100001", 2026, force=False
+        )
+        self.connection.send_result.assert_called_once()
+        self.assertNotIn("100001", str(self.connection.send_result.call_args))
+
+    async def test_permission_denial_never_reads_registry_or_cache(self):
+        self.connection.user.permissions.check_entity.return_value = False
+        await self.invoke()
+        self.registry.async_get.assert_not_called()
+        self.account_coord.history.get.assert_not_awaited()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "unauthorized")
+
+    async def test_public_entity_foreign_account_disabled_entity_or_unloaded_entry_is_denied(
+        self,
+    ):
+        cases = [
+            ("unique_id", "public-address:power"),
+            ("unique_id", "account:foreign:account_updated:all"),
+            ("platform", "other"),
+            ("disabled_by", "user"),
+        ]
+        for key, value in cases:
+            old = getattr(self.entity, key)
+            setattr(self.entity, key, value)
+            await self.invoke()
+            self.account_coord.history.get.assert_not_awaited()
+            setattr(self.entity, key, old)
+        self.entry.state = ConfigEntryState.NOT_LOADED
+        await self.invoke()
+        self.account_coord.history.get.assert_not_awaited()
+        self.entry.state = ConfigEntryState.LOADED
+        self.entry.data = {**self.entry.data, "entry_kind": "address"}
+        await self.invoke()
+        self.account_coord.history.get.assert_not_awaited()
+
+    async def test_removal_or_permission_change_during_fetch_discards_result(self):
+        async def revoke(*args, **kwargs):
+            self.entry.data = {**self.entry.data, "accounts": {}}
+            return {"readings": ["private"]}
+
+        self.account_coord.history.get.side_effect = revoke
+        await self.invoke()
+        self.connection.send_result.assert_not_called()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "not_available")
+
+    async def test_auth_and_upstream_errors_are_sanitized(self):
+        for error, code in [
+            (runtime.account.AccountAuthError("private token"), "auth_required"),
+            (runtime.account.AccountRateLimitError("private token"), "rate_limited"),
+            (runtime.account.AccountError("private token"), "history_unavailable"),
+        ]:
+            self.account_coord.history.get.side_effect = error
+            await self.invoke()
+            self.assertEqual(self.connection.send_error.call_args.args[1], code)
+            self.assertNotIn("private token", str(self.connection.send_error.call_args))
+        self.entry.async_start_reauth.assert_called_once_with(self.hass)
+
+    def account_list(self, entities):
+        self.hass.config_entries.async_entries.return_value = [self.entry]
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er, "async_entries_for_config_entry", return_value=entities
+            ),
+        ):
+            api.websocket_accounts(self.hass, self.connection, {"id": 3})
+        return self.connection.send_result.call_args.args[1]
+
+    async def test_card_choices_include_both_selected_accounts_without_full_numbers(
+        self,
+    ):
+        second = SimpleNamespace(
+            **{
+                **vars(self.entity),
+                "entity_id": "sensor.second",
+                "unique_id": f"account:{runtime.account.account_key('dtek_oem', '100002')}:account_updated:all",
+            }
+        )
+        result = self.account_list([self.entity, second])
+        self.assertEqual([r["masked"] for r in result], ["••••0001", "••••0002"])
+        self.assertEqual(
+            [r["entity_id"] for r in result], ["sensor.example", "sensor.second"]
+        )
+        self.assertNotIn("100001", str(result))
+        self.assertNotIn("100002", str(result))
+        self.account_coord.history.get.assert_not_awaited()
+        self.account_client.list_accounts.assert_not_awaited()
+
+    async def test_workspace_roles_use_registry_and_respect_control_permissions(self):
+        reading = SimpleNamespace(
+            **{
+                **vars(self.entity),
+                "entity_id": "sensor.renamed_by_user",
+                "unique_id": self.entity.unique_id.replace(
+                    "account_updated:all", "account_reading:GENERAL"
+                ),
+            }
+        )
+        result = self.account_list([self.entity, reading])
+        self.assertEqual(
+            result[0]["roles"]["account_reading:GENERAL"], "sensor.renamed_by_user"
+        )
+        self.assertTrue(result[0]["can_submit"])
+        self.connection.user.is_admin = False
+        result = self.account_list([self.entity, reading])
+        self.assertFalse(result[0]["can_submit"])
+        self.assertIn("account_reading:GENERAL", result[0]["roles"])
+        self.connection.user.is_admin = True
+        self.connection.user.permissions.check_entity.side_effect = (
+            lambda entity, policy: policy == "read"
+        )
+        self.assertFalse(self.account_list([self.entity, reading])[0]["can_submit"])
+
+    async def test_workspace_never_invents_or_exposes_unreadable_building_links(self):
+        from custom_components.dtek_monitor.account_schedule import (
+            CONF_ACCOUNT_SCHEDULES,
+        )
+        from custom_components.dtek_monitor.helpers import build_entity_unique_id
+
+        address = SimpleNamespace(
+            entry_id="building",
+            unique_id="building-unique",
+            data={"provider_id": "dtek_oem"},
+        )
+        self.entry.options = {
+            CONF_ACCOUNT_SCHEDULES: {"100001": {"address_entry_id": "building"}}
+        }
+        entities = [
+            SimpleNamespace(
+                entity_id="calendar.house",
+                platform="dtek_monitor",
+                disabled_by=None,
+                unique_id=build_entity_unique_id(address, "outage_schedule"),
+            ),
+            SimpleNamespace(
+                entity_id="calendar.private",
+                platform="dtek_monitor",
+                disabled_by=None,
+                unique_id=build_entity_unique_id(address, "possible_schedule"),
+            ),
+        ]
+        self.hass.config_entries.async_entries.return_value = [self.entry, address]
+        self.connection.user.permissions.check_entity.side_effect = (
+            lambda entity, policy: entity != "calendar.private"
+        )
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er, "async_entries_for_config_entry", return_value=entities
+            ),
+        ):
+            self.assertEqual(
+                api._building_schedule(
+                    self.hass, self.connection, self.entry, "100001"
+                ),
+                {"outage_schedule": "calendar.house"},
+            )
+            self.assertEqual(
+                api._building_schedule(
+                    self.hass, self.connection, self.entry, "100002"
+                ),
+                {},
+            )
+
+    async def test_card_choices_filter_unselected_unloaded_disabled_and_restricted_accounts(
+        self,
+    ):
+        second = SimpleNamespace(
+            **{
+                **vars(self.entity),
+                "entity_id": "sensor.second",
+                "unique_id": f"account:{runtime.account.account_key('dtek_oem', '100002')}:account_updated:all",
+            }
+        )
+        private = SimpleNamespace(
+            **{
+                **vars(second),
+                "entity_id": "sensor.private",
+                "unique_id": second.unique_id.replace(
+                    "account_updated", "account_consumption"
+                ),
+            }
+        )
+        self.connection.user.permissions.check_entity.side_effect = (
+            lambda entity, policy: entity != "sensor.private"
+        )
+        self.assertEqual(len(self.account_list([self.entity, second, private])), 1)
+        self.connection.user.permissions.check_entity.side_effect = None
+        second.disabled_by = "user"
+        self.assertEqual(len(self.account_list([self.entity, second])), 1)
+        second.disabled_by = None
+        self.entry.data["accounts"].pop("100002")
+        self.assertEqual(len(self.account_list([self.entity, second])), 1)
+        self.entry.state = ConfigEntryState.NOT_LOADED
+        self.assertFalse(self.account_list([self.entity, second]))
+
+    async def test_check_journal_is_local_read_only_and_permission_scoped(self):
+        with (
+            patch.object(api.er, "async_get", return_value=self.registry),
+            patch.object(
+                api.er, "async_entries_for_config_entry", return_value=[self.entity]
+            ),
+        ):
+            api.websocket_checks(
+                self.hass, self.connection, {"id": 4, "entity_id": "sensor.example"}
+            )
+            self.assertEqual(
+                self.connection.send_result.call_args.args[1]["history"], []
+            )
+            self.connection.send_result.reset_mock()
+            self.connection.user.permissions.check_entity.return_value = False
+            api.websocket_checks(
+                self.hass, self.connection, {"id": 4, "entity_id": "sensor.example"}
+            )
+            self.connection.send_result.assert_not_called()
+            self.assertEqual(
+                self.connection.send_error.call_args.args[1], "unauthorized"
+            )
+        self.account_client.read_account.assert_not_awaited()

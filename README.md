@@ -2,9 +2,8 @@
 
 **English** · [Українська](README.uk.md)
 
-> **Public beta 2.0.0b1 is available:** Odesa personal cabinet, My DTEK dashboard, meter-reading submissions, energy sensors and a schedule grid.
-> [Release](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v2.0.0b1) · [Installation, upgrade and rollback](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/docs/BETA.md) · [Complete feature guide](https://github.com/groove-max/ha-dtek-monitor/blob/v2.0.0b1/README.md).
-> The beta is opt-in; **1.7.0** remains the stable release. The instructions below describe the stable version.
+> **2.0.0-rc1 — release candidate.** A preview for testing before the final 2.0 release.
+> [Install, upgrade or roll back](docs/UPGRADING.md). Stable release: [1.7.0](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v1.7.0).
 
 [![HACS custom integration](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
@@ -15,13 +14,27 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 
 **Want Telegram notifications?** Pair it with [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): the companion Home Assistant app sends schedule updates, upcoming-outage reminders and a pinned status message. It can also use your local voltage sensors to check actual power availability.
 
+**Personal Telegram use:** pair Monitor **2.0.0-rc1** with bot **0.5.0-rc1** for private cabinet notifications, reminders, reading history and confirmed submissions. [Personal bot setup](docs/PERSONAL_ACCOUNT.md#section-13).
+
 [Install](#installation) · [Set up](#setup) · [Understand the data](#data) · [Troubleshoot](#troubleshooting) · [Detailed reference](docs/REFERENCE.md)
+
+## Choose what you need
+
+| I want | Connect |
+| --- | --- |
+| Building schedules and outage status | An address without a cabinet login; all four operators below. |
+| My apartment's readings, consumption and account information | A phone-based personal cabinet; currently Odesa household accounts only. |
+| Reading suggestions from my home meter | An optional cumulative HA energy sensor linked to the appropriate account. |
+| Telegram notifications | The separate [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): building alerts in any chat, or your cabinet in a private conversation. |
+
+[Cabinet and dashboard](docs/PERSONAL_ACCOUNT.md) · [Readings and sensors](docs/ENERGY_AND_READINGS.md) · [Schedules and groups](docs/SCHEDULES.md)
 
 <a id="features"></a>
 ## What you get
 
 - The outage status, reason and estimated restoration time reported by DTEK for your address.
 - Separate calendars for planned outages and possible outage windows.
+- An [address repair calendar](docs/SCHEDULES.md#address-works), with a separate status for missing or unavailable repair times.
 - All schedule groups returned for the address, including addresses with multiple groups.
 - A clearly labeled **last known schedule** for viewing when DTEK is unavailable.
 - Connection diagnostics that distinguish failed requests from an empty published schedule.
@@ -52,9 +65,9 @@ Requires **Home Assistant 2026.3.0 or newer** and internet access from Home Assi
 
 1. Open **HACS → ⋮ → Custom repositories**.
 2. Add `https://github.com/groove-max/ha-dtek-monitor` with type **Integration**.
-3. Find **DTEK Monitor** in HACS and download it.
+3. Find **DTEK Monitor**. For **2.0.0-rc1**, follow [prerelease version selection](docs/UPGRADING.md); a normal download may install stable 1.7.0.
 4. Restart Home Assistant.
-5. Continue with [address setup](#setup).
+5. Continue with [address setup](#setup) or [personal cabinet setup](#personal-account).
 
 This is a [HACS custom repository](https://hacs.dev/docs/faq/custom_repositories/); adding it to HACS installs the files, not the address configuration.
 
@@ -72,7 +85,7 @@ The noncommercial license does not meet the requirements for the default HACS ca
 
 1. Open **Settings → Devices & services → Add integration**.
 2. Search for **DTEK Monitor**.
-3. Choose the operator, settlement, street and house number. Use the spelling offered by DTEK.
+3. Choose the operator, then **Outage schedules by address**, settlement, street and house number. Use the spelling offered by DTEK.
 4. Keep the initial polling interval at **300 seconds (5 minutes)**.
 5. Open the newly created device and check its entities.
 
@@ -81,6 +94,36 @@ To change the polling interval later, open the integration's **Configure** menu.
 **First check:** the connection diagnostic should show `ok` after a successful refresh. Compare the address status with the official website, then add the **Outage schedule** calendar to a dashboard calendar card. An empty calendar is not always an error: DTEK may not have published that date yet.
 
 Add another integration entry for another address. You do not need to edit `configuration.yaml`.
+
+<a id="personal-account"></a>
+## Personal cabinet and My DTEK dashboard
+
+1. Add the integration and choose **ДТЕК Одеські електромережі → Personal account and meter readings**.
+2. Sign in with your phone and password. Registration and password recovery through SMS are also available.
+3. Select the personal accounts to monitor. If the cabinet is empty, add an account here or later in settings.
+4. Reload the HA page. On your dashboard choose **Edit → Add card → My DTEK**, select an account and save.
+5. Check the building link. Unique directory matches connect automatically; ambiguous addresses need confirmation. A single verified cabinet group or the building's only group is automatic. Otherwise, choose your apartment group in Settings. HA notifies you of verified group changes and automatically replaces a disappeared manual group when the replacement is unambiguous. [How group selection works](docs/SCHEDULES.md#section-2).
+
+**Overview** shows the address, latest cumulative reading and separately labelled
+monthly consumption. **Schedule** offers a grid of all groups with building and
+apartment highlights, a list and PNG export. **Readings** lets you review and send
+values. **Consumption** shows monthly history. **Settings** contains account,
+EIC and meter details, your group, energy sensor and optional reminders.
+
+For several apartments, choose an account on each card or enable its account
+selector. This does not change other panels or which accounts HA monitors.
+Use the eye button to reveal or hide an account number.
+
+An energy sensor is optional. It need not be ATORCH: use a cumulative grid-import
+sensor for the correct apartment. Linking, official-meter calibration, corrections,
+scheduled checks and reminders are covered in the [readings guide](docs/ENERGY_AND_READINGS.md).
+**There is no automatic submission.** In HA, an administrator confirms each send; in the companion bot, only the assigned user with submission permission can confirm it.
+
+![My DTEK dashboard with a fictional account](docs/images/my-dtek-overview.en.png)
+
+[Complete cabinet setup and features](docs/PERSONAL_ACCOUNT.md).
+
+**Language:** English and Ukrainian are supported. If HA uses Russian, DTEK Monitor shows Ukrainian, including setup, cards and its notifications. HA’s own language stays unchanged.
 
 <a id="data"></a>
 ## Understand the entities
@@ -94,10 +137,13 @@ Entity names follow your Home Assistant language. Open the integration's device 
 | **Outage start / end** | Reported start and estimated end; absent values can be normal when there is no active outage. |
 | **Primary schedule group / All schedule groups** | The address's group assignments. The first group is not necessarily the only one. |
 | **DTEK last update / Schedule changed** | Source update timestamps, not local power-transition times. |
+| **Next planned / possible outage; Outage end (scheduled)** | Upcoming schedule times for the building or selected apartment groups. [Details and limits](docs/SCHEDULES.md#upcoming-times). |
+| **Tomorrow’s schedule availability** | Distinguishes tomorrow's published schedule, verified empty day, forecast, incomplete data and failures. |
 | **Outage schedule** | Published planned outage intervals. A plan is not proof that the power actually went off. |
 | **Possible outage schedule** | Possible windows, when available from the source; overlaps with planned intervals are removed. |
 | **Last known schedule (view only)** | Saved events with their verification time. Use for reference, not automatic alerts. |
 | **DTEK connection** | Connection and freshness diagnostics, including separate address/schedule errors. |
+| **Address repair works / Repair report availability** | Operator-reported repair intervals and their completeness. Separate from group schedules; advance notice is not guaranteed. |
 
 ### Multiple groups and hidden group numbers
 
@@ -108,6 +154,9 @@ Some operators, including Kyiv city, do not publish meaningful public group numb
 ### When a schedule is unavailable
 
 A failed verification makes the live calendars unavailable. The integration does not silently reuse old data as fresh or interpret an unpublished day as “no outages.” Address sensors can still update if only the schedule request failed.
+
+An address confirmed by DTEK can also finish its first setup without a schedule.
+Check **Schedule availability** for the reason; retries and recovery are automatic.
 
 The separate saved calendar remains viewable, including after a restart. It stores concrete events within an eight-day snapshot horizon; it does not invent dates that DTEK has not published or repeat an old weekly template indefinitely. Details: [freshness and automation rules](docs/REFERENCE.md#freshness).
 
@@ -128,7 +177,7 @@ Do not repeatedly remove and re-add an address to recover from a temporary websi
 <a id="support"></a>
 ## Help, development and releases
 
-- [Report an issue](https://github.com/groove-max/ha-dtek-monitor/issues): include HA/integration versions, operator, expected behavior and sanitized errors. English and Ukrainian reports are welcome.
+- [Report an issue](https://github.com/groove-max/ha-dtek-monitor/issues): include HA/integration versions, operator, expected behavior and sanitized errors. You can attach a [diagnostic download](docs/REFERENCE.md#diagnostics) from the connection's menu in HA. English and Ukrainian reports are welcome.
 - [Detailed reference](docs/REFERENCE.md): entity IDs, automation attributes, freshness and backups.
 - [Changelog](CHANGELOG.md) and [releases](https://github.com/groove-max/ha-dtek-monitor/releases).
 - [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md).

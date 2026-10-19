@@ -49,11 +49,13 @@ PROVIDERS = MappingProxyType(
 )
 
 
-def create_provider(provider_id: str = DEFAULT_PROVIDER_ID):
+def create_provider(provider_id: str = DEFAULT_PROVIDER_ID, *, hass=None):
     """Only validated rollout targets can be instantiated by HA/config flow."""
     from .dtek_provider import DTEKWebProvider
+    from .public_requests import operator_gate
 
     spec = PROVIDERS.get(provider_id)
     if spec is None or not spec.enabled:
         raise ProviderError(f"Provider is not enabled: {provider_id}")
-    return DTEKWebProvider(spec)
+    gate = operator_gate(hass, provider_id) if hass is not None else None
+    return DTEKWebProvider(spec, request_gate=gate)
