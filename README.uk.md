@@ -1,11 +1,9 @@
 # DTEK Monitor для Home Assistant
 
-> **Гілка розробки:** описана нижче підтримка кабінетів міста Києва, Київської та Дніпропетровської областей ще не входить до опублікованої 2.0.0-rc1, яка підтримує кабінети Одеської області.
-
 [English](README.md) · **Українська**
 
-> **2.0.0-rc1 — кандидат у випуск.** Попередня версія для тестування перед остаточним випуском 2.0.
-> [Встановлення, оновлення та відновлення](docs/UPGRADING.uk.md). Стабільна версія: [1.7.0](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v1.7.0).
+> **2.0.0-rc2 — звичайний випуск GitHub.** Доступний у HACS без увімкнення попередніх версій. Кабінети Київської та Дніпропетровської областей мають експериментальну підтримку.
+> [Встановлення, оновлення та відновлення](docs/UPGRADING.uk.md).
 
 [![Користувацька інтеграція HACS](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![Ліцензія PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
@@ -16,7 +14,7 @@
 
 **Потрібні сповіщення в Telegram?** Додайте [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/README.uk.md): цей застосунок Home Assistant надсилає зміни графіка, попередження про наближення відключення та оновлює закріплений статус. За наявності локальних датчиків напруги він також може перевіряти фактичну наявність світла.
 
-**Особистий Telegram:** Monitor **2.0.0-rc1** разом із ботом **0.5.0-rc1** надає приватні сповіщення кабінету, нагадування, історію та передачу показів після підтвердження. [Налаштування](docs/PERSONAL_ACCOUNT.uk.md#section-13).
+**Особистий Telegram:** Monitor **2.0.0-rc2** разом із ботом **0.5.0-rc2** надає приватні сповіщення кабінету, нагадування, історію та передачу показів після підтвердження. [Налаштування](docs/PERSONAL_ACCOUNT.uk.md#section-13).
 
 [Встановлення](#installation) · [Налаштування](#setup) · [Значення даних](#data) · [Розв’язання проблем](#troubleshooting) · [Довідник](docs/REFERENCE.uk.md)
 
@@ -69,7 +67,7 @@
 
 1. Відкрийте **HACS → ⋮ → Custom repositories**.
 2. Додайте `https://github.com/groove-max/ha-dtek-monitor`, тип — **Integration**.
-3. Знайдіть **DTEK Monitor**. Для **2.0.0-rc1** виконайте [вибір попереднього випуску](docs/UPGRADING.uk.md); звичайне завантаження може встановити стабільну 1.7.0.
+3. Знайдіть **DTEK Monitor** і завантажте **2.0.0-rc2**. Перемикач попередніх версій не потрібен. [Інструкція оновлення](docs/UPGRADING.uk.md).
 4. Перезапустіть Home Assistant.
 5. Перейдіть до [адреси](#setup) або [особистого кабінету](#personal-account).
 

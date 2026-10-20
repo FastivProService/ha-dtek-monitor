@@ -1,12 +1,12 @@
-import "./account-options.js?v=2.0.0-rc1";
-import "./account-energy-settings.js?v=2.0.0-rc1";
-import "./account-profile-card.js?v=2.0.0-rc1";
-import "./account-readings-card.js?v=2.0.0-rc1";
-import "./account-history-card.js?v=2.0.0-rc1";
-import "./schedule-card.js?v=2.0.0-rc1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
-import { accountNumber } from "./account-number.js?v=2.0.0-rc1";
-import { zoneKey, isUkrainian, languageLocale,  el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
+import "./account-options.js?v=2.0.0-rc2";
+import "./account-energy-settings.js?v=2.0.0-rc2";
+import "./account-profile-card.js?v=2.0.0-rc2";
+import "./account-readings-card.js?v=2.0.0-rc2";
+import "./account-history-card.js?v=2.0.0-rc2";
+import "./schedule-card.js?v=2.0.0-rc2";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc2";
+import { accountNumber } from "./account-number.js?v=2.0.0-rc2";
+import { zoneKey, isUkrainian, languageLocale,  el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc2";
 
 const words = {
   en: {

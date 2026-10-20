@@ -1,7 +1,5 @@
 # Personal accounts and My DTEK
 
-> **Development branch:** Cabinet support for Kyiv city, Kyiv oblast and Dnipropetrovsk oblast described below is not included in the published 2.0.0-rc1, which supports Odesa oblast cabinets.
-
 **English** · [Українська](PERSONAL_ACCOUNT.uk.md) · [Installation](../README.md#installation)
 
 Connect your **DTEK household cabinet** to see your
@@ -9,7 +7,7 @@ address, meter, readings and consumption in Home Assistant. You can also send
 readings after checking and confirming them. This connection is optional: outage
 schedules by address work without a phone login or energy sensor.
 
-This guide describes the development version based on **2.0.0-rc1**. Read the [installation, upgrade and
+This guide describes **2.0.0-rc2**. Read the [installation, upgrade and
 rollback instructions](UPGRADING.md) before installing it.
 
 [Schedules and groups](SCHEDULES.md) · [Readings, sensors and reminders](ENERGY_AND_READINGS.md)
@@ -493,7 +491,7 @@ other building groups. [Group selection and schedule display](SCHEDULES.md).
 
 Configure [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot) separately for a building or personal account. Building mode supports channels, groups and private chats and retains all building groups.
 
-**Monitor 2.0.0-rc1 and bot 0.5.0-rc1** support personal mode: cabinet API groups, reminders, reading history, confirmed submissions and an all-groups PNG table. It works only in the explicitly assigned user’s private chat. DTEK credentials stay in the integration; the HA administrator configures profiles and permissions. Calibration and detailed settings stay in My DTEK. [Personal bot setup](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
+**Monitor 2.0.0-rc2 and bot 0.5.0-rc2** support personal mode: cabinet API groups, reminders, reading history, confirmed submissions and an all-groups PNG table. It works only in the explicitly assigned user’s private chat. DTEK credentials stay in the integration; the HA administrator configures profiles and permissions. Calibration and detailed settings stay in My DTEK. [Personal bot setup](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
 
 Installing the integration does not create Telegram profiles or change existing recipients or physical sensors. Older Monitor 2.0.0b1 and bot 0.4.1 do not include personal Telegram mode: update both projects to use it.
 

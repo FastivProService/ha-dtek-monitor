@@ -1,11 +1,9 @@
 # DTEK Monitor for Home Assistant
 
-> **Development branch:** Cabinet support for Kyiv city, Kyiv oblast and Dnipropetrovsk oblast described below is not included in the published 2.0.0-rc1, which supports Odesa oblast cabinets.
-
 **English** · [Українська](README.uk.md)
 
-> **2.0.0-rc1 — release candidate.** A preview for testing before the final 2.0 release.
-> [Install, upgrade or roll back](docs/UPGRADING.md). Stable release: [1.7.0](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v1.7.0).
+> **2.0.0-rc2 — regular GitHub release.** Available through HACS without enabling prereleases. Kyiv oblast and Dnipropetrovsk oblast cabinets remain experimental.
+> [Install, upgrade or roll back](docs/UPGRADING.md).
 
 [![HACS custom integration](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
@@ -16,7 +14,7 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 
 **Want Telegram notifications?** Pair it with [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): the companion Home Assistant app sends schedule updates, upcoming-outage reminders and a pinned status message. It can also use your local voltage sensors to check actual power availability.
 
-**Personal Telegram use:** pair Monitor **2.0.0-rc1** with bot **0.5.0-rc1** for private cabinet notifications, reminders, reading history and confirmed submissions. [Personal bot setup](docs/PERSONAL_ACCOUNT.md#section-13).
+**Personal Telegram use:** pair Monitor **2.0.0-rc2** with bot **0.5.0-rc2** for private cabinet notifications, reminders, reading history and confirmed submissions. [Personal bot setup](docs/PERSONAL_ACCOUNT.md#section-13).
 
 [Install](#installation) · [Set up](#setup) · [Understand the data](#data) · [Troubleshoot](#troubleshooting) · [Detailed reference](docs/REFERENCE.md)
 
@@ -69,7 +67,7 @@ Requires **Home Assistant 2026.3.0 or newer** and internet access from Home Assi
 
 1. Open **HACS → ⋮ → Custom repositories**.
 2. Add `https://github.com/groove-max/ha-dtek-monitor` with type **Integration**.
-3. Find **DTEK Monitor**. For **2.0.0-rc1**, follow [prerelease version selection](docs/UPGRADING.md); a normal download may install stable 1.7.0.
+3. Find **DTEK Monitor** and download **2.0.0-rc2**. No prerelease switch is needed. [Upgrade guide](docs/UPGRADING.md).
 4. Restart Home Assistant.
 5. Continue with [address setup](#setup) or [personal cabinet setup](#personal-account).
 

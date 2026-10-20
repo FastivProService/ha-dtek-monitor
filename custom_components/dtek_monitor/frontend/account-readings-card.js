@@ -1,10 +1,10 @@
-import "./account-readback.js?v=2.0.0-rc1";
-import { zoneKey, isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc1";
-import "./account-check-card.js?v=2.0.0-rc1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
+import "./account-readback.js?v=2.0.0-rc2";
+import { zoneKey, isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc2";
+import "./account-check-card.js?v=2.0.0-rc2";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc2";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc1";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0-rc1";
+import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc2";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0-rc2";
 const labels = {
   en: {
     correction: "Save these readings for calibration", correctionTitle: "Check the local correction",

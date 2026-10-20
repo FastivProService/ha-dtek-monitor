@@ -1,4 +1,4 @@
-"""Release tags must not promote a beta or package private local files."""
+"""Release channels must be explicit and packages must exclude private files."""
 
 import importlib.util
 import json
@@ -52,6 +52,24 @@ class ReleaseTests(unittest.TestCase):
         (self.root / "CHANGELOG.md").write_text("## [2.0.0b1] - 2026-10-18\n\n")
         with self.assertRaises(ValueError):
             release.metadata(self.root, "v2.0.0b1")
+
+    def test_explicit_regular_rc_channel_is_scoped_to_exact_version(self):
+        self.prepare("2.0.0-rc2")
+        policy = self.root / ".github/release-channel.json"
+        policy.parent.mkdir()
+        policy.write_text(json.dumps({"version": "2.0.0-rc2", "prerelease": False}))
+        self.assertFalse(release.metadata(self.root, "v2.0.0-rc2")["prerelease"])
+        for channel in (
+            {"version": "2.0.0-rc3", "prerelease": False},
+            {"version": "2.0.0-rc2", "prerelease": "false"},
+            {"version": "2.0.0-rc2"},
+            [],
+        ):
+            policy.write_text(json.dumps(channel))
+            with self.subTest(channel=channel), self.assertRaises(ValueError):
+                release.metadata(self.root, "v2.0.0-rc2")
+        policy.unlink()
+        self.assertTrue(release.metadata(self.root, "v2.0.0-rc2")["prerelease"])
 
     def test_stale_frontend_module_stops_release(self):
         self.prepare("2.0.0b1")

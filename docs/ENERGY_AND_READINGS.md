@@ -170,7 +170,7 @@ for submission. Review and confirm the DTEK submission separately. Source-based
 proposals expire after three minutes and are checked again before sending.
 Editing the inserted number changes it to a manual reading.
 
-In the development version, the reading review also offers **Save these readings
+In 2.0.0-rc2, the reading review also offers **Save these readings
 for calibration** when this meter has an estimate binding. Use this after entering
 fresh physical readings that differ from the suggestion:
 
@@ -185,8 +185,8 @@ The captured sensor values stay fixed while you confirm. Day and Night keep
 independent reference pairs. Canceling changes neither reference. Simply editing
 or submitting a number does **not** save a correction. Direct meter bindings do
 not offer an offset correction; configure or replace them in sensor settings.
-The same optional correction is available in the matching development Telegram bot.
-These additions are not in the published 2.0.0-rc1.
+The same optional correction is available in the Telegram bot 0.5.0-rc2.
+Calibration from reading review requires Monitor 2.0.0-rc2 and bot 0.5.0-rc2.
 
 To correct an estimate, open **My DTEK → Settings → Calibrate against the official meter**. Enter the actual official readings and choose **Review new reference pair**. The standalone readings card also offers **Use entered readings for local calibration**. Check the proposed pair,
 sample time and correction, then confirm the local save. The captured source
@@ -307,4 +307,4 @@ errors for both the building and the optional personal calendars.
 
 ## Readings through a personal Telegram profile
 
-Monitor **2.0.0-rc1** and bot **0.5.0-rc1** let an authorized private chat enter readings or use the energy source configured here. Zone validation, freshness, calibration and duplicate protection remain in the integration. The HA administrator separately grants submission permission to the assigned Telegram user; every send requires confirmation. There is no unattended submission. [Profiles and permissions](PERSONAL_ACCOUNT.md#section-13).
+Monitor **2.0.0-rc2** and bot **0.5.0-rc2** let an authorized private chat enter readings or use the energy source configured here. Zone validation, freshness, calibration and duplicate protection remain in the integration. The HA administrator separately grants submission permission to the assigned Telegram user; every send requires confirmation. There is no unattended submission. [Profiles and permissions](PERSONAL_ACCOUNT.md#section-13).

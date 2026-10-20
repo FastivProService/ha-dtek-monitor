@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0-rc2] - 2026-10-20
+
+**Published in the regular release channel**, with no GitHub Pre-release flag. HACS offers this version without enabling prereleases; the version name retains RC2. Kyiv oblast and Dnipropetrovsk oblast cabinets remain experimental.
+
+Version 2 adds My DTEK: household cabinet access, account management, meter details, reading history, consumption, sensor-calibrated suggestions and explicitly confirmed readings. Public address schedules and building bots remain independent. Requires HA 2026.3.0+.
+
+**Upgrade:** update in place, restart HA and reload its page. From 1.7.0, back up configuration and code first: version 2 migrates entries and rollback requires that backup. Existing addresses, accounts, calibration, entities and bot destinations are preserved. Use Telegram Bot 0.5.0-rc2 for calibration from the private reading form.
+
 - Enable Kyiv oblast and Dnipropetrovsk oblast household cabinets and apartment-group lookup experimentally, with a setup notice. Real linked-account validation is pending; optional group failures remain isolated from meter data.
 - Keep verified private cabinet groups usable when public group labels are hidden. Require fresh building membership, preserve all public building groups, and recheck manual choices before saving.
 
@@ -13,6 +21,10 @@ All notable changes to this project will be documented in this file.
 - Use Kyiv's independently verified legacy group handoff; accept numeric group identifiers above six and retain the fresh building-membership check.
 - Support the modern Day/Night tariff codes throughout reading forms, source calibration, stored bindings, sensors, reminders and history. Keep exact upstream codes in submissions and identities; localize their display names.
 - Actual Kyiv reading submission and account mutations were not performed during validation. Regression tests use fictional accounts and readings.
+
+[Install and upgrade](docs/UPGRADING.md) · [Встановлення й оновлення](docs/UPGRADING.uk.md)
+
+[Personal accounts](docs/PERSONAL_ACCOUNT.md) · [Особисті рахунки](docs/PERSONAL_ACCOUNT.uk.md)
 
 ## [2.0.0-rc1] - 2026-10-20
 
