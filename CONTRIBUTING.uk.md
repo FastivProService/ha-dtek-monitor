@@ -71,7 +71,7 @@ python -m compileall custom_components tests
 python -m unittest discover -s tests -p 'test_*card.py' -v
 ```
 
-Теги випусків мають формат `vMAJOR.MINOR.PATCH` з необов’язковим суфіксом `aN`, `bN` або `-rcN`. Перевірка: `python scripts/release.py v2.0.0-rc1`. Версії manifest, кешу JavaScript-модулів і changelog мають збігатися. Суфікси позначають попередній випуск, не замінюючи останню стабільну версію.
+`python scripts/release.py v2.0.0-rc2` перевіряє версію, датовані примітки й канал публікації. У `.github/release-channel.json` задайте точну версію та булеве `prerelease`; невідповідність зупинить випуск. Для RC2 явно задано `false`, тому GitHub публікує звичайний випуск і позначає його Latest. Суфікс RC сам по собі не змінює цей вибір. CI публікує лише після всіх перевірок. Без файлу каналу суфікси alpha/beta/RC типово означають попередній випуск.
 
 Локальна демонстрація — `examples/account-workspace/index.html`. Запустіть `python -m http.server 8974 --bind 127.0.0.1` з кореня репозиторію. Дані вигадані; екрани підключення є макетом і не надсилають SMS або показів.
 

@@ -26,6 +26,28 @@ def cabinet_groups(entry, number):
     return manager.get(number) if manager is not None else None
 
 
+def selectable_groups(coordinator, cabinet):
+    """Private labels may come from the cabinet even if public labels are hidden.
+
+    Hidden identifiers are selectable only when the fresh cabinet assignment
+    matches the fresh building. Never expose unrelated hidden building groups.
+    """
+    if coordinator is None or not coordinator.address_success:
+        return []
+    data = coordinator.address_data
+    building = data.get("schedule_groups", [])
+    if data.get("group_labels_visible"):
+        return list(building)
+    if (
+        cabinet
+        and cabinet.status == "current"
+        and cabinet.groups
+        and set(cabinet.groups).issubset(building)
+    ):
+        return sorted(set(cabinet.groups))
+    return []
+
+
 def automatic_selection(building_groups, cabinet):
     """Resolve an unambiguous assignment without guessing from an ordered list."""
     if cabinet and cabinet.status == "current" and cabinet.groups:
@@ -65,17 +87,20 @@ def selection(hass, entry, number):
     if address is not None:
         if address.state == ConfigEntryState.LOADED:
             coordinator = getattr(address, "runtime_data", None)
+        cabinet = cabinet_groups(entry, number)
+        choices = selectable_groups(coordinator, cabinet)
+        data = coordinator.address_data if coordinator and coordinator.address_success else {}
+        building_groups = data.get("schedule_groups", [])
         if coordinator is None or not coordinator.address_success:
             status = "address_unavailable"
-        elif not coordinator.address_data.get("group_labels_visible", False):
+        elif not data.get("group_labels_visible") and not choices:
             status = "labels_hidden"
         elif not groups:
-            building_groups = coordinator.address_data.get("schedule_groups", [])
-            groups, status = automatic_selection(building_groups, cabinet_groups(entry, number))
-        elif not set(groups).issubset(
-            coordinator.address_data.get("schedule_groups", [])
-        ):
+            groups, status = automatic_selection(building_groups, cabinet)
+        elif not set(groups).issubset(building_groups):
             status = "group_unavailable"
+        elif not set(groups).issubset(choices):
+            status = "labels_hidden"
         else:
             status = "selected"
     return address, coordinator, groups, status
@@ -147,7 +172,7 @@ class AccountScheduleEntity(Entity):
     def extra_state_attributes(self):
         address, coordinator, groups, status = self.selected
         cabinet = cabinet_groups(self.entry, self.number)
-        visible = coordinator and coordinator.address_success and coordinator.address_data.get("group_labels_visible", False)
+        choices = selectable_groups(coordinator, cabinet)
         return {
             "selection_status": status,
             "selection_source": (
@@ -161,7 +186,11 @@ class AccountScheduleEntity(Entity):
             ),
             "selected_groups": groups,
             "cabinet_group_status": cabinet.status if cabinet else "unsupported",
-            "cabinet_groups": list(cabinet.groups) if cabinet and visible else [],
+            "cabinet_groups": (
+                list(cabinet.groups)
+                if cabinet and set(cabinet.groups).issubset(choices)
+                else []
+            ),
             "cabinet_groups_checked_at": cabinet.checked_at.isoformat() if cabinet and cabinet.checked_at else None,
             "building_groups": (
                 coordinator.address_data.get("schedule_groups", [])

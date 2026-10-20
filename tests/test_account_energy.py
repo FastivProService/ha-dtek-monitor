@@ -14,6 +14,72 @@ submission = load_component_module("account_submission")
 
 
 class EnergyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_two_zone_submission_correction_keeps_captured_pair_and_never_submits(self):
+        for zones in (("DAY", "NIGHT"), ("DAY_2_ZONE", "NIGHT_2_ZONE")):
+            await self.asyncSetUp()
+            await self.bind(zones=zones)
+            self.now += timedelta(hours=1)
+            self.sample("125", "sensor." + zones[0].lower())
+            self.sample("110", "sensor." + zones[1].lower())
+            ctx = context(zones)
+            client = Mock(read_submission_context=AsyncMock(return_value=ctx), submit_readings=AsyncMock())
+            sender = submission.SubmissionManager(client, MemoryStore(), "test", self.manager)
+            view = await self.get()
+            draft = await sender.prepare_calibration(
+                "100001", "user", ctx["revision"], dict(zip(zones, ("1030", "1012"))),
+                view["binding"]["revision"], self.allow,
+            )
+            self.assertEqual([draft["change"]["changes"][z]["correction"] for z in zones], ["5", "2"])
+            with self.assertRaisesRegex(mod.SubmissionError, "calibration_time_required"):
+                await self.manager.save("100001", "user", draft["confirmation"], self.allow)
+            self.now += timedelta(minutes=1)
+            self.sample("126", "sensor." + zones[0].lower())
+            self.sample("111", "sensor." + zones[1].lower())
+            await self.manager.save("100001", "user", draft["confirmation"], self.allow, contemporaneous=True)
+            self.manager = self.new_manager()
+            view = await self.get()
+            self.assertEqual([view["readings"][z]["send_value"] for z in zones], ["1031", "1013"])
+            self.assertEqual(view["binding"]["zones"][zones[0]]["anchor_source"], "125")
+            client.submit_readings.assert_not_awaited()
+
+    async def test_submission_correction_rejects_stale_samples_and_meter_or_reference_changes(self):
+        await self.bind(freshness="availability")
+        ctx = context()
+        client = Mock(read_submission_context=AsyncMock(return_value=ctx))
+        sender = submission.SubmissionManager(client, MemoryStore(), "test", self.manager)
+        revision = (await self.get())["binding"]["revision"]
+        async def preview(meter_revision=ctx["revision"], binding_revision=revision):
+            return await sender.prepare_calibration(
+                "100001", "user", meter_revision, {"GENERAL": "1030"}, binding_revision, self.allow
+            )
+        self.now += timedelta(seconds=181)
+        with self.assertRaisesRegex(mod.SubmissionError, "source_stale"):
+            await preview()
+        self.sample("100")
+        with self.assertRaisesRegex(mod.SubmissionError, "context_changed"):
+            await preview(meter_revision="stale")
+        with self.assertRaisesRegex(mod.SubmissionError, "energy_changed"):
+            await preview(binding_revision="stale")
+        client.read_submission_context.return_value = {**ctx, "serial": "NEW-METER"}
+        with self.assertRaisesRegex(mod.SubmissionError, "energy_changed"):
+            await preview()
+        client.read_submission_context.return_value = ctx
+        draft = await preview()
+        correction = await self.calibrate("1040")
+        await self.manager.save("100001", "user", correction["confirmation"], self.allow)
+        with self.assertRaisesRegex(mod.SubmissionError, "energy_changed"):
+            await self.manager.save("100001", "user", draft["confirmation"], self.allow, contemporaneous=True)
+
+    async def test_modern_day_night_bindings_survive_restart_and_keep_separate_deltas(self):
+        await self.bind(zones=("DAY_2_ZONE", "NIGHT_2_ZONE"))
+        self.manager = self.new_manager()
+        self.now += timedelta(minutes=10)
+        self.sample("103", "sensor.day_2_zone")
+        self.sample("101", "sensor.night_2_zone")
+        result = await self.get()
+        self.assertEqual(result["readings"]["DAY_2_ZONE"]["send_value"], "1003")
+        self.assertEqual(result["readings"]["NIGHT_2_ZONE"]["send_value"], "1001")
+
     async def asyncSetUp(self):
         self.now = datetime(2026, 1, 1, 12, tzinfo=timezone.utc)
         self.store = MemoryStore()

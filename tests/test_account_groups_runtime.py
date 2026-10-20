@@ -251,8 +251,12 @@ class CabinetGroupSelectionTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.calendar.available)
         self.assertEqual(self.sensor.extra_state_attributes["selection_source"], "building_single_group")
 
-    async def test_hidden_groups_are_not_exposed_through_private_metadata(self):
+    async def test_hidden_groups_require_current_cabinet_confirmation(self):
         self.coord.address_data["group_labels_visible"] = False
+        self.assertTrue(self.calendar.available)
+        self.assertEqual(self.sensor.extra_state_attributes["cabinet_groups"], ["GPV3.1"])
+        self.assertEqual(self.sensor.extra_state_attributes["building_groups"], [])
+        self.result = mod.GroupResult("expired")
         self.assertFalse(self.calendar.available)
         self.assertEqual(self.sensor.extra_state_attributes["cabinet_groups"], [])
 

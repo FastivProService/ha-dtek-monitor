@@ -2,8 +2,8 @@
 
 **English** · [Українська](README.uk.md)
 
-> **2.0.0-rc1 — release candidate.** A preview for testing before the final 2.0 release.
-> [Install, upgrade or roll back](docs/UPGRADING.md). Stable release: [1.7.0](https://github.com/groove-max/ha-dtek-monitor/releases/tag/v1.7.0).
+> **2.0.0-rc2 — regular GitHub release.** Available through HACS without enabling prereleases. Kyiv oblast and Dnipropetrovsk oblast cabinets remain experimental.
+> [Install, upgrade or roll back](docs/UPGRADING.md).
 
 [![HACS custom integration](https://img.shields.io/badge/HACS-custom_integration-41BDF5)](https://hacs.dev/docs/faq/custom_repositories/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm_Noncommercial-blue.svg)](LICENSE)
@@ -14,7 +14,7 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 
 **Want Telegram notifications?** Pair it with [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): the companion Home Assistant app sends schedule updates, upcoming-outage reminders and a pinned status message. It can also use your local voltage sensors to check actual power availability.
 
-**Personal Telegram use:** pair Monitor **2.0.0-rc1** with bot **0.5.0-rc1** for private cabinet notifications, reminders, reading history and confirmed submissions. [Personal bot setup](docs/PERSONAL_ACCOUNT.md#section-13).
+**Personal Telegram use:** pair Monitor **2.0.0-rc2** with bot **0.5.0-rc2** for private cabinet notifications, reminders, reading history and confirmed submissions. [Personal bot setup](docs/PERSONAL_ACCOUNT.md#section-13).
 
 [Install](#installation) · [Set up](#setup) · [Understand the data](#data) · [Troubleshoot](#troubleshooting) · [Detailed reference](docs/REFERENCE.md)
 
@@ -23,7 +23,7 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 | I want | Connect |
 | --- | --- |
 | Building schedules and outage status | An address without a cabinet login; all four operators below. |
-| My apartment's readings, consumption and account information | A phone-based personal cabinet; currently Odesa household accounts only. |
+| My apartment's readings, consumption and account information | A phone-based personal cabinet; household accounts in all four regions; Kyiv oblast and Dnipropetrovsk oblast are experimental. |
 | Reading suggestions from my home meter | An optional cumulative HA energy sensor linked to the appropriate account. |
 | Telegram notifications | The separate [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): building alerts in any chat, or your cabinet in a private conversation. |
 
@@ -54,6 +54,8 @@ Choose the distribution operator serving the address, not just the nearest city.
 | Dnipropetrovsk oblast | ДТЕК Дніпровські електромережі — DNEM | [Official outage page](https://www.dtek-dnem.com.ua/ua/shutdowns) |
 | Kyiv city | ДТЕК Київські електромережі — KEM | [Official outage page](https://www.dtek-kem.com.ua/ua/shutdowns) |
 
+**Experimental regions:** Kyiv oblast and Dnipropetrovsk oblast cabinets are enabled, including sign-in, registration, account management, readings and apartment-group lookup. These functions use the shared API but have not yet been checked with real linked accounts in those regions. Verify the address, meter and tariff zones before confirming changes. Report problems in [GitHub Issues](https://github.com/groove-max/ha-dtek-monitor/issues), with the operator, HA/integration versions and redacted diagnostics; do not attach credentials or full account details. A failed group lookup does not block meter data.
+
 Kyiv city and Kyiv oblast use different operators. For Kyiv city, the setup skips city selection. An address within one of these regions may still be served by another distributor; first check that the address is available on the operator's website. Other operators are not currently supported.
 
 <a id="installation"></a>
@@ -65,7 +67,7 @@ Requires **Home Assistant 2026.3.0 or newer** and internet access from Home Assi
 
 1. Open **HACS → ⋮ → Custom repositories**.
 2. Add `https://github.com/groove-max/ha-dtek-monitor` with type **Integration**.
-3. Find **DTEK Monitor**. For **2.0.0-rc1**, follow [prerelease version selection](docs/UPGRADING.md); a normal download may install stable 1.7.0.
+3. Find **DTEK Monitor** and download **2.0.0-rc2**. No prerelease switch is needed. [Upgrade guide](docs/UPGRADING.md).
 4. Restart Home Assistant.
 5. Continue with [address setup](#setup) or [personal cabinet setup](#personal-account).
 
@@ -98,7 +100,7 @@ Add another integration entry for another address. You do not need to edit `conf
 <a id="personal-account"></a>
 ## Personal cabinet and My DTEK dashboard
 
-1. Add the integration and choose **ДТЕК Одеські електромережі → Personal account and meter readings**.
+1. Add the integration and choose your distribution operator, then **Personal account and meter readings**.
 2. Sign in with your phone and password. Registration and password recovery through SMS are also available.
 3. Select the personal accounts to monitor. If the cabinet is empty, add an account here or later in settings.
 4. Reload the HA page. On your dashboard choose **Edit → Add card → My DTEK**, select an account and save.
@@ -149,7 +151,7 @@ Entity names follow your Home Assistant language. Open the integration's device 
 
 When DTEK returns several groups, the integration keeps them all and preserves each calendar event's group. It cannot determine which entrance or apartment belongs to which group without additional information.
 
-Some operators, including Kyiv city, do not publish meaningful public group numbers. Internal identifiers may still appear in HA attributes. The companion bot displays these as local **“Variant 1”, “Variant 2”** labels in its Ukrainian messages. These are not official queue numbers and can change when the address assignment changes.
+Some operators, including Kyiv city, do not publish meaningful public group numbers. Internal identifiers may still appear in HA attributes. In building mode, the companion bot displays these as local **“Variant 1”, “Variant 2”** labels in its Ukrainian messages. These are not official queue numbers and can change when the address assignment changes.
 
 ### When a schedule is unavailable
 

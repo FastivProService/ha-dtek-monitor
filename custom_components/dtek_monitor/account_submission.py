@@ -15,6 +15,7 @@ from time import monotonic
 from zoneinfo import ZoneInfo
 
 from .account import AccountError, account_key, decimal_value
+from .account_zones import SUBMISSION_SCHEMES
 
 KYIV = ZoneInfo("Europe/Kyiv")
 
@@ -102,7 +103,7 @@ def submission_context(details, payload, number, today: date):
                 "date": day.isoformat(),
             }
         )
-    if {z["zone"] for z in zones} not in ({"GENERAL"}, {"DAY", "NIGHT"}) or len(
+    if {z["zone"] for z in zones} not in SUBMISSION_SCHEMES or len(
         {z["zone"] for z in zones}
     ) != len(zones):
         raise SubmissionError("unsupported_meter")
@@ -375,6 +376,20 @@ class SubmissionManager:
                     for row in readings
                 ],
             }
+
+    async def prepare_calibration(self, number, user, revision, values, binding_revision, authorize):
+        """Preview a local correction; never submit readings or change a reference."""
+        authorize()
+        if self.energy is None:
+            raise SubmissionError("energy_changed")
+        context = await self.client.read_submission_context(number)
+        authorize()
+        if context["revision"] != revision:
+            raise SubmissionError("context_changed")
+        validate_values(context, values)
+        return await self.energy.preview(
+            number, user, context, None, values, binding_revision, authorize
+        )
 
     async def confirm(self, number, user, token, authorize):
         async with self._lock:

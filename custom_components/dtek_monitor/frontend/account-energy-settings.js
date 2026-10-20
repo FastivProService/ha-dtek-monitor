@@ -1,5 +1,5 @@
-import "./account-energy-editor.js?v=2.0.0-rc1";
-import { isUkrainian, el, embeddedCSS} from "./account-ui.js?v=2.0.0-rc1";
+import "./account-energy-editor.js?v=2.0.0-rc2";
+import { isUkrainian, el, embeddedCSS} from "./account-ui.js?v=2.0.0-rc2";
 
 // Owns the settings lifecycle; source proposals stay in the readings card.
 class DtekEnergySettings extends HTMLElement {
@@ -10,6 +10,7 @@ class DtekEnergySettings extends HTMLElement {
   get hasDraft(){return !!this._editor?.hasDraft;}
   get busy(){return !!this._loading || !!this._editor?.busy;}
   get mutating(){return !!this._editor?.mutating;}
+  refreshBinding(){if(!this.hasDraft&&!this.busy)this._editor?.act("get");}
   set locked(value){if(this._editor)this._editor.locked=value;}
   disconnectedCallback(){this._seq++;this._loading=false;this._started=false;}
   labels(){

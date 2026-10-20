@@ -33,10 +33,9 @@ def account_snapshot(hass, connection, entry, number):
     )
     if groups and (coordinator is None or not coordinator.address_success):
         status, groups = link_status, []
-    if groups and (
-        not public.get("group_labels_visible")
-        or not set(groups).issubset(public.get("schedule_groups", []))
-    ):
+    # A private cabinet supplies its own group labels. Public display policy
+    # must not disable a fresh, matching cabinet assignment (notably Kyiv).
+    if groups and not set(groups).issubset(public.get("schedule_groups", [])):
         status, groups = "cabinet_group_mismatch", []
     entities = {}
     if address:
@@ -163,6 +162,8 @@ def account_snapshot(hass, connection, entry, number):
                 "reminder",
                 "readback",
                 "history",
+                "calibration_preview",
+                "calibration_save",
             )
         ),
         vol.Optional("telegram_user_id"): vol.All(int, vol.Range(min=1)),
@@ -174,6 +175,8 @@ def account_snapshot(hass, connection, entry, number):
         },
         vol.Optional("confirmation"): vol.All(str, vol.Length(max=64)),
         vol.Optional("source_token"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("binding_revision"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("contemporaneous"): bool,
         vol.Optional("include_inactive"): bool,
         vol.Optional("history_offset"): vol.All(int, vol.Range(min=0, max=MAX_HISTORY_ROWS)),
     }
@@ -294,6 +297,17 @@ async def websocket_bot_account(hass, connection, msg):
                     msg.get("values"),
                     authorize,
                     source_token=msg.get("source_token"),
+                )
+            elif action == "calibration_preview":
+                draft = await manager.prepare_calibration(
+                    number, principal, msg.get("revision"), msg.get("values"),
+                    msg.get("binding_revision"), authorize,
+                )
+                result = {key: draft[key] for key in ("confirmation", "change")}
+            elif action == "calibration_save":
+                result = await runtime.energy.save(
+                    number, principal, msg.get("confirmation"), authorize,
+                    contemporaneous=msg.get("contemporaneous", False),
                 )
             else:
                 result = await manager.confirm(

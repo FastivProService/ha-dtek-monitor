@@ -80,7 +80,7 @@ class AccessFlowTests(unittest.IsolatedAsyncioTestCase):
         self.account_client.authenticate.assert_not_awaited()
 
     async def test_unavailable_region_cannot_enter_sms_steps_directly(self):
-        self.flow._provider_id = "dtek_kem"
+        self.flow._provider_id = "dtek_dem"
         for method in [
             self.flow.async_step_account_access,
             self.flow.async_step_account_register,

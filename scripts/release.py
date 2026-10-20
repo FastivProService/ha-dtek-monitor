@@ -43,9 +43,21 @@ def metadata(root: Path, tag: str) -> dict:
             raise ValueError(
                 f"Frontend cache version does not match manifest: {path.name}"
             )
+    prerelease = bool(match["pre"])
+    policy = root / ".github/release-channel.json"
+    if policy.exists():
+        channel = json.loads(policy.read_text())
+        if (
+            not isinstance(channel, dict)
+            or set(channel) != {"version", "prerelease"}
+            or channel["version"] != version
+            or type(channel["prerelease"]) is not bool
+        ):
+            raise ValueError("Release channel must explicitly match this version")
+        prerelease = channel["prerelease"]
     return {
         "version": version,
-        "prerelease": bool(match["pre"]),
+        "prerelease": prerelease,
         "notes": re.sub(
             r"\]\((?![a-z]+:|#)([^)]+)\)",
             lambda link: f"](https://github.com/groove-max/ha-dtek-monitor/blob/{tag}/{link[1]})",

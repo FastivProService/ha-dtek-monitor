@@ -30,6 +30,51 @@ def household_number(value: str, spec: AccountProviderSpec | None = None) -> str
     return number
 
 
+def lookup_number(value: str, spec: AccountProviderSpec) -> str:
+    """Accept a verified legacy format for lookup only, never for mutations."""
+    number = value.strip() if isinstance(value, str) else ""
+    if (
+        len(number) in spec.legacy_household_lengths
+        and number.isascii()
+        and number.isdigit()
+    ):
+        return number
+    return household_number(number, spec)
+
+
+def parse_legacy_numbers(payload, spec: AccountProviderSpec) -> tuple[str, ...]:
+    """Resolve the legacy directory hierarchy without guessing an identifier."""
+    if (
+        not isinstance(payload, dict)
+        or payload.get("status") != "success"
+        or payload.get("error")
+        or not isinstance(payload.get("data"), dict)
+        or payload["data"].get("errors") != []
+    ):
+        raise AccountLinkError("link_lookup_failed")
+    regions = payload["data"].get("resultItems")
+    if not isinstance(regions, list) or len(regions) > 50:
+        raise AccountLinkError("link_lookup_failed")
+    numbers = set()
+    count = 0
+    for region in regions:
+        rows = region.get("inclLvl1Items") if isinstance(region, dict) else None
+        if not isinstance(rows, list):
+            raise AccountLinkError("link_lookup_failed")
+        for row in rows:
+            count += 1
+            if count > 50 or not isinstance(row, dict):
+                raise AccountLinkError("link_lookup_failed")
+            try:
+                number = household_number(row.get("account"), spec)
+            except AccountLinkError:
+                raise AccountLinkError("link_lookup_failed") from None
+            numbers.add(number)
+    if not numbers:
+        raise AccountLinkError("link_not_found")
+    return tuple(sorted(numbers))
+
+
 def parse_lookup(payload, number: str) -> PersonalAccount:
     """Never pick the first result of an ambiguous lookup."""
     if (
@@ -62,6 +107,19 @@ class AccountLinksClientMixin:
             "/api/billing/joint/info/get_accounts", params={"account": number}
         )
         return parse_lookup(payload, number)
+
+    async def lookup_legacy_accounts(self, number: str) -> tuple[PersonalAccount, ...]:
+        number = lookup_number(number, self.spec)
+        if len(number) not in self.spec.legacy_household_lengths:
+            raise AccountLinkError("link_invalid_number")
+        await self._ensure_token()
+        response = await self._request(
+            "POST", "/api/billing/joint/info/get_client_info", json={"legacy": number}
+        )
+        numbers = parse_legacy_numbers(self._decode(response), self.spec)
+        # Obtain the full address through the canonical lookup; do not rely on
+        # masked or partial legacy addresses, nor arbitrarily choose one result.
+        return tuple([await self.lookup_account(n) for n in numbers])
 
     async def link_account(self, candidate: PersonalAccount, authorize) -> None:
         number = household_number(candidate.number, self.spec)

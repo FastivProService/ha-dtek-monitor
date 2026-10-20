@@ -13,6 +13,7 @@ from time import monotonic
 
 from .account import account_key
 from .account_submission import SubmissionError
+from .account_zones import SUBMISSION_SCHEMES
 
 
 def amount(value):
@@ -85,7 +86,7 @@ class EnergyManager:
                     and type(binding["max_age"]) is int
                     and 60 <= binding["max_age"] <= 86400
                     and 1 <= amount(binding["max_power_kw"]) <= 1000
-                    and set(binding["zones"]) in ({"GENERAL"}, {"DAY", "NIGHT"})
+                    and set(binding["zones"]) in SUBMISSION_SCHEMES
                     and isinstance(binding["history"], list)
                     and len(binding["history"]) <= 24
                 ):
@@ -295,7 +296,8 @@ class EnergyManager:
     async def preview(
         self, number, user, context, config, references, revision, authorize
     ):
-        """context/config are supplied only for a new or replaced binding."""
+        """Context also guards a correction offered during reading submission."""
+        correction = context is not None and config is None
         async with self._lock:
             await self._load()
             old = self._data.get(self.key(number))
@@ -304,6 +306,11 @@ class EnergyManager:
             if config is None:
                 if old is None or old["mode"] != "offset":
                     raise SubmissionError("invalid_energy")
+                if context and (
+                    old["serial"] != context["serial"]
+                    or set(old["zones"]) != {z["zone"] for z in context["zones"]}
+                ):
+                    raise SubmissionError("energy_changed")
                 binding = deepcopy(old)
             else:
                 if not context or not isinstance(config, dict):
@@ -345,6 +352,14 @@ class EnergyManager:
                     authorize,
                     binding.get("freshness", "reported"),
                 )
+                if correction:
+                    # A reading taken now must not be paired with an old report,
+                    # even when the general binding trusts availability.
+                    if (self.now() - instant(sample["at"])).total_seconds() > 180:
+                        raise SubmissionError("source_stale")
+                    self._track(binding, row, sample)
+                    if row["fault"]:
+                        raise SubmissionError(row["fault"])
                 reference = None
                 if config is None and (
                     row["fingerprint"] != sample["fingerprint"]
@@ -395,14 +410,22 @@ class EnergyManager:
             }
             binding["history"] = [*binding["history"], record][-24:]
             token = self._token(
-                "change", number, user, {"revision": revision, "binding": binding}
+                "change", number, user, {
+                    "revision": revision, "binding": binding,
+                    "submission_correction": correction,
+                }
             )
-            return {"confirmation": token, "binding": binding, "change": record}
+            return {
+                "confirmation": token, "binding": binding, "change": record,
+                "submission_correction": correction,
+            }
 
-    async def save(self, number, user, token, authorize):
+    async def save(self, number, user, token, authorize, *, contemporaneous=False):
         async with self._lock:
             await self._load()
             draft = self._lookup(token, "change", number, user)
+            if draft.get("submission_correction") and contemporaneous is not True:
+                raise SubmissionError("calibration_time_required")
             binding = deepcopy(draft["binding"])
             for row in binding["zones"].values():
                 sample = self._sample(

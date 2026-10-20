@@ -27,7 +27,7 @@ NUMBERS = {
 
 
 def enabled_specs():
-    """Only mocked tests bypass rollout; the shipped registry stays unchanged."""
+    """Registry copy for tests that simulate changing regional settings."""
     return {
         key: replace(spec, enabled=True)
         for key, spec in regions.ACCOUNT_PROVIDER_SPECS.items()
@@ -39,17 +39,18 @@ def session():
 
 
 class RegionalContractTests(unittest.IsolatedAsyncioTestCase):
-    async def test_public_support_does_not_enable_unverified_cabinets(self):
+    async def test_all_four_cabinets_enabled_with_explicit_experimental_regions(self):
         for provider in NUMBERS:
             self.assertTrue(public.PROVIDERS[provider].enabled)
             self.assertEqual(
-                regions.account_provider_supported(provider), provider == "dtek_oem"
+                regions.account_provider_supported(provider), True
+            )
+            self.assertEqual(
+                regions.get_account_provider_spec(provider).experimental,
+                provider in ("dtek_krem", "dtek_dnem"),
             )
         with patch.object(transport, "AsyncSession") as factory:
             for provider in [
-                "dtek_kem",
-                "dtek_krem",
-                "dtek_dnem",
                 "dtek_dem",
                 "unknown",
             ]:
@@ -63,7 +64,6 @@ class RegionalContractTests(unittest.IsolatedAsyncioTestCase):
     async def test_factory_passes_selected_spec_and_owns_separate_sessions(self):
         sessions = [session() for _ in NUMBERS]
         with (
-            patch.object(regions, "ACCOUNT_PROVIDER_SPECS", enabled_specs()),
             patch.object(transport, "AsyncSession", side_effect=sessions) as factory,
         ):
             clients = [transport.create_account_provider(p) for p in NUMBERS]

@@ -29,9 +29,6 @@ if runtime.HAS_HA:
 class RegionalFlowTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         await cabinet.AccountRuntimeTests.asyncSetUp(self)
-        rollout = patch.object(regions, "ACCOUNT_PROVIDER_SPECS", enabled_specs())
-        rollout.start()
-        self.addCleanup(rollout.stop)
         self.addAsyncCleanup(self.flow._close_access)
 
     async def test_same_phone_and_subject_create_distinct_regional_entries(self):

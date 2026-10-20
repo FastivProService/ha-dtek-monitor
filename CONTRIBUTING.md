@@ -71,7 +71,7 @@ Run the HA runtime suite on both `2026.3.0` and `2026.8.3`, as in CI. Run the br
 python -m unittest discover -s tests -p 'test_*card.py' -v
 ```
 
-Release tags use `vMAJOR.MINOR.PATCH`, optionally followed by `aN`, `bN` or `-rcN`. Validate with `python scripts/release.py v2.0.0-rc1`. The manifest, JavaScript module cache versions and changelog must agree. The release job marks these suffixes as prereleases and leaves the latest stable release unchanged.
+`python scripts/release.py v2.0.0-rc2` checks the version, dated notes and publication channel. Set the exact version and boolean `prerelease` in `.github/release-channel.json`; a mismatch stops publication. RC2 explicitly uses `false`, so GitHub publishes a regular release and marks it Latest. The RC suffix does not override that choice. CI publishes only after all checks pass. Without a channel file, alpha/beta/RC suffixes default to prereleases.
 
 The local UI demo is `examples/account-workspace/index.html`, served from the repository root with `python -m http.server 8974 --bind 127.0.0.1`. It uses fictional data; its connection screens are a mockup and never send SMS or readings.
 

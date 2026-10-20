@@ -11,6 +11,7 @@ from .account_providers import account_cabinet_url
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
 from .account_checks import STATUSES
+from .account_zones import display_zone
 
 
 def remove_unselected_accounts(hass, entry):
@@ -95,6 +96,8 @@ class AccountSensor(CoordinatorEntity, SensorEntity):
         self._attr_translation_key = key
         if zone == "GENERAL":
             self._attr_translation_key = key + "_general"
+        elif display_zone(zone) in ("DAY", "NIGHT"):
+            self._attr_translation_key = key + "_" + display_zone(zone).lower()
         elif zone:
             self._attr_translation_placeholders = {"zone": zone}
         self._attr_device_info = DeviceInfo(

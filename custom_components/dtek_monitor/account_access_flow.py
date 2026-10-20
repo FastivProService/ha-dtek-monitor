@@ -14,6 +14,7 @@ from homeassistant.helpers.selector import (
 
 from .account import AccountError, normalize_phone
 from .account_access import AccessError, AccountAccessClient
+from .account_api_health import ISSUES_URL
 from .account_providers import account_provider_supported, get_account_provider_spec
 from .providers import CONF_PROVIDER
 
@@ -82,7 +83,19 @@ class AccountAccessFlowMixin:
         options = ["account_login", "account_recover"]
         if self.context.get("source") != "reauth":
             options.insert(1, "account_register")
-        return self.async_show_menu(step_id="account_access", menu_options=options)
+        experimental = get_account_provider_spec(self._provider_id).experimental
+        return self.async_show_menu(
+            step_id=(
+                "account_access_experimental"
+                if experimental
+                else "account_access"
+            ),
+            menu_options=options,
+            description_placeholders={"issues_url": ISSUES_URL} if experimental else None,
+        )
+
+    async def async_step_account_access_experimental(self, user_input=None):
+        return await self.async_step_account_access(user_input)
 
     async def async_step_account_register(self, user_input=None):
         if self.context.get("source") == "reauth":

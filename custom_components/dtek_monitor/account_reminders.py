@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 from .localization import is_ukrainian
 from .account import CONF_ACCOUNTS, AccountError, account_key
 from .account_submission import SubmissionError
+from .account_zones import display_zone
 from .providers import CONF_PROVIDER
 from .schedule import KYIV_TZ
 
@@ -226,7 +227,7 @@ class AccountReminders:
                         "**Розрахунок за датчиком:**" if uk else "**Sensor estimate:**"
                     )
                     lines.extend(
-                        f"- {labels.get(zone, zone)}: **{row['send_value']} {'кВт·год' if uk else 'kWh'}**"
+                        f"- {labels.get(display_zone(zone), zone)}: **{row['send_value']} {'кВт·год' if uk else 'kWh'}**"
                         for zone, row in view["readings"].items()
                     )
                     lines.append(

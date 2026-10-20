@@ -1,12 +1,12 @@
-import "./account-options.js?v=2.0.0-rc1";
-import "./account-energy-settings.js?v=2.0.0-rc1";
-import "./account-profile-card.js?v=2.0.0-rc1";
-import "./account-readings-card.js?v=2.0.0-rc1";
-import "./account-history-card.js?v=2.0.0-rc1";
-import "./schedule-card.js?v=2.0.0-rc1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
-import { accountNumber } from "./account-number.js?v=2.0.0-rc1";
-import { isUkrainian, languageLocale,  el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
+import "./account-options.js?v=2.0.0-rc2";
+import "./account-energy-settings.js?v=2.0.0-rc2";
+import "./account-profile-card.js?v=2.0.0-rc2";
+import "./account-readings-card.js?v=2.0.0-rc2";
+import "./account-history-card.js?v=2.0.0-rc2";
+import "./schedule-card.js?v=2.0.0-rc2";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc2";
+import { accountNumber } from "./account-number.js?v=2.0.0-rc2";
+import { zoneKey, isUkrainian, languageLocale,  el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc2";
 
 const words = {
   en: {
@@ -263,7 +263,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     if (!roles.length) reading.append(el("p", t.noReading));
     for (const [key, id] of roles) {
       const state=this._hass.states?.[id], zone=key.split(":")[1], value=el("p", number(state?.state, lang), "value"); value.append(el("span", t.unit, "unit"));
-      reading.append(el("small", t[zone] || zone), value, el("small", date(state?.attributes?.reading_date, lang)));
+      reading.append(el("small", t[zoneKey(zone)] || zone), value, el("small", date(state?.attributes?.reading_date, lang)));
     }
     reading.append(el("small", t.readingNote));
     const usage=this._state("account_consumption:all"), usageValue=el("p", number(usage?.state, lang), "value"); usageValue.append(el("span", t.unit, "unit"));
@@ -283,6 +283,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this._readings=this._child("dtek-account-readings-card", {read_only: !this._account.can_submit,energy_settings_external:true}, panel);
     this._readings.addEventListener("energy-settings",()=>this._openEnergySettings());
     this._readings.addEventListener("submission-operation",()=>this._syncEnergyLocks());
+    this._readings.addEventListener("energy-binding-changed",()=>this._energySettings?.refreshBinding());
     this._syncEnergyLocks();
     const details=el("details"), summary=el("summary", this.t.history); summary.dataset.i18n="history"; details.append(summary); panel.append(details);
     details.addEventListener("toggle", () => { if (details.open && !details.querySelector("[data-child-card]")) this._child("dtek-account-history-card", {view:"readings"}, details); });

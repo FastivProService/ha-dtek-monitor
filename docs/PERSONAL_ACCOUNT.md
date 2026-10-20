@@ -2,12 +2,12 @@
 
 **English** · [Українська](PERSONAL_ACCOUNT.uk.md) · [Installation](../README.md#installation)
 
-Connect your **DTEK Odesa Electric Networks household cabinet** to see your
+Connect your **DTEK household cabinet** to see your
 address, meter, readings and consumption in Home Assistant. You can also send
 readings after checking and confirming them. This connection is optional: outage
 schedules by address work without a phone login or energy sensor.
 
-This guide describes release candidate **2.0.0-rc1**. Read the [installation, upgrade and
+This guide describes **2.0.0-rc2**. Read the [installation, upgrade and
 rollback instructions](UPGRADING.md) before installing it.
 
 [Schedules and groups](SCHEDULES.md) · [Readings, sensors and reminders](ENERGY_AND_READINGS.md)
@@ -28,17 +28,21 @@ rollback instructions](UPGRADING.md) before installing it.
 - [If DTEK changes its API](#section-14)
 - [Current limits](#section-15)
 
+**Experimental regions:** Kyiv oblast and Dnipropetrovsk oblast cabinets are enabled, including sign-in, registration, account management, readings and apartment-group lookup. These functions use the shared API but have not yet been checked with real linked accounts in those regions. Verify the address, meter and tariff zones before confirming changes. Report problems in [GitHub Issues](https://github.com/groove-max/ha-dtek-monitor/issues), with the operator, HA/integration versions and redacted diagnostics; do not attach credentials or full account details. A failed group lookup does not block meter data.
+
 <a id="section-1"></a>
 ## Connect your cabinet
 
 1. Open **Settings → Devices & services → Add integration → DTEK Monitor**.
-2. Select **ДТЕК Одеські електромережі**.
+2. Select your distribution operator. Kyiv city (**ДТЕК Київські електромережі**) and Kyiv oblast (**ДТЕК Київські регіональні електромережі**) are separate options.
 3. Select **Personal account and meter readings**. For schedules without a login, select
    **Outage schedules by address** instead.
 4. Choose **Sign in**, **Create a DTEK account** or **Forgot your password?**.
    For sign-in, enter the phone number and password used on the DTEK website.
 5. Choose accounts to monitor, or add a household account to DTEK first.
 6. Open the devices created under the new personal account connection.
+
+For Kyiv city, enter either the modern 12-digit account number starting with **452** or the older 11-digit number. DTEK resolves the old number to its current account. Check the returned number and address before confirming; if several accounts match, choose yours. HA stores the current number. Sign in separately to each operator, even when using the same phone number.
 
 New connections show the operator name and the last four digits of your phone
 number in the integration list. **Open DTEK cabinet** in the reading form and the
@@ -179,11 +183,13 @@ There are three independent choices:
 - **HA monitoring:** select which linked accounts create devices, sensors and calendars.
 - **Dashboard display:** choose an account on each card; different panels may show different accounts.
 
-To add an account, enter its modern 12-digit household number starting with `572`.
+To add an account, enter its modern 12-digit household number starting with `572`
+for Odesa oblast, `452` for Kyiv city, `842` for Kyiv oblast, or `12` for Dnipropetrovsk oblast. Kyiv city also accepts an old 11-digit
+number and looks up the current number through DTEK.
 HA looks up the address; verify the full number and address, then explicitly
 confirm. Only confirmation sends the linking request. Afterwards, choose whether
-HA should monitor it. Older account-number formats and business accounts must be
-managed on the DTEK website for now.
+HA should monitor it. Other legacy formats and business accounts must be managed
+on the DTEK website for now.
 
 To unlink, first deselect the account in **Choose personal accounts**, save and
 wait for HA to reload the connection. Then open **Household accounts in the DTEK cabinet → Unlink from the DTEK cabinet**, select the account and confirm its address. Unlinking removes
@@ -224,8 +230,9 @@ Historical statistics need a separate implementation that respects reporting
 dates and retrospective corrections.
 
 One meter per household account is supported initially. Returned tariff scales
-are kept separate; only the single-zone Odesa case has been verified live.
-Business accounts and other regions' personal cabinets are not enabled.
+are kept separate. Odesa single-zone and Kyiv city Day/Night data have been read
+from live accounts. Actual submission has been verified only for the Odesa
+single-zone case; two-zone submission uses automated tests. Business accounts are not supported. Kyiv oblast and Dnipropetrovsk oblast cabinets, including apartment-group lookup, are enabled experimentally; authenticated household data has not been verified live for these two regions.
 
 <a id="section-7"></a>
 ## Change accounts and refresh
@@ -287,9 +294,9 @@ entity: sensor.example_account_data_updated
 The full address, including the apartment when DTEK provides it, is always visible.
 The card shows the meter model, tariff scheme, contract power and next verification
 year. Expand **Meter details** for manufacture, installation and verification dates,
-agreement details, seals and the number of replacement records. For nonempty replacement
-histories, open the cabinet to see individual records; their fields are not yet
-parsed because no verified example is available.
+agreement details, seals and the number of replacement records. Open the official
+cabinet to see individual replacement records; these details are not yet displayed
+in HA.
 
 An **EIC identifies a distribution point**, not a meter number, account number or
 outage group. All EICs returned for the account are kept; the current installation's
@@ -484,7 +491,7 @@ other building groups. [Group selection and schedule display](SCHEDULES.md).
 
 Configure [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot) separately for a building or personal account. Building mode supports channels, groups and private chats and retains all building groups.
 
-**Monitor 2.0.0-rc1 and bot 0.5.0-rc1** support personal mode: cabinet API groups, reminders, reading history, confirmed submissions and an all-groups PNG table. It works only in the explicitly assigned user’s private chat. DTEK credentials stay in the integration; the HA administrator configures profiles and permissions. Calibration and detailed settings stay in My DTEK. [Personal bot setup](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
+**Monitor 2.0.0-rc2 and bot 0.5.0-rc2** support personal mode: cabinet API groups, reminders, reading history, confirmed submissions and an all-groups PNG table. It works only in the explicitly assigned user’s private chat. DTEK credentials stay in the integration; the HA administrator configures profiles and permissions. Calibration and detailed settings stay in My DTEK. [Personal bot setup](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
 
 Installing the integration does not create Telegram profiles or change existing recipients or physical sensors. Older Monitor 2.0.0b1 and bot 0.4.1 do not include personal Telegram mode: update both projects to use it.
 
@@ -514,8 +521,8 @@ extra account changes or meter readings to probe availability.
 <a id="section-15"></a>
 ## Current limits
 
-- Personal cabinets: Odesa household accounts only. Public address schedules still support all four listed operators.
-- One consumption meter per account; submission supports one zone or Day/Night. Only the single-zone Odesa submission has been verified live; the two-zone path has automated tests.
+- Personal cabinets: household accounts in all four regions. Kyiv oblast and Dnipropetrovsk oblast are experimental, including apartment-group lookup. Public address schedules still support all four listed operators.
+- One consumption meter per account; submission supports one zone or Day/Night. Live reading and form checks cover Odesa single-zone and Kyiv city Day/Night accounts. Only Odesa single-zone submission was performed live; Day/Night submission has automated tests.
 - No automatic reading submissions, payments, applications, profile editing or photo uploads. Use the official cabinet for unsupported meter schemes, replacements and corrections.
 - Billing history does not populate HA's Energy dashboard. Monthly consumption and cumulative readings are different values.
 - Automatic building matching happens for newly monitored accounts. Existing manual links are preserved; changed cabinet addresses do not silently move your building connection.

@@ -1,12 +1,19 @@
-import "./account-readback.js?v=2.0.0-rc1";
-import { isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc1";
-import "./account-check-card.js?v=2.0.0-rc1";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
+import "./account-readback.js?v=2.0.0-rc2";
+import { zoneKey, isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc2";
+import "./account-check-card.js?v=2.0.0-rc2";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc2";
 /* Explicit readings submission. HA state updates never replace an edited form. */
-import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc1";
-import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0-rc1";
+import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc2";
+import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0-rc2";
 const labels = {
   en: {
+    correction: "Save these readings for calibration", correctionTitle: "Check the local correction",
+    correctionHelp: "Only use readings taken from the official meter at the time of the sensor samples below. Earlier readings must not be paired with current samples. This action does not send anything to DTEK.",
+    correctionCheck: "I read every tariff on the official meter at the time shown for the corresponding sensor.",
+    correctionSave: "Confirm and save calibration", correctionCancel: "Back without saving",
+    correctionSource: "Sensor", correctionAmount: "Correction",
+    correctionSaved: "Calibration saved. Future estimates include the correction. Review and confirm submission separately.",
+    calibration_time_required: "Confirm that official readings and sensor samples were taken together.",
     energyLocked: "Wait for the sensor settings operation to finish.", sourceInvalid: "Sensor settings changed. Your values are retained. Insert a fresh suggestion or verify and edit the readings manually before review.",
     title: "Send DTEK meter readings", load: "Load current meter", prepare: "Review readings", confirm: "Confirm and send to DTEK",
     back: "Back to editing", loading: "Working…", serial: "Meter", previous: "Previous", value: "New reading", increase: "Difference",
@@ -36,6 +43,13 @@ const labels = {
     journal_unavailable: "The local submission record could not be saved or read. Check submission status and the cabinet before any new attempt.",
   },
   uk: {
+    correction: "Зберегти ці покази для калібрування", correctionTitle: "Перевірте локальне коригування",
+    correctionHelp: "Використовуйте лише покази фізичного лічильника, зняті одночасно з наведеними відліками датчиків. Давніші покази не можна поєднувати з поточними відліками. Ця дія нічого не передає у ДТЕК.",
+    correctionCheck: "Я зняв покази кожного тарифу фізичного лічильника одночасно з наведеним відліком відповідного датчика.",
+    correctionSave: "Підтвердити та зберегти калібрування", correctionCancel: "Назад без збереження",
+    correctionSource: "Датчик", correctionAmount: "Коригування",
+    correctionSaved: "Калібрування збережено. Наступні розрахунки врахують поправку. Передачу показів перевірте й підтвердьте окремо.",
+    calibration_time_required: "Підтвердьте, що покази лічильника та датчиків зняті одночасно.",
     energyLocked: "Дочекайтеся завершення налаштування датчика.", sourceInvalid: "Налаштування датчика змінилися. Введені значення збережено. Підставте свіжу підказку або перевірте й відредагуйте покази вручну перед переглядом.",
     title: "Передати покази ДТЕК", load: "Завантажити дані лічильника", prepare: "Перевірити покази", confirm: "Підтвердити та передати в ДТЕК",
     back: "Повернутися до редагування", loading: "Зачекайте…", serial: "Лічильник", previous: "Попередні", value: "Нові покази", increase: "Різниця",
@@ -81,6 +95,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     if (this._config?.entity === config.entity) { this._config={...config}; this.toggleAttribute("embedded",!!config.embedded); this.render(); return; }
     this._seq++; this._config = {...config}; this.toggleAttribute("embedded",!!config.embedded); this._context = null; this._draft = null;
     this._opening = null; this._readback = null; this._energyEditor = null; this._sourceInvalid=false;this._energyLocked=false;this._sourceToken = null; this._result = null; this._values = {}; this._error = null; this._uncertain = false; this._busy = false;
+    this._calibration = null; this._calibrationSaved = false;
     this.render();
   }
   set hass(hass) {
@@ -95,12 +110,12 @@ class DtekAccountReadingsCard extends HTMLElement {
   }
   connectedCallback() { this.render(); }
   disconnectedCallback() {
-    this._seq++; this._draft = null; this._busy = false;
+    this._seq++; this._draft = null; this._calibration = null; this._busy = false;
     if (this._sending) this._uncertain = true;
     this._sending = false;
   }
   getCardSize() { return 5; }
-  get hasDraft() { return !!this._draft || Object.values(this._values).some(v => v !== "") || !!this._energyEditor?.hasDraft; }
+  get hasDraft() { return !!this._calibration || !!this._draft || Object.values(this._values).some(v => v !== "") || !!this._energyEditor?.hasDraft; }
   set energyLocked(value){if(this._energyLocked!==value){this._energyLocked=value;this.render();}}
   invalidateEnergy(){
     this._energyEditor?.invalidate();
@@ -126,8 +141,36 @@ class DtekAccountReadingsCard extends HTMLElement {
   async request(action, extra = {}) {
     return this._hass.callWS({type: "dtek_monitor/account_submission", entity_id: this._config.entity, action, ...extra});
   }
+  async calibrate(action) {
+    if (this.busy || this._energyLocked || this.readOnly) return;
+    const seq=++this._seq, values={...this._values}, binding=this._energyEditor?._data?.binding;
+    this._busy=true; this._error=null; this._calibrationSaved=false;
+    this._draft=null; this._sourceToken=null;
+    this.render(); this.dispatchEvent(new CustomEvent("submission-operation"));
+    try {
+      const extra=action==="calibrate"
+        ? {revision:binding?.revision, meter_revision:this._context.revision, references:values}
+        : {confirmation:this._calibration.confirmation, contemporaneous:true};
+      const result=await this._hass.callWS({type:"dtek_monitor/account_energy",entity_id:this._config.entity,action,...extra});
+      if(seq!==this._seq)return;
+      if(action==="calibrate")this._calibration=result;
+      else {
+        this._calibration=null;this._calibrationSaved=true;this._sourceInvalid=false;
+        this._energyEditor?.invalidate();
+        this.dispatchEvent(new CustomEvent("energy-binding-changed",{bubbles:true,composed:true}));
+      }
+    } catch(error) {
+      if(seq!==this._seq)return;
+      this._calibration=null;this._error=error?.code||"unavailable";
+      if(["unauthorized","not_available","auth_required"].includes(this._error)){
+        this._context=null;this._values={};this._result=null;this._energyEditor=null;
+      }
+    } finally {
+      if(seq===this._seq){this._busy=false;this.render();this.dispatchEvent(new CustomEvent("submission-operation"));}
+    }
+  }
   async act(action) {
-    if (this._busy || !this._hass || this.readOnly) return;
+    if (this._busy || this._calibration || !this._hass || this.readOnly) return;
     if((action==="prepare"||action==="confirm")&&(this._energyLocked||this._sourceInvalid))return;
     const seq = ++this._seq;
     const draft = this._draft;
@@ -140,7 +183,7 @@ class DtekAccountReadingsCard extends HTMLElement {
         result = await this.request(action);
         if (seq !== this._seq) return;
         if (context?.serial !== result.serial) {this._values = {}; this._sourceToken = null; this._energyEditor = null;}
-        this._context = result; this._draft = null; this._result = null; this._uncertain = false;
+        this._context = result; this._draft = null; this._result = null; this._uncertain = false; this._calibrationSaved=false;
       } else if (action === "prepare") {
         result = await this.request(action, {revision: context.revision, values: {...this._values}, ...(this._sourceToken ? {source_token: this._sourceToken} : {})});
         if (seq !== this._seq) return;
@@ -183,7 +226,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     table.append(head);
     for (const r of rows) {
       const tr = node("tr");
-      for (const [i, text] of [this.w[r.zone.toLowerCase()] || r.zone, number(r.previous,this._hass?.language), number(r.value,this._hass?.language), number(r.increase,this._hass?.language)].entries()) { const cell=node("td", String(text)); cell.dataset.label=["",this.w.previous,this.w.value,this.w.increase][i]; tr.append(cell); }
+      for (const [i, text] of [this.w[zoneKey(r.zone).toLowerCase()] || r.zone, number(r.previous,this._hass?.language), number(r.value,this._hass?.language), number(r.increase,this._hass?.language)].entries()) { const cell=node("td", String(text)); cell.dataset.label=["",this.w.previous,this.w.value,this.w.increase][i]; tr.append(cell); }
       table.append(tr);
     }
     wrap.append(table); card.append(wrap);
@@ -199,6 +242,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     card.append(cabinetLink(this._hass, this._config.entity, w.cabinet));
     if (this._error) { const error = node("p", w[this._error] || energyMessage(this._hass?.language, this._error) || w.unavailable); error.className = "alert"; error.setAttribute("role", "alert"); card.append(error); }
     if(this._energyLocked || this._sourceInvalid){const note=node("p",this._energyLocked?w.energyLocked:w.sourceInvalid);note.className="source-notice";note.setAttribute("role","status");card.append(note);}
+    if(this._calibrationSaved){const saved=node("p",w.correctionSaved);saved.className="calibration-saved";card.append(saved);}
     const ctx = this._context;
     if (ctx) {
       if (!this._config.embedded || this._draft) card.append(node("p", ctx.address));
@@ -211,13 +255,25 @@ class DtekAccountReadingsCard extends HTMLElement {
       if (result.at) card.append(node("small", `${w.last}: ${date(result.at, this._hass?.language, true)}`));
       if (result.readings) this.table(card, result.readings);
     }
-    if (this._draft) {
+    if (this._calibration) {
+      card.append(node("h3",w.correctionTitle),node("p",w.correctionHelp));
+      for(const [zone,row] of Object.entries(this._calibration.change.changes)){
+        card.append(node("h4",w[zoneKey(zone).toLowerCase()]||zone),
+          node("p",`${w.value}: ${number(row.actual,this._hass.language)} kWh`),
+          node("p",`${w.correctionSource}: ${number(row.source,this._hass.language)} kWh · ${date(row.source_at,this._hass.language,true)}`),
+          node("p",`${w.correctionAmount}: ${number(row.correction,this._hass.language)} kWh`));
+      }
+      card.append(this.button(w.correctionCancel,()=>{this._calibration=null;this.render();}));
+      this.gate(card,w.correctionCheck,this.button(w.correctionSave,()=>this.calibrate("save")));
+    } else if (this._draft) {
       card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Перевірте адресу, лічильник і покази перед передачею." : "Check the address, meter and readings before sending.") : w.review)); this.table(card, this._draft.readings);
       if (this._draft.source) {
         card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Покази розраховано за домашнім датчиком. Перед передачею джерело буде перевірено ще раз." : "These readings use your home sensor. Its data is checked again before sending.") : w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
-        for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zone.toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
+        for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zoneKey(zone).toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
       }
       card.append(this.button(w.back, () => {this._draft = null; this.render();}));
+      if(!this._draft.source && this._energyEditor?._data?.binding?.mode==="offset")
+        card.append(this.button(w.correction,()=>this.calibrate("calibrate")));
       const send = this.button(w.confirm, () => this.act("confirm")); send.className="primary"; this.gate(card, w.checked, send);
     } else if (ctx?.blocked && !this._uncertain) {
       if (["unknown", "partial"].includes(ctx.last_attempt?.status)) {
@@ -226,21 +282,21 @@ class DtekAccountReadingsCard extends HTMLElement {
     } else if (ctx && !this._uncertain) {
       const form = node("form"); form.className = "fields";
       for (const z of ctx.zones) {
-        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (${isUkrainian(this._hass?.language) ? "кВт·год" : "kWh"})`);
+        const label = node("label", `${w[zoneKey(z.zone).toLowerCase()] || z.zone} · ${w.value} (${isUkrainian(this._hass?.language) ? "кВт·год" : "kWh"})`);
         label.append(node("small", `${w.previous}: ${number(z.previous, this._hass?.language)} · ${date(z.date, this._hass?.language)}`));
         const input = node("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]+";
         input.maxLength = ctx.digits; input.required = true; input.disabled = this._busy;
-        input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[z.zone.toLowerCase()] || z.zone} (kWh)`);
-        input.addEventListener("input", () => {this._values[z.zone] = input.value; this._sourceToken = null;this._sourceInvalid=false;const button=form.querySelector("button[type=submit]");if(button)button.disabled=this._busy||this._energyLocked;const notice=card.querySelector(".source-notice");if(notice&&!this._energyLocked)notice.remove();});
+        input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[zoneKey(z.zone).toLowerCase()] || z.zone} (kWh)`);
+        input.addEventListener("input", () => {this._values[z.zone] = input.value; this._sourceToken = null;this._sourceInvalid=false;this._calibrationSaved=false;card.querySelector(".calibration-saved")?.remove();const button=form.querySelector("button[type=submit]");if(button)button.disabled=this._busy||this._energyLocked;const notice=card.querySelector(".source-notice");if(notice&&!this._energyLocked)notice.remove();});
         label.append(input); form.append(label);
       }
       const prepare = this.button(w.prepare, () => {}); prepare.className="primary"; prepare.type = "submit";prepare.disabled=this._busy||this._energyLocked||this._sourceInvalid; form.append(prepare);
       form.addEventListener("submit", e => {e.preventDefault(); this.act("prepare");}); card.append(form);
       if (!this._config.embedded) card.append(this.button(w.calibrate, () => this._energyEditor?.calibrate({...this._values})));
     }
-    if (!this._draft) { const refresh=this.button(this._uncertain ? w.recover : w.load, () => this.act("context")); if (this._config.embedded && ctx && !this._uncertain) { const more=node("details"), summary=node("summary", isUkrainian(this._hass?.language)?"Оновити дані лічильника":"Refresh meter data"); more.append(summary,refresh); card.append(more); } else card.append(refresh); }
+    if (!this._draft && !this._calibration) { const refresh=this.button(this._uncertain ? w.recover : w.load, () => this.act("context")); if (this._config.embedded && ctx && !this._uncertain) { const more=node("details"), summary=node("summary", isUkrainian(this._hass?.language)?"Оновити дані лічильника":"Refresh meter data"); more.append(summary,refresh); card.append(more); } else card.append(refresh); }
     if (this._busy) card.append(node("p", w.loading));
-    if (!this._draft && !this._uncertain) {
+    if (!this._draft && !this._calibration && !this._uncertain) {
       if (!this._energyEditor) {
         this._energyEditor = new (customElements.get("dtek-energy-editor") || DtekEnergyEditor)();
         this._energyEditor.addEventListener("energy-proposal", event => {

@@ -41,7 +41,7 @@
       },
       "connection": {
         "title": "What would you like to connect?",
-        "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details; it is currently available for the Odessa region.",
+        "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details. Kyiv oblast and Dnipropetrovsk oblast cabinets are experimental.",
         "menu_options": {
           "address": "Outage schedules by address",
           "account_access": "Personal account and meter readings"
@@ -176,6 +176,29 @@
         "description": "Account: **{number}**\n\nAddress: **{address}**\n\nThe account will disappear from this DTEK cabinet. Its electricity contract and billing history are not deleted. Stored HA sensor references are retained.",
         "data": {
           "confirm": "Unlink this account from my DTEK cabinet"
+        }
+      },
+      "account_link_legacy": {
+        "title": "Find a household account",
+        "description": "Enter the modern account number: {account_length} digits starting with {account_prefixes}, or an old 11-digit Kyiv city number. DTEK will resolve the current number. Review the number and address before linking; choose the correct account if several match.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_legacy_choice": {
+        "title": "Choose the matching account",
+        "description": "DTEK found several accounts. Choose the correct number and address. Linking requires a separate confirmation.",
+        "data": {
+          "account_number": "Account and address"
+        }
+      },
+      "account_access_experimental": {
+        "title": "Experimental regional cabinet",
+        "description": "Cabinet functions and apartment-group lookup are enabled for this operator, but have not yet been tested with a real linked household account. Check the returned address, meter and tariff zones. Report problems in [GitHub Issues]({issues_url}) without passwords or account details. Opening a form does not send an SMS.",
+        "menu_options": {
+          "account_login": "Sign in",
+          "account_register": "Create a DTEK account",
+          "account_recover": "Forgot your password?"
         }
       }
     },
@@ -429,6 +452,20 @@
         "data": {
           "house_num": "Building number"
         }
+      },
+      "account_link_legacy": {
+        "title": "Find a household account",
+        "description": "Enter the modern account number: {account_length} digits starting with {account_prefixes}, or an old 11-digit Kyiv city number. DTEK will resolve the current number. Review the number and address before linking; choose the correct account if several match.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_legacy_choice": {
+        "title": "Choose the matching account",
+        "description": "DTEK found several accounts. Choose the correct number and address. Linking requires a separate confirmation.",
+        "data": {
+          "account_number": "Account and address"
+        }
       }
     },
     "error": {
@@ -676,6 +713,18 @@
       },
       "account_scheduled_outage_end": {
         "name": "My outage end (scheduled)"
+      },
+      "account_reading_day": {
+        "name": "Meter reading — Day"
+      },
+      "account_reading_date_day": {
+        "name": "Reading date — Day"
+      },
+      "account_reading_night": {
+        "name": "Meter reading — Night"
+      },
+      "account_reading_date_night": {
+        "name": "Reading date — Night"
       }
     },
     "calendar": {

@@ -1,4 +1,4 @@
-import { isUkrainian,  el, date, number } from "./account-ui.js?v=2.0.0-rc1";
+import { zoneKey, isUkrainian,  el, date, number } from "./account-ui.js?v=2.0.0-rc2";
 
 const words = {
   en: {
@@ -60,7 +60,7 @@ class DtekAccountReadback extends HTMLElement {
     if (this._data) {
       const data = this._data, p = el("p", w[data.status] || w.error); p.setAttribute("role", "status"); box.append(p);
       if (data.attempt) {
-        box.append(el("p", `${w.attempt}: ${(data.attempt.readings || []).map(r => `${w[r.zone] || r.zone}: ${number(r.value, this._hass.language)} ${w.unit}`).join("; ")}`));
+        box.append(el("p", `${w.attempt}: ${(data.attempt.readings || []).map(r => `${w[zoneKey(r.zone)] || r.zone}: ${number(r.value, this._hass.language)} ${w.unit}`).join("; ")}`));
         box.append(el("small", w.note));
       }
       box.append(el("small", `${w.checked}: ${date(data.fetched_at, this._hass.language, true)}`));

@@ -21,18 +21,22 @@ class AccountProviderSpec:
     household_length: int = 12
     oauth_client_id: str = _OAUTH_CLIENT_ID
     enabled: bool = False
-    # Optional, independently verified old-cabinet metadata. Never inferred
-    # from a hostname or enabled merely because the modern cabinet is enabled.
+    experimental: bool = False
+    # Explicit old-cabinet routes from each operator's official frontend.
+    # Experimental regions use the same identity checks before accepting data.
     group_origin: str | None = None
     group_site: str | None = None
+    legacy_household_lengths: tuple[int, ...] = ()
 
     @property
     def callback(self) -> str:
         return self.cabinet_origin + "/oauth/callback"
 
 
-# Shared frontend contracts are verified; authenticated non-OEM data is not yet.
-# Legacy account formats use another upstream flow and are not accepted here.
+# Authenticated household reads are verified for Odesa and Kyiv city.
+# Kyiv oblast and Dnipropetrovsk oblast are opt-in through normal setup, with
+# an experimental notice until authenticated household data is verified live.
+# Old-number lookup is enabled independently from the group metadata handoff.
 ACCOUNT_PROVIDER_SPECS = MappingProxyType(
     {
         "dtek_oem": AccountProviderSpec(
@@ -49,18 +53,30 @@ ACCOUNT_PROVIDER_SPECS = MappingProxyType(
             "https://my.dtek-kem.com.ua",
             "https://auth.my.dtek-kem.com.ua",
             ("452",),
+            enabled=True,
+            group_origin="https://biz.ok.dtek-kem.com.ua",
+            group_site="kem",
+            legacy_household_lengths=(11,),
         ),
         "dtek_krem": AccountProviderSpec(
             "dtek_krem",
             "https://my.dtek-krem.com.ua",
             "https://auth.my.dtek-krem.com.ua",
             ("842",),
+            enabled=True,
+            experimental=True,
+            group_origin="https://ok.dtek-krem.com.ua",
+            group_site="krem",
         ),
         "dtek_dnem": AccountProviderSpec(
             "dtek_dnem",
             "https://my.dtek-dnem.com.ua",
             "https://auth.my.dtek-dnem.com.ua",
             ("12",),
+            enabled=True,
+            experimental=True,
+            group_origin="https://ok.dtek-dnem.com.ua",
+            group_site="dnem",
         ),
     }
 )
@@ -85,7 +101,7 @@ def account_connection_title(provider_id: str, phone: str) -> str:
 def get_account_provider_spec(
     provider_id: str = DEFAULT_PROVIDER_ID,
 ) -> AccountProviderSpec:
-    """Gate setup, SMS and runtime clients on the same verified rollout list."""
+    """Gate setup, SMS and runtime clients on the same explicit rollout list."""
     if not account_provider_supported(provider_id):
         raise AccountError("Personal accounts are not supported for this operator")
     return ACCOUNT_PROVIDER_SPECS[provider_id]

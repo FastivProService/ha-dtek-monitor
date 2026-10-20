@@ -1,4 +1,4 @@
-import { isUkrainian,  date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
+import { zoneKey, isUkrainian,  date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc2";
 /* Local references only. No operation in this editor submits readings to DTEK. */
 const words = {
   en: {
@@ -133,7 +133,7 @@ export class DtekEnergyEditor extends HTMLElement {
     if (this._draft) {
       root.append(el("p", w.reviewHelp), el("p", `${this._draft.binding.serial} · ${w[this._draft.binding.mode]} · ${w[this._draft.binding.freshness || "reported"]}`));
       for (const [zone, row] of Object.entries(this._draft.change.changes)) {
-        root.append(el("h4", w[zone.toLowerCase()]), el("p", `${w.source}: ${row.source} kWh`), el("p", `${w.at}: ${date(row.source_at,this._hass.language,true)}`));
+        root.append(el("h4", w[zoneKey(zone).toLowerCase()]), el("p", `${w.source}: ${row.source} kWh`), el("p", `${w.at}: ${date(row.source_at,this._hass.language,true)}`));
         if (row.actual !== null) root.append(el("p", `${w.actualLabel}: ${row.actual} kWh`));
         if (row.correction !== null) root.append(el("p", `${w.correction}: ${row.correction} kWh`));
       }
@@ -147,17 +147,17 @@ export class DtekEnergyEditor extends HTMLElement {
         if (!matches) root.append(el("p", w.mismatch));
         for (const [zone, row] of Object.entries(binding.zones)) {
           const reading = this._data.readings?.[zone];
-          root.append(el("h4", w[zone.toLowerCase()]), el("p", this._options.settingsOnly?(this._hass.states?.[row.entity_id]?.attributes?.friendly_name || row.entity_id):row.entity_id));
+          root.append(el("h4", w[zoneKey(zone).toLowerCase()]), el("p", this._options.settingsOnly?(this._hass.states?.[row.entity_id]?.attributes?.friendly_name || row.entity_id):row.entity_id));
           if (binding.mode === "offset" && !this._options.settingsOnly) root.append(el("p", `${w.reference} — ${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)} kWh; ${w.source}: ${number(row.anchor_source,this._hass.language)} kWh`));
           if (reading?.error) root.append(el("p", w[reading.error] || w.unavailable));
           else if (reading) root.append(el("p", this._options.settingsOnly?`${w.proposal}: ${number(reading.send_value,this._hass.language)} ${isUkrainian(this._hass.language)?"кВт·год":"kWh"}`:`${w.proposal}: ${reading.value} kWh → ${reading.send_value}`), el("p", `${w.at}: ${date(reading.source.at,this._hass.language,true)}`));
         }
         if (!this._options.settingsOnly && this._data.ready && matches && this._context?.serial && !this._context.blocked) root.append(this.button(w.use, () => this.dispatchEvent(new CustomEvent("energy-proposal", {detail: {values: Object.fromEntries(Object.entries(this._data.readings).map(([z, r]) => [z, r.send_value])), token: this._data.proposal}, bubbles: true, composed: true}))));
         const history = el("details"); history.append(el("summary", w.history));
-        if(this._options.settingsOnly){history.append(el("p",`${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));for(const [zone,row] of Object.entries(binding.zones)){history.append(el("p",`${w[zone.toLowerCase()]} · ${row.entity_id}`));if(binding.mode==="offset")history.append(el("p",`${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)}; ${w.source}: ${number(row.anchor_source,this._hass.language)} ${isUkrainian(this._hass.language)?"кВт·год":"kWh"}`));}}
+        if(this._options.settingsOnly){history.append(el("p",`${binding.serial} · ${w[binding.mode]} · ${w[binding.freshness || "reported"]}`));for(const [zone,row] of Object.entries(binding.zones)){history.append(el("p",`${w[zoneKey(zone).toLowerCase()]} · ${row.entity_id}`));if(binding.mode==="offset")history.append(el("p",`${w.actualLabel}: ${number(row.anchor_meter,this._hass.language)}; ${w.source}: ${number(row.anchor_source,this._hass.language)} ${isUkrainian(this._hass.language)?"кВт·год":"kWh"}`));}}
         for (const record of [...binding.history].reverse()) {
           history.append(el("p", date(record.at,this._hass.language,true)));
-          for (const [zone, row] of Object.entries(record.changes)) history.append(el("p", `${w[zone.toLowerCase()]}: ${row.actual ?? "—"} / ${row.source} kWh · ${w.correction}: ${row.correction ?? "—"}`));
+          for (const [zone, row] of Object.entries(record.changes)) history.append(el("p", `${w[zoneKey(zone).toLowerCase()]}: ${row.actual ?? "—"} / ${row.source} kWh · ${w.correction}: ${row.correction ?? "—"}`));
         }
         root.append(history);
       }
@@ -172,7 +172,7 @@ export class DtekEnergyEditor extends HTMLElement {
           for (const mode of ["offset", "direct"]) { const option = el("option", w[mode]); option.value = mode; select.append(option); }
           select.value = this._fields.mode; select.addEventListener("change", () => {this._fields.mode = select.value; this.render();}); label.append(select); root.append(label);
           for (const z of this._context.zones) {
-            const input = this.field(root, `${w[z.zone.toLowerCase()]} · ${w.entity}`, this._fields.entities[z.zone], value => {this._fields.entities[z.zone] = value;});
+            const input = this.field(root, `${w[zoneKey(z.zone).toLowerCase()]} · ${w.entity}`, this._fields.entities[z.zone], value => {this._fields.entities[z.zone] = value;});
             input.setAttribute("list", "energy-sources");
           }
           const list = el("datalist"); list.id = "energy-sources";
@@ -212,7 +212,7 @@ export class DtekEnergyEditor extends HTMLElement {
       for(const [zone,row] of Object.entries(binding.zones)){
         const reading=this._data.readings?.[zone], name=this._hass.states?.[row.entity_id]?.attributes?.friendly_name || w.entity;
         if(reading?.error)root.append(el("p",w[reading.error]||w.unavailable));
-        else if(reading){const value=el("p",`${w[zone.toLowerCase()]} · ${number(reading.send_value,this._hass.language)} ${uk?"кВт·год":"kWh"}`);value.className="value";root.append(value,el("small",`${name} · ${date(reading.source.at,this._hass.language,true)}`));}
+        else if(reading){const value=el("p",`${w[zoneKey(zone).toLowerCase()]} · ${number(reading.send_value,this._hass.language)} ${uk?"кВт·год":"kWh"}`);value.className="value";root.append(value,el("small",`${name} · ${date(reading.source.at,this._hass.language,true)}`));}
       }
       const matches=this._context?.serial===binding.serial;
       if(this._context?.serial&&!matches)root.append(el("p",w.mismatch));
@@ -223,6 +223,6 @@ export class DtekEnergyEditor extends HTMLElement {
     root.append(this.button(uk?"Налаштувати датчик":"Sensor settings",async()=>{if(this._options.externalSettings){this.emit("energy-settings");return;}this._settingsOpen=true;this.render();if(!this._data)await this.act("get");}));
     this.shadowRoot.replaceChildren(el("style",embeddedCSS+`:host{display:block;margin-top:20px}section{padding:16px;border:1px solid var(--divider-color,#ddd);border-radius:12px}h3{margin:0 0 8px;font-size:1em}p{line-height:1.5}.value{font-size:1.15em;font-weight:600}small{display:block;color:var(--secondary-text-color);overflow-wrap:anywhere}button{font:inherit;padding:10px;border:1px solid var(--divider-color,#aaa);border-radius:8px;color:var(--primary-text-color);background:transparent;margin:12px 8px 0 0;cursor:pointer}button:disabled{opacity:.5}`),root);
   }
-  referenceFields(root, zones) { for (const zone of zones) this.field(root, `${this.w[zone.toLowerCase()]} · ${this.w.actual}`, this._fields.references[zone], value => {this._fields.references[zone] = value;}); }
+  referenceFields(root, zones) { for (const zone of zones) this.field(root, `${this.w[zoneKey(zone).toLowerCase()]} · ${this.w.actual}`, this._fields.references[zone], value => {this._fields.references[zone] = value;}); }
 }
 if (!customElements.get("dtek-energy-editor")) customElements.define("dtek-energy-editor", DtekEnergyEditor);

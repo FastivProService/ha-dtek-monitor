@@ -14,6 +14,29 @@ if HAS_HA:
 
 @unittest.skipUnless(HAS_HA, "Requires Home Assistant")
 class BotAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_calibration_uses_isolated_principal_and_explicit_local_confirmation(self):
+        draft = {"confirmation": "local", "change": {"changes": {}}, "binding": {"private": "not for bot"}}
+        self.manager.prepare_calibration = AsyncMock(return_value=draft)
+        self.account_coord.energy = SimpleNamespace(save=AsyncMock(return_value={"saved": True}))
+        self.msg.update(action="calibration_preview", revision="meter", binding_revision="source",
+                        values={"DAY_2_ZONE": "1030", "NIGHT_2_ZONE": "1012"})
+        await self.invoke()
+        result = self.connection.send_result.call_args.args[1]
+        self.assertEqual(set(result), {"confirmation", "change"})
+        principal = self.manager.prepare_calibration.call_args.args[1]
+        self.assertIn("profile-a", principal)
+        self.manager.confirm.assert_not_awaited()
+        self.msg.update(action="calibration_save", confirmation="local", contemporaneous=True)
+        await self.invoke()
+        call = self.account_coord.energy.save.call_args
+        self.assertEqual(call.args[:3], ("100001", principal, "local"))
+        self.assertTrue(call.kwargs["contemporaneous"])
+        self.manager.confirm.assert_not_awaited()
+        self.connection.user.permissions.check_entity.return_value = False
+        self.account_coord.energy.save.reset_mock()
+        await self.invoke()
+        self.account_coord.energy.save.assert_not_awaited()
+
     async def asyncSetUp(self):
         await submission_tests.SubmissionAccessTests.asyncSetUp(self)
         self.msg.update(
@@ -194,6 +217,26 @@ class BotSnapshotTests(unittest.TestCase):
         result = self.snapshot()
         self.assertEqual(result["groups"], ["GPV3.1"])
         self.assertEqual(result["attributes"]["selection_source"], "cabinet")
+
+    def test_hidden_public_labels_do_not_block_verified_cabinet_groups(self):
+        self.coordinator.address.provider_id = "dtek_kem"
+        self.coordinator.address_data.update(
+            group_labels_visible=False, schedule_groups=["GPV57.1", "GPV58.1"],
+        )
+        result = self.snapshot(("GPV57.1",))
+        self.assertEqual(result["groups"], ["GPV57.1"])
+        self.assertEqual(result["group_status"], "current")
+        self.assertTrue(result["attributes"]["schedule_notifications_ready"])
+        self.assertFalse(self.coordinator.address_data["group_labels_visible"])
+        for status in ("expired", "unavailable", "pending", "empty", "disabled"):
+            result = self.snapshot(("GPV57.1",), status)
+            self.assertEqual(result["groups"], [])
+            self.assertFalse(result["attributes"]["schedule_notifications_ready"])
+        result = self.snapshot(("GPV59.1",))
+        self.assertEqual(result["group_status"], "cabinet_group_mismatch")
+        self.assertFalse(result["attributes"]["schedule_notifications_ready"])
+        self.coordinator.address_success = False
+        self.assertFalse(self.snapshot(("GPV57.1",))["attributes"]["schedule_notifications_ready"])
 
     def test_unavailable_expired_or_unsupported_never_falls_back(self):
         for status in (

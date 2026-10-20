@@ -17,6 +17,17 @@ if HAS_HA:
 
 @unittest.skipUnless(HAS_HA, "Requires Home Assistant")
 class EnergyAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_websocket_schema_accepts_modern_zones_but_not_unknown_scales(self):
+        import voluptuous as vol
+        schema = api.websocket_energy._ws_schema
+        msg = {**self.msg, "action": "preview", "config": {
+            "mode": "offset", "entities": {"DAY_2_ZONE": "sensor.day", "NIGHT_2_ZONE": "sensor.night"},
+            "max_age": 300, "max_power_kw": "20",
+        }, "references": {"DAY_2_ZONE": "1000", "NIGHT_2_ZONE": "500"}}
+        self.assertEqual(schema(msg)["references"], msg["references"])
+        with self.assertRaises(vol.Invalid):
+            schema({**msg, "references": {"UNKNOWN_SCALE": "1"}})
+
     async def asyncSetUp(self):
         await access.SubmissionAccessTests.asyncSetUp(self)
         self.manager = SimpleNamespace(
@@ -108,7 +119,7 @@ class EnergyAccessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.manager.preview.call_args.args[2]["serial"], "TEST-METER")
         self.connection.send_result.reset_mock()
 
-        async def save(number, user, token, authorize):
+        async def save(number, user, token, authorize, **kwargs):
             self.connection.user.is_active = False
             authorize("sensor.grid")
 
