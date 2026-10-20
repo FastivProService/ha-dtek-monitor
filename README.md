@@ -1,6 +1,6 @@
 # DTEK Monitor for Home Assistant
 
-> **Development branch:** Kyiv city cabinet support described below is not included in the published 2.0.0-rc1.
+> **Development branch:** Cabinet support for Kyiv city, Kyiv oblast and Dnipropetrovsk oblast described below is not included in the published 2.0.0-rc1, which supports Odesa oblast cabinets.
 
 **English** · [Українська](README.uk.md)
 
@@ -25,7 +25,7 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 | I want | Connect |
 | --- | --- |
 | Building schedules and outage status | An address without a cabinet login; all four operators below. |
-| My apartment's readings, consumption and account information | A phone-based personal cabinet; Odesa oblast and Kyiv city household accounts. |
+| My apartment's readings, consumption and account information | A phone-based personal cabinet; household accounts in all four regions; Kyiv oblast and Dnipropetrovsk oblast are experimental. |
 | Reading suggestions from my home meter | An optional cumulative HA energy sensor linked to the appropriate account. |
 | Telegram notifications | The separate [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): building alerts in any chat, or your cabinet in a private conversation. |
 
@@ -55,6 +55,8 @@ Choose the distribution operator serving the address, not just the nearest city.
 | Kyiv oblast | ДТЕК Київські регіональні електромережі — KREM | [Official outage page](https://www.dtek-krem.com.ua/ua/shutdowns) |
 | Dnipropetrovsk oblast | ДТЕК Дніпровські електромережі — DNEM | [Official outage page](https://www.dtek-dnem.com.ua/ua/shutdowns) |
 | Kyiv city | ДТЕК Київські електромережі — KEM | [Official outage page](https://www.dtek-kem.com.ua/ua/shutdowns) |
+
+**Experimental regions:** Kyiv oblast and Dnipropetrovsk oblast cabinets are enabled, including sign-in, registration, account management, readings and apartment-group lookup. These functions use the shared API but have not yet been checked with real linked accounts in those regions. Verify the address, meter and tariff zones before confirming changes. Report problems in [GitHub Issues](https://github.com/groove-max/ha-dtek-monitor/issues), with the operator, HA/integration versions and redacted diagnostics; do not attach credentials or full account details. A failed group lookup does not block meter data.
 
 Kyiv city and Kyiv oblast use different operators. For Kyiv city, the setup skips city selection. An address within one of these regions may still be served by another distributor; first check that the address is available on the operator's website. Other operators are not currently supported.
 
@@ -100,7 +102,7 @@ Add another integration entry for another address. You do not need to edit `conf
 <a id="personal-account"></a>
 ## Personal cabinet and My DTEK dashboard
 
-1. Add the integration and choose **ДТЕК Одеські електромережі** or **ДТЕК Київські електромережі**, then **Personal account and meter readings**.
+1. Add the integration and choose your distribution operator, then **Personal account and meter readings**.
 2. Sign in with your phone and password. Registration and password recovery through SMS are also available.
 3. Select the personal accounts to monitor. If the cabinet is empty, add an account here or later in settings.
 4. Reload the HA page. On your dashboard choose **Edit → Add card → My DTEK**, select an account and save.
@@ -151,7 +153,7 @@ Entity names follow your Home Assistant language. Open the integration's device 
 
 When DTEK returns several groups, the integration keeps them all and preserves each calendar event's group. It cannot determine which entrance or apartment belongs to which group without additional information.
 
-Some operators, including Kyiv city, do not publish meaningful public group numbers. Internal identifiers may still appear in HA attributes. The companion bot displays these as local **“Variant 1”, “Variant 2”** labels in its Ukrainian messages. These are not official queue numbers and can change when the address assignment changes.
+Some operators, including Kyiv city, do not publish meaningful public group numbers. Internal identifiers may still appear in HA attributes. In building mode, the companion bot displays these as local **“Variant 1”, “Variant 2”** labels in its Ukrainian messages. These are not official queue numbers and can change when the address assignment changes.
 
 ### When a schedule is unavailable
 

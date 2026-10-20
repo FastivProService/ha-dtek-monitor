@@ -1,15 +1,15 @@
 # Personal accounts and My DTEK
 
-> **Development branch:** Kyiv city cabinet support described below is not included in the published 2.0.0-rc1.
+> **Development branch:** Cabinet support for Kyiv city, Kyiv oblast and Dnipropetrovsk oblast described below is not included in the published 2.0.0-rc1, which supports Odesa oblast cabinets.
 
 **English** · [Українська](PERSONAL_ACCOUNT.uk.md) · [Installation](../README.md#installation)
 
-Connect your **DTEK household cabinet for Odesa oblast or Kyiv city** to see your
+Connect your **DTEK household cabinet** to see your
 address, meter, readings and consumption in Home Assistant. You can also send
 readings after checking and confirming them. This connection is optional: outage
 schedules by address work without a phone login or energy sensor.
 
-This guide describes release candidate **2.0.0-rc1**. Read the [installation, upgrade and
+This guide describes the development version based on **2.0.0-rc1**. Read the [installation, upgrade and
 rollback instructions](UPGRADING.md) before installing it.
 
 [Schedules and groups](SCHEDULES.md) · [Readings, sensors and reminders](ENERGY_AND_READINGS.md)
@@ -30,11 +30,13 @@ rollback instructions](UPGRADING.md) before installing it.
 - [If DTEK changes its API](#section-14)
 - [Current limits](#section-15)
 
+**Experimental regions:** Kyiv oblast and Dnipropetrovsk oblast cabinets are enabled, including sign-in, registration, account management, readings and apartment-group lookup. These functions use the shared API but have not yet been checked with real linked accounts in those regions. Verify the address, meter and tariff zones before confirming changes. Report problems in [GitHub Issues](https://github.com/groove-max/ha-dtek-monitor/issues), with the operator, HA/integration versions and redacted diagnostics; do not attach credentials or full account details. A failed group lookup does not block meter data.
+
 <a id="section-1"></a>
 ## Connect your cabinet
 
 1. Open **Settings → Devices & services → Add integration → DTEK Monitor**.
-2. Select **ДТЕК Одеські електромережі** for Odesa oblast or **ДТЕК Київські електромережі** for Kyiv city. Kyiv oblast is a different operator; its personal cabinet is not enabled yet.
+2. Select your distribution operator. Kyiv city (**ДТЕК Київські електромережі**) and Kyiv oblast (**ДТЕК Київські регіональні електромережі**) are separate options.
 3. Select **Personal account and meter readings**. For schedules without a login, select
    **Outage schedules by address** instead.
 4. Choose **Sign in**, **Create a DTEK account** or **Forgot your password?**.
@@ -184,7 +186,7 @@ There are three independent choices:
 - **Dashboard display:** choose an account on each card; different panels may show different accounts.
 
 To add an account, enter its modern 12-digit household number starting with `572`
-for Odesa oblast or `452` for Kyiv city. Kyiv city also accepts an old 11-digit
+for Odesa oblast, `452` for Kyiv city, `842` for Kyiv oblast, or `12` for Dnipropetrovsk oblast. Kyiv city also accepts an old 11-digit
 number and looks up the current number through DTEK.
 HA looks up the address; verify the full number and address, then explicitly
 confirm. Only confirmation sends the linking request. Afterwards, choose whether
@@ -232,8 +234,7 @@ dates and retrospective corrections.
 One meter per household account is supported initially. Returned tariff scales
 are kept separate. Odesa single-zone and Kyiv city Day/Night data have been read
 from live accounts. Actual submission has been verified only for the Odesa
-single-zone case; two-zone submission uses automated tests. Business accounts,
-Kyiv oblast and Dnipropetrovsk oblast cabinets are not enabled.
+single-zone case; two-zone submission uses automated tests. Business accounts are not supported. Kyiv oblast and Dnipropetrovsk oblast cabinets, including apartment-group lookup, are enabled experimentally; authenticated household data has not been verified live for these two regions.
 
 <a id="section-7"></a>
 ## Change accounts and refresh
@@ -522,7 +523,7 @@ extra account changes or meter readings to probe availability.
 <a id="section-15"></a>
 ## Current limits
 
-- Personal cabinets: household accounts in Odesa oblast and Kyiv city. Public address schedules still support all four listed operators.
+- Personal cabinets: household accounts in all four regions. Kyiv oblast and Dnipropetrovsk oblast are experimental, including apartment-group lookup. Public address schedules still support all four listed operators.
 - One consumption meter per account; submission supports one zone or Day/Night. Live reading and form checks cover Odesa single-zone and Kyiv city Day/Night accounts. Only Odesa single-zone submission was performed live; Day/Night submission has automated tests.
 - No automatic reading submissions, payments, applications, profile editing or photo uploads. Use the official cabinet for unsupported meter schemes, replacements and corrections.
 - Billing history does not populate HA's Energy dashboard. Monthly consumption and cumulative readings are different values.

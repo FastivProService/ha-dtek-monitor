@@ -41,7 +41,7 @@
       },
       "connection": {
         "title": "What would you like to connect?",
-        "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details; it is currently available for the Odessa region.",
+        "description": "Building schedules work without signing in. The personal account adds readings, consumption and meter details. Kyiv oblast and Dnipropetrovsk oblast cabinets are experimental.",
         "menu_options": {
           "address": "Outage schedules by address",
           "account_access": "Personal account and meter readings"
@@ -190,6 +190,15 @@
         "description": "DTEK found several accounts. Choose the correct number and address. Linking requires a separate confirmation.",
         "data": {
           "account_number": "Account and address"
+        }
+      },
+      "account_access_experimental": {
+        "title": "Experimental regional cabinet",
+        "description": "Cabinet functions and apartment-group lookup are enabled for this operator, but have not yet been tested with a real linked household account. Check the returned address, meter and tariff zones. Report problems in [GitHub Issues]({issues_url}) without passwords or account details. Opening a form does not send an SMS.",
+        "menu_options": {
+          "account_login": "Sign in",
+          "account_register": "Create a DTEK account",
+          "account_recover": "Forgot your password?"
         }
       }
     },

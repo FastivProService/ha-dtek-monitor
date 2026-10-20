@@ -141,6 +141,48 @@ class AccountScheduleTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(other.available)
         self.assertNotIn("100001", str(self.calendar.extra_state_attributes))
 
+    async def test_hidden_public_labels_use_only_current_matching_cabinet_assignment(self):
+        self.link([])
+        self.coord.address_data["group_labels_visible"] = False
+        cabinet = SimpleNamespace(status="current", groups=("GPV3.1",), checked_at=None)
+        self.personal.runtime_data = SimpleNamespace(groups=SimpleNamespace(get=lambda n: cabinet))
+        before = dict(self.coord.address_data)
+        self.assertEqual(self.sensor.native_value, "GPV3.1")
+        self.assertEqual(self.sensor.extra_state_attributes["selection_status"], "cabinet_selected")
+        self.assertEqual(self.sensor.extra_state_attributes["cabinet_groups"], ["GPV3.1"])
+        self.assertEqual(self.sensor.extra_state_attributes["building_groups"], [])
+        events = await self.calendar.async_get_events(self.hass, self.start, self.end)
+        self.assertEqual(len(events), 1)
+        self.assertIn("group=GPV3.1", events[0].description)
+        for status in ("expired", "unavailable", "disabled", "empty", "pending"):
+            cabinet.status = status
+            self.assertFalse(self.calendar.available)
+            self.assertEqual(mod.selectable_groups(self.coord, cabinet), [])
+        cabinet.status = "current"
+        cabinet.groups = ("GPV3.1", "GPV9.1")
+        self.assertFalse(self.calendar.available)  # No partial acceptance.
+        cabinet.groups = ("GPV3.1",)
+        self.link(["GPV5.1"])
+        self.assertFalse(self.calendar.available)  # Hidden groups cannot be guessed.
+        self.assertEqual(self.coord.address_data, before)
+
+    async def test_hidden_multiple_cabinet_groups_allow_explicit_choice_and_recheck(self):
+        self.coord.address_data["group_labels_visible"] = False
+        cabinet = SimpleNamespace(status="current", groups=("GPV3.1", "GPV5.1"))
+        self.personal.runtime_data = SimpleNamespace(groups=SimpleNamespace(get=lambda n: cabinet))
+        result = await self.choose_address()
+        self.assertEqual(result["step_id"], "account_schedule_groups")
+        self.assertEqual(self.options._schedule_group_choices, ["GPV3.1", "GPV5.1"])
+        choices = list(self.options._schedule_group_choices)
+        cabinet.status = "expired"
+        result = await self.options.async_step_account_schedule_groups({"schedule_groups": ["GPV3.1"]})
+        self.assertEqual(result["errors"]["base"], "invalid_schedule_groups")
+        self.assertEqual(self.options._schedule_group_choices, choices)
+        cabinet.status = "current"
+        result = await self.options.async_step_account_schedule_groups({"schedule_groups": ["GPV3.1"]})
+        self.personal.options = result["data"]
+        self.assertTrue(self.calendar.available)
+
     async def test_group_removed_or_hidden_and_failed_refresh_never_falls_back(self):
         self.link()
         for change, reason in [

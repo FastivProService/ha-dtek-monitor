@@ -50,8 +50,7 @@ and possible calendar entities must be enabled and readable by the HA user.
 ## My apartment group and the building schedules
 
 A building may have several groups. Its **Primary schedule group** is a
-compatibility value, not a claim about your apartment. For Odesa oblast and Kyiv city household
-accounts, HA can also look up the account's groups through an optional cabinet
+compatibility value, not a claim about your apartment. For household accounts in the four supported regions, HA can also look up the account's groups through an optional cabinet
 service. The panel identifies whether your group comes from the cabinet, a manual
 choice or the building's only verified group.
 
@@ -70,7 +69,7 @@ choice or the building's only verified group.
    choices take priority while they still belong to the building. Building calendars and
    the building-mode bot keep every building group.
 
-**Look up apartment groups in the DTEK cabinet** is enabled by default for Odesa oblast and Kyiv city.
+**Look up apartment groups in the DTEK cabinet** is enabled by default for all four operators.
 Turn it off in the group settings to use only your manual choice or the sole
 building group. The lookup refreshes in the background every 15 minutes and after
 account data updates. It does not delay loading the cabinet or submitting readings.
@@ -85,7 +84,7 @@ instead of selecting it. Check the linked building and your group. If the legacy
 service disappears or its response changes, **Settings → System → Repairs** shows
 an issue for the optional account-group service with update/support links. Other
 cabinet features remain independent. Optional group lookup is currently enabled
-for Odesa oblast and Kyiv city; Kyiv oblast and Dnipropetrovsk oblast await live validation.
+for all four operators. Kyiv oblast and Dnipropetrovsk oblast are experimental and await live validation.
 
 A directory outage does not block cabinet data or readings. HA reports that
 matching is pending and retries every five minutes. **Do not link a building**
@@ -106,8 +105,7 @@ when a fresh cabinet assignment or the building's sole verified group provides a
 unambiguous replacement. HA notifies you of the change; the obsolete manual choice
 is cleared so it cannot silently return later. A conflicting cabinet assignment
 does not authorize replacement. If several candidates remain, choose your group
-in Settings. Hidden labels, a removed building or failed verification leave the
-personal schedule unavailable; missing data never authorize a reassignment.
+in Settings. If the public website hides group labels, the private schedule and bot can still use a cabinet-provided group after checking that it belongs to the building. Hidden groups without this confirmation, a removed building or failed verification leave the personal schedule unavailable; missing data never authorize a reassignment.
 Choosing **Do not link a building** removes only the personal link and prevents automatic relinking.
 
 <a id="changes"></a>

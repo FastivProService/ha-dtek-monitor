@@ -422,12 +422,22 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["menu_options"], ["address", "account_access"])
         result = await self.flow.async_step_user({"provider_id": "dtek_kem"})
         self.assertEqual(result["menu_options"], ["address", "account_access"])
-        result = await self.flow.async_step_user({"provider_id": "dtek_krem"})
-        self.assertEqual(result["menu_options"], ["address"])
-        self.assertEqual(
-            (await self.flow.async_step_account_login())["reason"],
-            "account_not_supported",
-        )
+        for provider in ("dtek_krem", "dtek_dnem"):
+            await self.flow.async_step_user({"provider_id": provider})
+            result = await self.flow.async_step_connection()
+            self.assertEqual(result["menu_options"], ["address", "account_access"])
+            access = await self.flow.async_step_account_access()
+            self.assertEqual(access["step_id"], "account_access_experimental")
+            self.assertEqual(
+                access["description_placeholders"]["issues_url"],
+                "https://github.com/groove-max/ha-dtek-monitor/issues",
+            )
+            self.assertEqual(access["menu_options"], [
+                "account_login", "account_register", "account_recover",
+            ])
+            login = await self.flow.async_step_account_login()
+            self.assertEqual(login["step_id"], "account_login")
+        self.account_client.authenticate.assert_not_awaited()
 
     async def test_account_flow_creates_separate_entry_and_rejects_unknown_selection(
         self,

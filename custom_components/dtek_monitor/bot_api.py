@@ -33,10 +33,9 @@ def account_snapshot(hass, connection, entry, number):
     )
     if groups and (coordinator is None or not coordinator.address_success):
         status, groups = link_status, []
-    if groups and (
-        not public.get("group_labels_visible")
-        or not set(groups).issubset(public.get("schedule_groups", []))
-    ):
+    # A private cabinet supplies its own group labels. Public display policy
+    # must not disable a fresh, matching cabinet assignment (notably Kyiv).
+    if groups and not set(groups).issubset(public.get("schedule_groups", [])):
         status, groups = "cabinet_group_mismatch", []
     entities = {}
     if address:

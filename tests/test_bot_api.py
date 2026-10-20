@@ -218,6 +218,26 @@ class BotSnapshotTests(unittest.TestCase):
         self.assertEqual(result["groups"], ["GPV3.1"])
         self.assertEqual(result["attributes"]["selection_source"], "cabinet")
 
+    def test_hidden_public_labels_do_not_block_verified_cabinet_groups(self):
+        self.coordinator.address.provider_id = "dtek_kem"
+        self.coordinator.address_data.update(
+            group_labels_visible=False, schedule_groups=["GPV57.1", "GPV58.1"],
+        )
+        result = self.snapshot(("GPV57.1",))
+        self.assertEqual(result["groups"], ["GPV57.1"])
+        self.assertEqual(result["group_status"], "current")
+        self.assertTrue(result["attributes"]["schedule_notifications_ready"])
+        self.assertFalse(self.coordinator.address_data["group_labels_visible"])
+        for status in ("expired", "unavailable", "pending", "empty", "disabled"):
+            result = self.snapshot(("GPV57.1",), status)
+            self.assertEqual(result["groups"], [])
+            self.assertFalse(result["attributes"]["schedule_notifications_ready"])
+        result = self.snapshot(("GPV59.1",))
+        self.assertEqual(result["group_status"], "cabinet_group_mismatch")
+        self.assertFalse(result["attributes"]["schedule_notifications_ready"])
+        self.coordinator.address_success = False
+        self.assertFalse(self.snapshot(("GPV57.1",))["attributes"]["schedule_notifications_ready"])
+
     def test_unavailable_expired_or_unsupported_never_falls_back(self):
         for status in (
             "unavailable",

@@ -131,7 +131,7 @@ class ParsingTests(unittest.TestCase):
         )
         self.assertNotIn("subject", account.account_key("dtek_oem", "subject"))
         with self.assertRaises(account.AccountError):
-            client_module.create_account_provider("dtek_krem")
+            client_module.create_account_provider("dtek_dem")
 
 
 class ClientTests(unittest.IsolatedAsyncioTestCase):

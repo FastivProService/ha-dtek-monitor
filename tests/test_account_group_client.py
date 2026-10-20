@@ -5,7 +5,7 @@ import json
 from types import SimpleNamespace as NS
 from urllib.parse import urlencode
 import unittest
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 from component_loader import load_component_module
 from test_account import response
@@ -42,6 +42,45 @@ class GroupParsingTests(unittest.TestCase):
 
 
 class GroupClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_experimental_regions_use_own_group_handoff_and_verify_identity(self):
+        for provider, number, site in (
+            ("dtek_krem", "842000000001", "krem"),
+            ("dtek_dnem", "120000000001", "dnem"),
+        ):
+            with self.subTest(provider=provider):
+                self.modern._spec = regions.ACCOUNT_PROVIDER_SPECS[provider]
+                self.modern._accounts = {number}
+                self.modern._linked_profiles = {number: {"eic": [EIC]}}
+                self.modern_session.request.reset_mock()
+                self.session.request.reset_mock()
+                with patch.object(mod, "AsyncSession", return_value=self.session):
+                    client = mod.create_account_group_provider(self.modern)
+                self.assertIsNotNone(client)
+                self.session.request.side_effect = [
+                    self.login, info(number), group_response(["GPV3.1", "GPV5.1"]),
+                ]
+                self.assertEqual(await client.read_groups(number), ("GPV3.1", "GPV5.1"))
+                grant = self.modern_session.request.call_args
+                self.assertEqual(grant.args[1], f"https://auth.my.dtek-{site}.com.ua/api/oauth/authorize")
+                self.assertEqual(grant.kwargs["params"]["redirect_uri"], f"https://ok.dtek-{site}.com.ua/auth/callback")
+                login, profile, groups = self.session.request.call_args_list
+                self.assertEqual(login.kwargs["json"]["site"], site)
+                for call in (login, profile, groups):
+                    self.assertTrue(call.args[1].startswith(f"https://ok.dtek-{site}.com.ua/api/"))
+                    self.assertFalse(call.kwargs["allow_redirects"])
+                self.assertEqual(groups.kwargs["json"]["eic"], EIC)
+                self.session.request.reset_mock()
+                self.session.request.side_effect = [
+                    response(data={"status": "success", "customer": {
+                        "account": number, "eic": "00TEST0000000002",
+                    }}),
+                ]
+                with self.assertRaises(account.AccountError):
+                    await client.read_groups(number)
+                self.assertEqual(self.session.request.await_count, 1)
+                self.modern.api_issue_handler.assert_not_called()
+                await client.close()
+
     async def test_kyiv_legacy_handoff_uses_verified_host_and_site(self):
         number = "452000000001"
         self.modern._spec = regions.ACCOUNT_PROVIDER_SPECS["dtek_kem"]
@@ -139,7 +178,7 @@ class GroupClientTests(unittest.IsolatedAsyncioTestCase):
                 await self.client.read_groups(NUMBER)
             self.session.request.assert_not_called()
 
-    async def test_unknown_account_and_unverified_operator_cannot_authorize(self):
+    async def test_unknown_account_and_missing_modern_authorizer_cannot_authorize(self):
         with self.assertRaises(account.AccountError):
             await self.modern.authorize_account_groups("572000000099")
         self.modern_session.request.assert_not_called()
