@@ -1,4 +1,7 @@
 /* Shared presentation helpers. No credentials, account state or network calls. */
+export function zoneKey(zone) {
+  return ({DAY_2_ZONE: "DAY", NIGHT_2_ZONE: "NIGHT"})[zone] || zone;
+}
 export function isUkrainian(language) {
   return ["uk", "ru"].includes(String(language || "en").toLowerCase().split(/[-_]/)[0]);
 }

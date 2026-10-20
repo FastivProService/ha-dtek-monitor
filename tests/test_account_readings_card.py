@@ -17,6 +17,26 @@ SCRIPT = (
 
 @unittest.skipUnless(HAS_PLAYWRIGHT, "Requires Playwright Chromium")
 class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_modern_two_zone_labels_preserve_wire_keys_and_edited_values(self):
+        await self.page.evaluate("""() => {
+          ctx.zones=['DAY_2_ZONE','NIGHT_2_ZONE'].map(zone=>({zone,previous:'100',date:'2026-09-30'}));
+          const original=hass.callWS;
+          hass.callWS=async msg=>msg.action==='prepare'
+            ? (calls.push(msg), {confirmation:'two',readings:Object.entries(msg.values).map(([zone,value])=>({zone,value,previous:'100',increase:String(Number(value)-100)}))})
+            : original(msg);
+        }""")
+        await self.page.get_by_role("button", name="Load current meter", exact=True).click()
+        await self.page.get_by_label("Day (kWh)", exact=True).fill("150")
+        await self.page.get_by_label("Night (kWh)", exact=True).fill("120")
+        await self.page.evaluate("card.hass={...hass,states:{unrelated:{state:'updated'}}}")
+        self.assertEqual(await self.page.get_by_label("Day (kWh)", exact=True).input_value(), "150")
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("checkbox").wait_for()
+        self.assertEqual(await self.page.evaluate("calls.find(x=>x.action==='prepare').values"),
+                         {"DAY_2_ZONE": "150", "NIGHT_2_ZONE": "120"})
+        self.assertNotIn("DAY_2_ZONE", await self.page.locator("main").inner_text())
+        self.assertNotIn("confirm", await self.page.evaluate("calls.map(x=>x.action)"))
+
     async def asyncSetUp(self):
         self.p = await async_playwright().start()
         self.browser = await self.p.chromium.launch(headless=True)

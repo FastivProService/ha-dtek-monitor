@@ -676,6 +676,18 @@
       },
       "account_scheduled_outage_end": {
         "name": "Моя група: завершення відключення за графіком"
+      },
+      "account_reading_day": {
+        "name": "Покази лічильника — День"
+      },
+      "account_reading_date_day": {
+        "name": "Дата показів — День"
+      },
+      "account_reading_night": {
+        "name": "Покази лічильника — Ніч"
+      },
+      "account_reading_date_night": {
+        "name": "Дата показів — Ніч"
       }
     },
     "calendar": {

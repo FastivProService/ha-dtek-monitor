@@ -17,6 +17,7 @@ from .account_energy import EnergyManager
 from .account_submission import SubmissionError, digest
 from .account_submission_api import resolve
 from .account_submission_store import SubmissionStore
+from .account_zones import SUBMISSION_ZONES
 from .providers import CONF_PROVIDER
 
 _LOGGER = logging.getLogger(__name__)
@@ -144,14 +145,14 @@ async def async_setup_energy(hass):
         vol.Optional("config"): {
             vol.Required("mode"): vol.In(("direct", "offset")),
             vol.Required("entities"): {
-                vol.In(("GENERAL", "DAY", "NIGHT")): vol.All(str, vol.Length(max=255))
+                vol.In(SUBMISSION_ZONES): vol.All(str, vol.Length(max=255))
             },
             vol.Required("max_age"): vol.All(int, vol.Range(min=60, max=86400)),
             vol.Required("max_power_kw"): vol.All(str, vol.Length(max=16)),
             vol.Optional("freshness"): vol.In(("reported", "availability")),
         },
         vol.Optional("references"): {
-            vol.In(("GENERAL", "DAY", "NIGHT")): vol.All(str, vol.Length(max=24))
+            vol.In(SUBMISSION_ZONES): vol.All(str, vol.Length(max=24))
         },
         vol.Optional("confirmation"): vol.All(str, vol.Length(max=64)),
     }

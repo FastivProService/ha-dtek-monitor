@@ -421,6 +421,8 @@ class AccountRuntimeTests(unittest.IsolatedAsyncioTestCase):
         result = await self.flow.async_step_user({"provider_id": "dtek_oem"})
         self.assertEqual(result["menu_options"], ["address", "account_access"])
         result = await self.flow.async_step_user({"provider_id": "dtek_kem"})
+        self.assertEqual(result["menu_options"], ["address", "account_access"])
+        result = await self.flow.async_step_user({"provider_id": "dtek_krem"})
         self.assertEqual(result["menu_options"], ["address"])
         self.assertEqual(
             (await self.flow.async_step_account_login())["reason"],

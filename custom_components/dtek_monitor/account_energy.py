@@ -13,6 +13,7 @@ from time import monotonic
 
 from .account import account_key
 from .account_submission import SubmissionError
+from .account_zones import SUBMISSION_SCHEMES
 
 
 def amount(value):
@@ -85,7 +86,7 @@ class EnergyManager:
                     and type(binding["max_age"]) is int
                     and 60 <= binding["max_age"] <= 86400
                     and 1 <= amount(binding["max_power_kw"]) <= 1000
-                    and set(binding["zones"]) in ({"GENERAL"}, {"DAY", "NIGHT"})
+                    and set(binding["zones"]) in SUBMISSION_SCHEMES
                     and isinstance(binding["history"], list)
                     and len(binding["history"]) <= 24
                 ):

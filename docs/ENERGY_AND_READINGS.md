@@ -104,7 +104,7 @@ in HA's `.storage`; include it when backing up/restoring this integration.
 History caches are invalidated after an attempted submission. An already open
 history card and account sensors still need their respective refresh actions;
 DTEK may take time to expose the new record. Their previous values are not proof
-that a submission failed. Single-zone Odesa submission has been verified against the live service. Day/Night is covered by automated tests; check every zone before sending.
+that a submission failed. Single-zone Odesa submission has been verified against the live service. Kyiv city Day/Night readings and form loading have also been checked live; actual Day/Night submission is covered by automated tests. Check every zone before sending.
 
 <a id="section-3"></a>
 ## Use an energy sensor from Home Assistant

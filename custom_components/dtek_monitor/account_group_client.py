@@ -48,7 +48,9 @@ def parse_groups(payload):
         if not isinstance(item, str):
             raise _changed()
         group = item.strip().upper().replace("ГПВ", "GPV")
-        if not re.fullmatch(r"GPV[1-6]\.[12]", group):
+        # Kyiv cabinet assignments also include queues above six. Membership
+        # in this building is checked against fresh public data downstream.
+        if not re.fullmatch(r"GPV[1-9][0-9]?\.[12]", group):
             raise _changed()
         groups.add(group)
     return tuple(sorted(groups))

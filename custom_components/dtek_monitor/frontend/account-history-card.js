@@ -1,4 +1,4 @@
-import { isUkrainian,  embeddedCSS, date } from "./account-ui.js?v=2.0.0-rc1";
+import { zoneKey, isUkrainian,  embeddedCSS, date } from "./account-ui.js?v=2.0.0-rc1";
 import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
 /* DTEK account history. No external assets or credentials in the browser. */
 import { accountNumber } from "./account-number.js?v=2.0.0-rc1";
@@ -108,7 +108,7 @@ class DtekAccountHistoryCard extends HTMLElement {
   static getStubConfig() { return {entity:"sensor.example_account_data_updated"}; }
   get t() { return words[this._lang || "en"]; }
   format(value) { return value === null || value === undefined ? "—" : new Intl.NumberFormat(this._lang || "en", {maximumFractionDigits:3}).format(Number(value)); }
-  zone(value) { return ({GENERAL:this.t.general,DAY:this.t.day,NIGHT:this.t.night})[value] || value; }
+  zone(value) { return ({GENERAL:this.t.general,DAY:this.t.day,NIGHT:this.t.night})[zoneKey(value)] || value; }
   async _load(force) {
     if (!this._hass || !this._config || (this._busy && this._loadingYear===this._year)) return;
     const sequence=++this._seq, year=this._year, entity=this._config.entity;

@@ -50,7 +50,7 @@ and possible calendar entities must be enabled and readable by the HA user.
 ## My apartment group and the building schedules
 
 A building may have several groups. Its **Primary schedule group** is a
-compatibility value, not a claim about your apartment. For Odesa household
+compatibility value, not a claim about your apartment. For Odesa oblast and Kyiv city household
 accounts, HA can also look up the account's groups through an optional cabinet
 service. The panel identifies whether your group comes from the cabinet, a manual
 choice or the building's only verified group.
@@ -70,7 +70,7 @@ choice or the building's only verified group.
    choices take priority while they still belong to the building. Building calendars and
    the building-mode bot keep every building group.
 
-**Look up apartment groups in the DTEK cabinet** is enabled by default for Odesa.
+**Look up apartment groups in the DTEK cabinet** is enabled by default for Odesa oblast and Kyiv city.
 Turn it off in the group settings to use only your manual choice or the sole
 building group. The lookup refreshes in the background every 15 minutes and after
 account data updates. It does not delay loading the cabinet or submitting readings.
@@ -85,7 +85,7 @@ instead of selecting it. Check the linked building and your group. If the legacy
 service disappears or its response changes, **Settings → System → Repairs** shows
 an issue for the optional account-group service with update/support links. Other
 cabinet features remain independent. Optional group lookup is currently enabled
-only for Odesa; other regional cabinets await live validation.
+for Odesa oblast and Kyiv city; Kyiv oblast and Dnipropetrovsk oblast await live validation.
 
 A directory outage does not block cabinet data or readings. HA reports that
 matching is pending and retries every five minutes. **Do not link a building**

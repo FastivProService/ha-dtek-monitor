@@ -15,6 +15,7 @@ from time import monotonic
 from zoneinfo import ZoneInfo
 
 from .account import AccountError, account_key, decimal_value
+from .account_zones import SUBMISSION_SCHEMES
 
 KYIV = ZoneInfo("Europe/Kyiv")
 
@@ -102,7 +103,7 @@ def submission_context(details, payload, number, today: date):
                 "date": day.isoformat(),
             }
         )
-    if {z["zone"] for z in zones} not in ({"GENERAL"}, {"DAY", "NIGHT"}) or len(
+    if {z["zone"] for z in zones} not in SUBMISSION_SCHEMES or len(
         {z["zone"] for z in zones}
     ) != len(zones):
         raise SubmissionError("unsupported_meter")

@@ -676,6 +676,18 @@
       },
       "account_scheduled_outage_end": {
         "name": "My outage end (scheduled)"
+      },
+      "account_reading_day": {
+        "name": "Meter reading — Day"
+      },
+      "account_reading_date_day": {
+        "name": "Reading date — Day"
+      },
+      "account_reading_night": {
+        "name": "Meter reading — Night"
+      },
+      "account_reading_date_night": {
+        "name": "Reading date — Night"
       }
     },
     "calendar": {

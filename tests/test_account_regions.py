@@ -43,11 +43,10 @@ class RegionalContractTests(unittest.IsolatedAsyncioTestCase):
         for provider in NUMBERS:
             self.assertTrue(public.PROVIDERS[provider].enabled)
             self.assertEqual(
-                regions.account_provider_supported(provider), provider == "dtek_oem"
+                regions.account_provider_supported(provider), provider in ("dtek_oem", "dtek_kem")
             )
         with patch.object(transport, "AsyncSession") as factory:
             for provider in [
-                "dtek_kem",
                 "dtek_krem",
                 "dtek_dnem",
                 "dtek_dem",

@@ -29,19 +29,35 @@ def group_response(groups="GPV3.1"):
 
 class GroupParsingTests(unittest.TestCase):
     def test_single_multiple_array_empty_and_duplicate_groups(self):
-        for raw, expected in (("GPV3.1", ("GPV3.1",)), (" ГПВ5.1,GPV3.1,GPV3.1 ", ("GPV3.1", "GPV5.1")),
+        for raw, expected in (("GPV3.1", ("GPV3.1",)), ("ГПВ57.1", ("GPV57.1",)), (" ГПВ5.1,GPV3.1,GPV3.1 ", ("GPV3.1", "GPV5.1")),
                               (["GPV5.1", "GPV3.1"], ("GPV3.1", "GPV5.1")), (None, ()), ("", ()), ([], ())):
             with self.subTest(raw=raw):
                 self.assertEqual(mod.parse_groups({"respType": "SUCCESS", "gpv": raw}), expected)
 
     def test_errors_and_unknown_groups_never_become_empty_or_partial(self):
         for payload in (None, [], {}, {"respType": "SUCCESS"}, {"respType": "FAIL", "gpv": "GPV3.1"},
-                        *({"respType": "SUCCESS", "gpv": raw} for raw in (7, {}, [None], "GPV3.1,UNKNOWN", "GPV3.1,", "GPV7.1"))):
+                        *({"respType": "SUCCESS", "gpv": raw} for raw in (7, {}, [None], "GPV3.1,UNKNOWN", "GPV3.1,", "GPV0.1", "GPV007.1", "GPV7.3", "GPV100.1"))):
             with self.subTest(payload=payload), self.assertRaises(account.AccountError):
                 mod.parse_groups(payload)
 
 
 class GroupClientTests(unittest.IsolatedAsyncioTestCase):
+    async def test_kyiv_legacy_handoff_uses_verified_host_and_site(self):
+        number = "452000000001"
+        self.modern._spec = regions.ACCOUNT_PROVIDER_SPECS["dtek_kem"]
+        self.modern._accounts = {number}
+        client = mod.AccountGroupClient(self.modern, self.session)
+        self.session.request.side_effect = [self.login, info(number), group_response("ГПВ57.1")]
+        self.assertEqual(await client.read_groups(number), ("GPV57.1",))
+        call = self.modern_session.request.call_args
+        self.assertEqual(call.args[1], "https://auth.my.dtek-kem.com.ua/api/oauth/authorize")
+        self.assertEqual(call.kwargs["params"]["redirect_uri"], "https://biz.ok.dtek-kem.com.ua/auth/callback")
+        for call in self.session.request.call_args_list:
+            self.assertTrue(call.args[1].startswith("https://biz.ok.dtek-kem.com.ua/api/"))
+            if "site" in call.kwargs["json"]:
+                self.assertEqual(call.kwargs["json"]["site"], "kem")
+        await client.close()
+
     async def asyncSetUp(self):
         self.modern_session = NS(request=AsyncMock(), close=AsyncMock(), cookies={})
         self.modern = transport.DTEKAccountClient(self.modern_session)

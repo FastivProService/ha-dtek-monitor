@@ -17,6 +17,19 @@ SCRIPT = (
 
 @unittest.skipUnless(HAS_PLAYWRIGHT, "Requires Playwright Chromium")
 class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_modern_tariff_codes_have_readable_history_and_consumption_labels(self):
+        await self.page.evaluate("""() => {
+          const old=result;result=year=>{const data=old(year);
+            data.readings.forEach((row,i)=>row.zone=i%2?'DAY_2_ZONE':'NIGHT_2_ZONE');
+            data.months[0].zones={DAY_2_ZONE:'15',NIGHT_2_ZONE:'3'};return data;};
+        }""")
+        await self.load("uk")
+        self.assertGreater(await self.page.get_by_text("День", exact=True).count(), 0)
+        self.assertGreater(await self.page.get_by_text("Ніч", exact=True).count(), 0)
+        await self.page.locator("summary").click()
+        await self.page.get_by_text("День: 15; Ніч: 3", exact=True).wait_for()
+        self.assertNotIn("_2_ZONE", await self.page.locator("main").inner_text())
+
     async def asyncSetUp(self):
         self.p = await async_playwright().start()
         self.browser = await self.p.chromium.launch(headless=True)

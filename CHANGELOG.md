@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+- Enable Kyiv city household cabinets after live read-only validation of login, renewal, linked accounts, meter profile, history, submission context, automatic building matching and account-group lookup. Kyiv oblast and Dnipropetrovsk oblast remain disabled.
+- Use Kyiv's independently verified legacy group handoff; accept numeric group identifiers above six and retain the fresh building-membership check.
+- Support the modern Day/Night tariff codes throughout reading forms, source calibration, stored bindings, sensors, reminders and history. Keep exact upstream codes in submissions and identities; localize their display names.
+- Actual Kyiv reading submission and account mutations were not performed during validation. Regression tests use fictional accounts and readings.
+
 ## [2.0.0-rc1] - 2026-10-20
 
 **Release candidate — for testing before the final 2.0 release.** Requires Home Assistant 2026.3.0+. Public address schedules support Odesa oblast, Kyiv oblast, Dnipropetrovsk oblast and Kyiv city; personal cabinets remain **Odesa household accounts only**.

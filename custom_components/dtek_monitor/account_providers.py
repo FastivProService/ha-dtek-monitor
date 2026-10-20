@@ -31,7 +31,8 @@ class AccountProviderSpec:
         return self.cabinet_origin + "/oauth/callback"
 
 
-# Shared frontend contracts are verified; authenticated non-OEM data is not yet.
+# Authenticated household reads are verified for Odesa and Kyiv city.
+# Kyiv oblast and Dnipropetrovsk oblast still await permitted live accounts.
 # Legacy account formats use another upstream flow and are not accepted here.
 ACCOUNT_PROVIDER_SPECS = MappingProxyType(
     {
@@ -49,6 +50,9 @@ ACCOUNT_PROVIDER_SPECS = MappingProxyType(
             "https://my.dtek-kem.com.ua",
             "https://auth.my.dtek-kem.com.ua",
             ("452",),
+            enabled=True,
+            group_origin="https://biz.ok.dtek-kem.com.ua",
+            group_site="kem",
         ),
         "dtek_krem": AccountProviderSpec(
             "dtek_krem",

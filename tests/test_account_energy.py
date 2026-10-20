@@ -14,6 +14,16 @@ submission = load_component_module("account_submission")
 
 
 class EnergyTests(unittest.IsolatedAsyncioTestCase):
+    async def test_modern_day_night_bindings_survive_restart_and_keep_separate_deltas(self):
+        await self.bind(zones=("DAY_2_ZONE", "NIGHT_2_ZONE"))
+        self.manager = self.new_manager()
+        self.now += timedelta(minutes=10)
+        self.sample("103", "sensor.day_2_zone")
+        self.sample("101", "sensor.night_2_zone")
+        result = await self.get()
+        self.assertEqual(result["readings"]["DAY_2_ZONE"]["send_value"], "1003")
+        self.assertEqual(result["readings"]["NIGHT_2_ZONE"]["send_value"], "1001")
+
     async def asyncSetUp(self):
         self.now = datetime(2026, 1, 1, 12, tzinfo=timezone.utc)
         self.store = MemoryStore()

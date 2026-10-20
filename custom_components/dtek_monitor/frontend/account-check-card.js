@@ -1,4 +1,4 @@
-import { isUkrainian,  embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
+import { zoneKey, isUkrainian,  embeddedCSS } from "./account-ui.js?v=2.0.0-rc1";
 import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
 import { accountNumber } from "./account-number.js?v=2.0.0-rc1";
 import { energyMessage } from "./account-energy-editor.js?v=2.0.0-rc1";
@@ -56,7 +56,7 @@ class DtekAccountCheckCard extends HTMLElement {
           if(run.reason)status.append(el("small",this.reason(run.reason)));
           const readings=run.readings||[];
           if(!readings.length)value.textContent="—";
-          for(const r of readings){const label={GENERAL:w.general,DAY:w.day,NIGHT:w.night}[r.zone]||r.zone;value.append(el("div",`${label}: ${r.value}`));if(r.source_at)value.append(el("small",`${w.source}: ${this.date(r.source_at)}`));}
+          for(const r of readings){const label={GENERAL:w.general,DAY:w.day,NIGHT:w.night}[zoneKey(r.zone)]||r.zone;value.append(el("div",`${label}: ${r.value}`));if(r.source_at)value.append(el("small",`${w.source}: ${this.date(r.source_at)}`));}
           row.append(date,status,value);body.append(row);
         }
         scroll.append(table);card.append(scroll);

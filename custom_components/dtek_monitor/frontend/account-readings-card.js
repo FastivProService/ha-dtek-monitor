@@ -1,5 +1,5 @@
 import "./account-readback.js?v=2.0.0-rc1";
-import { isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc1";
+import { zoneKey, isUkrainian,  embeddedCSS, date, number } from "./account-ui.js?v=2.0.0-rc1";
 import "./account-check-card.js?v=2.0.0-rc1";
 import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc1";
 /* Explicit readings submission. HA state updates never replace an edited form. */
@@ -183,7 +183,7 @@ class DtekAccountReadingsCard extends HTMLElement {
     table.append(head);
     for (const r of rows) {
       const tr = node("tr");
-      for (const [i, text] of [this.w[r.zone.toLowerCase()] || r.zone, number(r.previous,this._hass?.language), number(r.value,this._hass?.language), number(r.increase,this._hass?.language)].entries()) { const cell=node("td", String(text)); cell.dataset.label=["",this.w.previous,this.w.value,this.w.increase][i]; tr.append(cell); }
+      for (const [i, text] of [this.w[zoneKey(r.zone).toLowerCase()] || r.zone, number(r.previous,this._hass?.language), number(r.value,this._hass?.language), number(r.increase,this._hass?.language)].entries()) { const cell=node("td", String(text)); cell.dataset.label=["",this.w.previous,this.w.value,this.w.increase][i]; tr.append(cell); }
       table.append(tr);
     }
     wrap.append(table); card.append(wrap);
@@ -215,7 +215,7 @@ class DtekAccountReadingsCard extends HTMLElement {
       card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Перевірте адресу, лічильник і покази перед передачею." : "Check the address, meter and readings before sending.") : w.review)); this.table(card, this._draft.readings);
       if (this._draft.source) {
         card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Покази розраховано за домашнім датчиком. Перед передачею джерело буде перевірено ще раз." : "These readings use your home sensor. Its data is checked again before sending.") : w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
-        for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zone.toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
+        for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zoneKey(zone).toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
       }
       card.append(this.button(w.back, () => {this._draft = null; this.render();}));
       const send = this.button(w.confirm, () => this.act("confirm")); send.className="primary"; this.gate(card, w.checked, send);
@@ -226,11 +226,11 @@ class DtekAccountReadingsCard extends HTMLElement {
     } else if (ctx && !this._uncertain) {
       const form = node("form"); form.className = "fields";
       for (const z of ctx.zones) {
-        const label = node("label", `${w[z.zone.toLowerCase()] || z.zone} · ${w.value} (${isUkrainian(this._hass?.language) ? "кВт·год" : "kWh"})`);
+        const label = node("label", `${w[zoneKey(z.zone).toLowerCase()] || z.zone} · ${w.value} (${isUkrainian(this._hass?.language) ? "кВт·год" : "kWh"})`);
         label.append(node("small", `${w.previous}: ${number(z.previous, this._hass?.language)} · ${date(z.date, this._hass?.language)}`));
         const input = node("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]+";
         input.maxLength = ctx.digits; input.required = true; input.disabled = this._busy;
-        input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[z.zone.toLowerCase()] || z.zone} (kWh)`);
+        input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[zoneKey(z.zone).toLowerCase()] || z.zone} (kWh)`);
         input.addEventListener("input", () => {this._values[z.zone] = input.value; this._sourceToken = null;this._sourceInvalid=false;const button=form.querySelector("button[type=submit]");if(button)button.disabled=this._busy||this._energyLocked;const notice=card.querySelector(".source-notice");if(notice&&!this._energyLocked)notice.remove();});
         label.append(input); form.append(label);
       }

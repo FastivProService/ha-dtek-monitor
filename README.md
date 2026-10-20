@@ -1,5 +1,7 @@
 # DTEK Monitor for Home Assistant
 
+> **Development branch:** Kyiv city cabinet support described below is not included in the published 2.0.0-rc1.
+
 **English** · [Українська](README.uk.md)
 
 > **2.0.0-rc1 — release candidate.** A preview for testing before the final 2.0 release.
@@ -23,7 +25,7 @@ Choose your address once, then use sensors and calendars in dashboards and autom
 | I want | Connect |
 | --- | --- |
 | Building schedules and outage status | An address without a cabinet login; all four operators below. |
-| My apartment's readings, consumption and account information | A phone-based personal cabinet; currently Odesa household accounts only. |
+| My apartment's readings, consumption and account information | A phone-based personal cabinet; Odesa oblast and Kyiv city household accounts. |
 | Reading suggestions from my home meter | An optional cumulative HA energy sensor linked to the appropriate account. |
 | Telegram notifications | The separate [DTEK Telegram Bot](https://github.com/groove-max/ha-dtek-telegram-bot): building alerts in any chat, or your cabinet in a private conversation. |
 
@@ -98,7 +100,7 @@ Add another integration entry for another address. You do not need to edit `conf
 <a id="personal-account"></a>
 ## Personal cabinet and My DTEK dashboard
 
-1. Add the integration and choose **ДТЕК Одеські електромережі → Personal account and meter readings**.
+1. Add the integration and choose **ДТЕК Одеські електромережі** or **ДТЕК Київські електромережі**, then **Personal account and meter readings**.
 2. Sign in with your phone and password. Registration and password recovery through SMS are also available.
 3. Select the personal accounts to monitor. If the cabinet is empty, add an account here or later in settings.
 4. Reload the HA page. On your dashboard choose **Edit → Add card → My DTEK**, select an account and save.

@@ -51,10 +51,11 @@ def context(zones=("GENERAL",)):
 
 class SubmissionParsingTests(unittest.TestCase):
     def test_one_and_two_zones_require_all_integer_readings_with_meter_limits(self):
-        for zones in [("GENERAL",), ("DAY", "NIGHT")]:
+        for zones in [("GENERAL",), ("DAY", "NIGHT"), ("DAY_2_ZONE", "NIGHT_2_ZONE")]:
             ctx = context(zones)
             rows = mod.validate_values(ctx, {z: "123" for z in zones})
             self.assertEqual({r["increase"] for r in rows}, {"23"})
+            self.assertEqual([r["zone"] for r in rows], list(zones))
         for values in [
             {},
             {"GENERAL": "99"},
@@ -138,6 +139,17 @@ class SubmissionParsingTests(unittest.TestCase):
             self.assertEqual(
                 mod.submission_result(payload, count), {"status": "unknown"}
             )
+
+    def test_partial_mixed_duplicate_and_three_zone_schemes_stay_unsupported(self):
+        for zones in (("DAY_2_ZONE",), ("DAY", "NIGHT_2_ZONE"),
+                      ("DAY_2_ZONE", "NIGHT"), ("DAY_2_ZONE", "DAY_2_ZONE"),
+                      ("GENERAL", "DAY_2_ZONE"), ("PEAK_3_ZONE", "NIGHT_3_ZONE")):
+            with self.subTest(zones=zones), self.assertRaises(mod.SubmissionError):
+                context(zones)
+
+    def test_switching_wire_scheme_invalidates_old_confirmation_revision(self):
+        self.assertNotEqual(context(("DAY", "NIGHT"))["revision"],
+                            context(("DAY_2_ZONE", "NIGHT_2_ZONE"))["revision"])
 
 
 class MemoryStore:
@@ -302,6 +314,18 @@ class SubmissionLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SubmissionTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_modern_day_night_codes_are_sent_without_alias_rewriting(self):
+        self.client._request = AsyncMock(return_value=response(200, [
+            {"index": 0, "status": "SUCCESS"}, {"index": 1, "status": "SUCCESS"}
+        ]))
+        ctx = context(("DAY_2_ZONE", "NIGHT_2_ZONE"))
+        rows = mod.validate_values(ctx, {"DAY_2_ZONE": "150", "NIGHT_2_ZONE": "120"})
+        self.assertEqual(await self.client.submit_readings("100001", rows, Mock()), {"status": "accepted"})
+        self.assertEqual(self.client._request.call_args.kwargs["json"]["readings"], [
+            {"deviceEnergyType": "ACTIVE", "deviceScaleType": "DAY_2_ZONE", "value": 150},
+            {"deviceEnergyType": "ACTIVE", "deviceScaleType": "NIGHT_2_ZONE", "value": 120},
+        ])
+
     async def asyncSetUp(self):
         self.client = client_module.DTEKAccountClient(SimpleNamespace(cookies={}))
         self.client._accounts = {"100001"}
