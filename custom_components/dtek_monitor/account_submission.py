@@ -377,6 +377,20 @@ class SubmissionManager:
                 ],
             }
 
+    async def prepare_calibration(self, number, user, revision, values, binding_revision, authorize):
+        """Preview a local correction; never submit readings or change a reference."""
+        authorize()
+        if self.energy is None:
+            raise SubmissionError("energy_changed")
+        context = await self.client.read_submission_context(number)
+        authorize()
+        if context["revision"] != revision:
+            raise SubmissionError("context_changed")
+        validate_values(context, values)
+        return await self.energy.preview(
+            number, user, context, None, values, binding_revision, authorize
+        )
+
     async def confirm(self, number, user, token, authorize):
         async with self._lock:
             await self._load()

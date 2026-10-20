@@ -14,6 +14,29 @@ if HAS_HA:
 
 @unittest.skipUnless(HAS_HA, "Requires Home Assistant")
 class BotAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_calibration_uses_isolated_principal_and_explicit_local_confirmation(self):
+        draft = {"confirmation": "local", "change": {"changes": {}}, "binding": {"private": "not for bot"}}
+        self.manager.prepare_calibration = AsyncMock(return_value=draft)
+        self.account_coord.energy = SimpleNamespace(save=AsyncMock(return_value={"saved": True}))
+        self.msg.update(action="calibration_preview", revision="meter", binding_revision="source",
+                        values={"DAY_2_ZONE": "1030", "NIGHT_2_ZONE": "1012"})
+        await self.invoke()
+        result = self.connection.send_result.call_args.args[1]
+        self.assertEqual(set(result), {"confirmation", "change"})
+        principal = self.manager.prepare_calibration.call_args.args[1]
+        self.assertIn("profile-a", principal)
+        self.manager.confirm.assert_not_awaited()
+        self.msg.update(action="calibration_save", confirmation="local", contemporaneous=True)
+        await self.invoke()
+        call = self.account_coord.energy.save.call_args
+        self.assertEqual(call.args[:3], ("100001", principal, "local"))
+        self.assertTrue(call.kwargs["contemporaneous"])
+        self.manager.confirm.assert_not_awaited()
+        self.connection.user.permissions.check_entity.return_value = False
+        self.account_coord.energy.save.reset_mock()
+        await self.invoke()
+        self.account_coord.energy.save.assert_not_awaited()
+
     async def asyncSetUp(self):
         await submission_tests.SubmissionAccessTests.asyncSetUp(self)
         self.msg.update(

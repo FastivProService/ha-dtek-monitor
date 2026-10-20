@@ -42,7 +42,7 @@ rollback instructions](UPGRADING.md) before installing it.
 5. Choose accounts to monitor, or add a household account to DTEK first.
 6. Open the devices created under the new personal account connection.
 
-For Kyiv city, use the modern 12-digit account number starting with **452**, as shown in the new DTEK cabinet. The older 11-digit number is not accepted for linking here. Sign in separately to each operator, even when using the same phone number.
+For Kyiv city, enter either the modern 12-digit account number starting with **452** or the older 11-digit number. DTEK resolves the old number to its current account. Check the returned number and address before confirming; if several accounts match, choose yours. HA stores the current number. Sign in separately to each operator, even when using the same phone number.
 
 New connections show the operator name and the last four digits of your phone
 number in the integration list. **Open DTEK cabinet** in the reading form and the
@@ -183,11 +183,13 @@ There are three independent choices:
 - **HA monitoring:** select which linked accounts create devices, sensors and calendars.
 - **Dashboard display:** choose an account on each card; different panels may show different accounts.
 
-To add an account, enter its modern 12-digit household number starting with `572`.
+To add an account, enter its modern 12-digit household number starting with `572`
+for Odesa oblast or `452` for Kyiv city. Kyiv city also accepts an old 11-digit
+number and looks up the current number through DTEK.
 HA looks up the address; verify the full number and address, then explicitly
 confirm. Only confirmation sends the linking request. Afterwards, choose whether
-HA should monitor it. Older account-number formats and business accounts must be
-managed on the DTEK website for now.
+HA should monitor it. Other legacy formats and business accounts must be managed
+on the DTEK website for now.
 
 To unlink, first deselect the account in **Choose personal accounts**, save and
 wait for HA to reload the connection. Then open **Household accounts in the DTEK cabinet → Unlink from the DTEK cabinet**, select the account and confirm its address. Unlinking removes

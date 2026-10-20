@@ -170,6 +170,24 @@ for submission. Review and confirm the DTEK submission separately. Source-based
 proposals expire after three minutes and are checked again before sending.
 Editing the inserted number changes it to a manual reading.
 
+In the development version, the reading review also offers **Save these readings
+for calibration** when this meter has an estimate binding. Use this after entering
+fresh physical readings that differ from the suggestion:
+
+1. Check every tariff's official reading, sensor value, observation time and correction.
+2. Confirm that you read the official meter at the time of those sensor samples.
+   Each sample must be no more than three minutes old, including in availability mode.
+   Do not pair yesterday's official reading with today's sensor value.
+3. Save calibration. Your entered values remain in the form; review them again
+   and separately confirm submission to DTEK.
+
+The captured sensor values stay fixed while you confirm. Day and Night keep
+independent reference pairs. Canceling changes neither reference. Simply editing
+or submitting a number does **not** save a correction. Direct meter bindings do
+not offer an offset correction; configure or replace them in sensor settings.
+The same optional correction is available in the matching development Telegram bot.
+These additions are not in the published 2.0.0-rc1.
+
 To correct an estimate, open **My DTEK → Settings → Calibrate against the official meter**. Enter the actual official readings and choose **Review new reference pair**. The standalone readings card also offers **Use entered readings for local calibration**. Check the proposed pair,
 sample time and correction, then confirm the local save. The captured source
 reference is kept even if the sensor advances while you review it.

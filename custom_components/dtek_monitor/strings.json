@@ -177,6 +177,20 @@
         "data": {
           "confirm": "Unlink this account from my DTEK cabinet"
         }
+      },
+      "account_link_legacy": {
+        "title": "Find a household account",
+        "description": "Enter the modern account number: {account_length} digits starting with {account_prefixes}, or an old 11-digit Kyiv city number. DTEK will resolve the current number. Review the number and address before linking; choose the correct account if several match.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_legacy_choice": {
+        "title": "Choose the matching account",
+        "description": "DTEK found several accounts. Choose the correct number and address. Linking requires a separate confirmation.",
+        "data": {
+          "account_number": "Account and address"
+        }
       }
     },
     "error": {
@@ -428,6 +442,20 @@
         "description": "Confirm the building address against the DTEK directory. Apartment details are not shared with building schedules.",
         "data": {
           "house_num": "Building number"
+        }
+      },
+      "account_link_legacy": {
+        "title": "Find a household account",
+        "description": "Enter the modern account number: {account_length} digits starting with {account_prefixes}, or an old 11-digit Kyiv city number. DTEK will resolve the current number. Review the number and address before linking; choose the correct account if several match.",
+        "data": {
+          "account_number": "DTEK household account number"
+        }
+      },
+      "account_legacy_choice": {
+        "title": "Choose the matching account",
+        "description": "DTEK found several accounts. Choose the correct number and address. Linking requires a separate confirmation.",
+        "data": {
+          "account_number": "Account and address"
         }
       }
     },

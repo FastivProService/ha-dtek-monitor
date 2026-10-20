@@ -25,6 +25,7 @@ class AccountProviderSpec:
     # from a hostname or enabled merely because the modern cabinet is enabled.
     group_origin: str | None = None
     group_site: str | None = None
+    legacy_household_lengths: tuple[int, ...] = ()
 
     @property
     def callback(self) -> str:
@@ -33,7 +34,7 @@ class AccountProviderSpec:
 
 # Authenticated household reads are verified for Odesa and Kyiv city.
 # Kyiv oblast and Dnipropetrovsk oblast still await permitted live accounts.
-# Legacy account formats use another upstream flow and are not accepted here.
+# Legacy lookup is enabled independently, after verifying that operator's flow.
 ACCOUNT_PROVIDER_SPECS = MappingProxyType(
     {
         "dtek_oem": AccountProviderSpec(
@@ -53,6 +54,7 @@ ACCOUNT_PROVIDER_SPECS = MappingProxyType(
             enabled=True,
             group_origin="https://biz.ok.dtek-kem.com.ua",
             group_site="kem",
+            legacy_household_lengths=(11,),
         ),
         "dtek_krem": AccountProviderSpec(
             "dtek_krem",

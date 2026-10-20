@@ -143,6 +143,7 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             "/api/oauth/authorize": "login",
             "/api/oauth/token": "login",
             "/api/oauth/userinfo": "login",
+            "/api/billing/joint/info/get_client_info": "link_lookup",
         }
         family = fixed_routes.get(path)
         if response.status_code == 410:

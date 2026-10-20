@@ -28,7 +28,7 @@ from .account import (
 from .account_client import create_account_provider
 from .account import AccountAPIChanged
 from .account_api_health import report_api_issue, clear_api_issue, watch_api
-from .account_links import AccountLinkError, household_number
+from .account_links import AccountLinkError, lookup_number
 from .account_providers import (
     account_connection_title,
     account_provider_supported,
@@ -46,9 +46,10 @@ class AccountLinkFlowMixin:
     _link_identity = None
     _link_review = None
     _unlink_choices = None
+    _legacy_choices = None
 
     def async_remove(self):
-        self._link_identity = self._link_review = self._unlink_choices = None
+        self._link_identity = self._link_review = self._unlink_choices = self._legacy_choices = None
         super().async_remove()
 
     def _link_context(self):
@@ -169,22 +170,36 @@ class AccountLinkFlowMixin:
             return self.async_abort(reason=self._link_error(err))
         if user_input is not None:
             self._link_review = None
+            self._legacy_choices = None
             try:
-                number = household_number(user_input.get("account_number", ""), spec)
+                number = lookup_number(user_input.get("account_number", ""), spec)
 
                 async def lookup(client):
-                    if number in {a.number for a in await client.list_accounts()}:
+                    linked = {a.number for a in await client.list_accounts()}
+                    if number in linked:
                         raise AccountLinkError("link_already_linked")
-                    return await client.lookup_account(number)
+                    candidates = (
+                        await client.lookup_legacy_accounts(number)
+                        if len(number) in spec.legacy_household_lengths
+                        else (await client.lookup_account(number),)
+                    )
+                    remaining = {a.number: a for a in candidates if a.number not in linked}
+                    if not remaining:
+                        raise AccountLinkError("link_already_linked")
+                    return remaining
 
-                candidate = await self._with_link_client(lookup)
+                choices = await self._with_link_client(lookup)
                 clear_api_issue(self.hass, provider, "link_lookup")
+                if len(choices) > 1:
+                    self._legacy_choices = (choices, monotonic())
+                    return await self.async_step_account_legacy_choice()
+                candidate = next(iter(choices.values()))
                 self._link_review = ("link", candidate, monotonic())
                 return await self.async_step_account_link_confirm()
             except AccountError as err:
                 errors["base"] = self._link_error(err)
         return self.async_show_form(
-            step_id="account_link",
+            step_id="account_link_legacy" if spec.legacy_household_lengths else "account_link",
             data_schema=vol.Schema(
                 {
                     vol.Required(
@@ -198,6 +213,36 @@ class AccountLinkFlowMixin:
                 "account_length": str(spec.household_length),
                 "account_prefixes": ", ".join(spec.household_prefixes),
             },
+        )
+
+    async def async_step_account_link_legacy(self, user_input=None):
+        return await self.async_step_account_link(user_input)
+
+    async def async_step_account_legacy_choice(self, user_input=None):
+        choices = self._legacy_choices
+        if not choices or monotonic() - choices[1] > REVIEW_SECONDS:
+            self._legacy_choices = None
+            return self.async_abort(reason="link_review_expired")
+        try:
+            self._link_context()
+            if user_input is not None:
+                number = user_input.get("account_number")
+                if not isinstance(number, str) or number not in choices[0]:
+                    raise AccountLinkError("link_changed")
+                self._link_review = ("link", choices[0][number], choices[1])
+                self._legacy_choices = None
+                return await self.async_step_account_link_confirm()
+        except AccountError as err:
+            return self.async_abort(reason=self._link_error(err))
+        return self.async_show_form(
+            step_id="account_legacy_choice",
+            data_schema=vol.Schema({
+                vol.Required("account_number"): SelectSelector(SelectSelectorConfig(
+                    options=[{"value": a.number, "label": f"{a.number} · {a.address}"}
+                             for a in choices[0].values()],
+                    mode=SelectSelectorMode.LIST,
+                )),
+            }),
         )
 
     async def async_step_account_unlink(self, user_input=None):

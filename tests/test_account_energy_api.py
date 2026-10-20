@@ -119,7 +119,7 @@ class EnergyAccessTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.manager.preview.call_args.args[2]["serial"], "TEST-METER")
         self.connection.send_result.reset_mock()
 
-        async def save(number, user, token, authorize):
+        async def save(number, user, token, authorize, **kwargs):
             self.connection.user.is_active = False
             authorize("sensor.grid")
 

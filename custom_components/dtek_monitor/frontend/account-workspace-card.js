@@ -283,6 +283,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     this._readings=this._child("dtek-account-readings-card", {read_only: !this._account.can_submit,energy_settings_external:true}, panel);
     this._readings.addEventListener("energy-settings",()=>this._openEnergySettings());
     this._readings.addEventListener("submission-operation",()=>this._syncEnergyLocks());
+    this._readings.addEventListener("energy-binding-changed",()=>this._energySettings?.refreshBinding());
     this._syncEnergyLocks();
     const details=el("details"), summary=el("summary", this.t.history); summary.dataset.i18n="history"; details.append(summary); panel.append(details);
     details.addEventListener("toggle", () => { if (details.open && !details.querySelector("[data-child-card]")) this._child("dtek-account-history-card", {view:"readings"}, details); });

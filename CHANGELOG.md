@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Resolve old 11-digit Kyiv city account numbers through DTEK, review the current number/address, and choose explicitly when several accounts match. Cabinet writes still use only verified modern account numbers.
+- Offer optional calibration from reading review in HA and the private bot bridge. Require fresh per-zone samples and separate confirmation of simultaneous physical readings; preserve captured samples and keep calibration separate from submission.
 - Enable Kyiv city household cabinets after live read-only validation of login, renewal, linked accounts, meter profile, history, submission context, automatic building matching and account-group lookup. Kyiv oblast and Dnipropetrovsk oblast remain disabled.
 - Use Kyiv's independently verified legacy group handoff; accept numeric group identifiers above six and retain the fresh building-membership check.
 - Support the modern Day/Night tariff codes throughout reading forms, source calibration, stored bindings, sensors, reminders and history. Keep exact upstream codes in submissions and identities; localize their display names.

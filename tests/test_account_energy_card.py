@@ -6,6 +6,52 @@ import test_account_readings_card as readings
 
 @unittest.skipUnless(readings.HAS_PLAYWRIGHT, "Requires Playwright Chromium")
 class EnergyCardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_workspace_review_offers_separate_timed_calibration_and_preserves_reading(self):
+        await self.load()
+        await self.page.evaluate("""() => {
+          card.setConfig({...card._config,embedded:true,energy_settings_external:true});
+          const old=hass.callWS;
+          hass.callWS=async msg=>{
+            if(msg.type==='dtek_monitor/account_energy'&&msg.action==='calibrate'){
+              calls.push(msg);return {confirmation:'correction-token',submission_correction:true,binding,
+                change:{changes:{GENERAL:{source:'125.4',source_at:'2026-10-18T12:00:00+03:00',actual:msg.references.GENERAL,correction:'4.6'}}}};
+            }return old(msg);
+          };
+        }""")
+        await self.page.get_by_label("Single zone (kWh)", exact=True).fill("1030")
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("button", name="Save these readings for calibration", exact=True).click()
+        await self.page.get_by_text("Correction: 4.6 kWh", exact=True).wait_for()
+        save = self.page.get_by_role("button", name="Confirm and save calibration", exact=True)
+        self.assertTrue(await save.is_disabled())
+        await self.page.evaluate("card.hass={...hass,states:{...hass.states,'sensor.grid':{state:'126.4'}}}")
+        self.assertEqual(await self.page.get_by_text("Sensor: 125.4 kWh", exact=False).count(), 1)
+        self.assertEqual(await self.page.evaluate("calls.filter(x=>['save','confirm'].includes(x.action)).length"), 0)
+        await self.page.get_by_label("I read every tariff on the official meter at the time shown for the corresponding sensor.", exact=True).check()
+        await save.click()
+        await self.page.get_by_text("Calibration saved. Future estimates include the correction. Review and confirm submission separately.", exact=True).wait_for()
+        self.assertEqual(await self.page.get_by_label("Single zone (kWh)", exact=True).input_value(), "1030")
+        self.assertTrue(await self.page.evaluate("calls.find(x=>x.action==='save').contemporaneous"))
+        self.assertEqual(await self.page.evaluate("calls.find(x=>x.action==='calibrate').revision"), "reference-1")
+        self.assertEqual(await self.page.evaluate("calls.filter(x=>x.action==='confirm').length"), 0)
+        await self.page.get_by_label("Single zone (kWh)", exact=True).fill("1035")
+        self.assertEqual(await self.page.locator(".calibration-saved").count(), 0)
+
+    async def test_cancel_submission_calibration_keeps_values_without_saving(self):
+        await self.load()
+        await self.page.evaluate("""() => {
+          const old=hass.callWS;hass.callWS=async msg=>{
+            if(msg.action==='calibrate'){calls.push(msg);return {confirmation:'token',change:{changes:{GENERAL:{source:'125.4',source_at:'2026-10-18T12:00:00+03:00',actual:'1030',correction:'4.6'}}}};}
+            return old(msg);
+          };
+        }""")
+        await self.page.get_by_label("Single zone (kWh)", exact=True).fill("1030")
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("button", name="Save these readings for calibration", exact=True).click()
+        await self.page.get_by_role("button", name="Back without saving", exact=True).click()
+        self.assertEqual(await self.page.get_by_label("Single zone (kWh)", exact=True).input_value(), "1030")
+        self.assertEqual(await self.page.evaluate("calls.filter(x=>['save','confirm'].includes(x.action)).length"), 0)
+
     async def asyncSetUp(self):
         await readings.ReadingsCardTests.asyncSetUp(self)
         await self.page.evaluate("""() => {

@@ -140,8 +140,10 @@ async def async_setup_energy(hass):
     {
         vol.Required("type"): "dtek_monitor/account_energy",
         vol.Required("entity_id"): str,
-        vol.Required("action"): vol.In(("get", "preview", "save", "remove")),
+        vol.Required("action"): vol.In(("get", "preview", "calibrate", "save", "remove")),
         vol.Optional("revision"): vol.Any(None, vol.All(str, vol.Length(max=64))),
+        vol.Optional("meter_revision"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("contemporaneous"): bool,
         vol.Optional("config"): {
             vol.Required("mode"): vol.In(("direct", "offset")),
             vol.Required("entities"): {
@@ -176,6 +178,11 @@ async def websocket_energy(hass, connection, msg):
         action = msg["action"]
         if action == "get":
             result = await manager.get(number, user, authorize)
+        elif action == "calibrate":
+            result = await coordinator.submissions.prepare_calibration(
+                number, user, msg.get("meter_revision"), msg.get("references"),
+                msg.get("revision"), authorize,
+            )
         elif action == "preview":
             # A calibration of an existing reference is local and works even
             # when DTEK is offline or currently blocks additional submissions.
@@ -194,7 +201,8 @@ async def websocket_energy(hass, connection, msg):
             )
         elif action == "save":
             result = await manager.save(
-                number, user, msg.get("confirmation"), authorize
+                number, user, msg.get("confirmation"), authorize,
+                contemporaneous=msg.get("contemporaneous", False),
             )
         else:
             result = await manager.remove(number, msg.get("revision"), authorize)
