@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 from component_loader import load_component_module
-from test_account import response, token
+from test_account import readings, response, scale, token
 
 account = load_component_module("account")
 regions = load_component_module("account_providers")
@@ -284,7 +284,7 @@ class RegionalContractTests(unittest.IsolatedAsyncioTestCase):
             await client._request("GET", transport.BILLING + "/example")
             self.assertEqual(
                 client._session.request.await_args.kwargs["headers"]["X-Id-Token"],
-                "Bearer " + client._token,
+                client._token,
             )
         clients[0]._session.request.return_value = response(401)
         clients[0]._token_expires = 0
@@ -293,6 +293,42 @@ class RegionalContractTests(unittest.IsolatedAsyncioTestCase):
         for client in clients[1:]:
             self.assertTrue(await client.list_accounts())
         await asyncio.gather(*(c.close() for c in clients))
+
+    async def test_meter_service_accepts_raw_token_without_false_reauthentication(self):
+        """A valid login must also work with the current meter API contract."""
+        for provider, number in NUMBERS.items():
+            with self.subTest(provider=provider):
+                http = session()
+                client = transport.DTEKAccountClient(
+                    http, spec=regions.ACCOUNT_PROVIDER_SPECS[provider]
+                )
+                client.subject = "synthetic-subject"
+                client._token = token()
+                client._token_expires = time.monotonic() + 900
+                client._accounts = {number}
+
+                async def request(method, url, **kwargs):
+                    self.assertEqual(method, "GET")
+                    self.assertTrue(
+                        url.startswith(
+                            client.spec.cabinet_origin + transport.BILLING + "/"
+                        )
+                    )
+                    if kwargs["headers"].get("X-Id-Token") != client._token:
+                        return response(401, {"code": "UNAUTHORIZED"})
+                    if url.endswith("/data"):
+                        return response(data={"accountNumber": number})
+                    if url.endswith("/meters-with-readings"):
+                        return response(data=readings(scale()))
+                    if url.endswith("/customer-book"):
+                        return response(data={"items": []})
+                    self.fail("Unexpected meter request")
+
+                http.request.side_effect = request
+                result = await client.read_account(number)
+                self.assertEqual(str(result.readings[0].value), "123")
+                self.assertEqual(http.request.await_count, 3)
+                await client.close()
 
     async def test_sms_registration_and_recovery_stay_with_selected_operator(self):
         for provider in NUMBERS:

@@ -220,7 +220,8 @@ class HistoryCache:
         async with self._lock:
             now = monotonic()
             cached = self._cache.get(key)
-            if cached and not force and now - cached[0] < max_age:
+            ttl = min(max_age, 60) if cached and cached[1].get("unavailable") else max_age
+            if cached and not force and now - cached[0] < ttl:
                 self._cache.move_to_end(key)
                 return cached[1]
             if (

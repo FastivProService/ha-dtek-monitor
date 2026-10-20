@@ -506,7 +506,7 @@ does not use the old account-number conversion API.
 If a known service route disappears (404), DTEK explicitly retires a supported
 route (410), or the account-list response no longer matches its expected format,
 HA creates a persistent **Settings → System → Repairs** notice. It identifies the
-affected interface and links to [integration releases](https://github.com/groove-max/ha-dtek-monitor/releases)
+affected interface and links to [integration releases](https://github.com/groove-max/ha-dtek-monitor/releases/latest)
 and [Issues](https://github.com/groove-max/ha-dtek-monitor/issues). Update the
 integration; if the latest version is affected, report the interface and reason
 shown there, without passwords, tokens or full account numbers.
@@ -517,6 +517,25 @@ cannot prove DTEK's intention. Repeated failures reuse the same notice, and a
 successful request to the affected operation clears it. Other working operations
 do not hide it. Detection occurs when HA uses that operation; it does not send
 extra account changes or meter readings to probe availability.
+
+The integration automatically handles the two known meter-service authorization
+formats. It verifies changes with read-only requests and remembers the working
+format for the connection. This is not a guarantee against arbitrary future API
+changes. If both formats fail while cabinet access still works, HA reports a
+service compatibility problem instead of asking you to change your password.
+
+Meter details, readings and consumption have separate availability. A failed
+service does not remove verified data from the other services or disable cabinet
+group updates. Missing data is shown as unavailable, never as zero consumption.
+Partial meter refreshes retry after five minutes; you can also use **Refresh**.
+Reading history remains visible if only monthly consumption is unavailable.
+The history can retry that missing part after a minute.
+
+If a compatibility notice appears, open **Settings → System → Repairs** and use
+its update or support link. The personal Telegram bot provides the same guidance.
+Read-only recovery is bounded and briefly pauses repeated rejected requests.
+**Meter submissions are never automatically repeated**, including after an
+authorization error or a lost response. Check the result before submitting again.
 
 <a id="section-15"></a>
 ## Current limits

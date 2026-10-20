@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from component_loader import load_component_module
-from test_account import response
+from test_account import response, token
 
 mod = load_component_module("account_submission")
 client_module = load_component_module("account_client")
@@ -314,6 +314,18 @@ class SubmissionLifecycleTests(unittest.IsolatedAsyncioTestCase):
 
 
 class SubmissionTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_meter_submission_uses_raw_token_and_is_sent_only_once(self):
+        self.client._session.request = AsyncMock(
+            return_value=response(200, [{"index": 0, "status": "SUCCESS"}])
+        )
+        self.client._token = token()
+        result = await self.client.submit_readings("100001", self.rows, Mock())
+        self.assertEqual(result, {"status": "accepted"})
+        self.client._session.request.assert_awaited_once()
+        call = self.client._session.request.await_args
+        self.assertEqual(call.args[0], "POST")
+        self.assertEqual(call.kwargs["headers"]["X-Id-Token"], self.client._token)
+
     async def test_modern_day_night_codes_are_sent_without_alias_rewriting(self):
         self.client._request = AsyncMock(return_value=response(200, [
             {"index": 0, "status": "SUCCESS"}, {"index": 1, "status": "SUCCESS"}

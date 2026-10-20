@@ -161,6 +161,10 @@ def _account_diagnostics(entry, coordinator):
             "fetched_at": _timestamp(getattr(snapshot, "fetched_at", None)),
             "reading_zone_count": _count(getattr(snapshot, "readings", None)),
             "profile_present": getattr(snapshot, "profile", None) is not None,
+            "unavailable_services": [
+                name for name in ("meter_details", "meter_readings", "meter_consumption")
+                if name in getattr(snapshot, "unavailable", ())
+            ],
             "building_link_configured": bool(link.get("address_entry_id")),
             "selected_group_count": _count(link.get("groups", [])),
             "cabinet_group_status": _choice(getattr(cabinet, "status", None), (
@@ -173,4 +177,10 @@ def _account_diagnostics(entry, coordinator):
                 "address_pending", "address_confirmation", "address_lookup_unavailable",
             )),
         })
-    return {"selected_count": len(selected), "items": accounts}
+    return {
+        "selected_count": len(selected), "items": accounts,
+        "meter_auth_format": _choice(
+            getattr(getattr(coordinator, "client", None), "_meter_auth", None),
+            ("raw", "bearer"),
+        ),
+    }

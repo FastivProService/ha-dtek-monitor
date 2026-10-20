@@ -245,8 +245,15 @@ class APICompatibilityTests(unittest.IsolatedAsyncioTestCase):
         await self.client._get(
             client_module.BILLING + "/meters/household/572000000001/history"
         )
+        # A JSON response alone is insufficient: this is not a history schema.
+        recovered.assert_not_called()
+        from test_account_history import page
+        self.client._accounts = {NUMBER}
+        self.session.request.side_effect = [response(data=page()), response(503)]
+        await self.client.read_history(NUMBER, 2026)
         recovered.assert_called_once_with("meter_history")
         recovered.reset_mock()
+        self.session.request.side_effect = None
         self.session.request.return_value = response(500)
         with self.assertRaises(account.AccountError):
             await self.client._get(

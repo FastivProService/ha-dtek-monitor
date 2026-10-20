@@ -98,6 +98,13 @@ class BotAccessTests(unittest.IsolatedAsyncioTestCase):
         await self.invoke()
         self.assertNotIn("PRIVATE_TOKEN", str(self.connection.send_error.call_args))
 
+    async def test_service_compatibility_error_does_not_require_new_login(self):
+        self.msg["action"] = "context"
+        self.manager.context.side_effect = api.AccountAPIChanged("meter_readings", "authorization_rejected")
+        await self.invoke()
+        self.assertEqual(self.connection.send_error.call_args.args[1], "api_changed")
+        self.entry.async_start_reauth.assert_not_called()
+
     async def test_readback_reads_history_without_repeating_submission(self):
         self.msg["action"] = "readback"
         self.manager.last_attempt = AsyncMock(return_value=None)

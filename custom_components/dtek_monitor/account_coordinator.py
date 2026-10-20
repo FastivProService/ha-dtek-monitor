@@ -94,7 +94,7 @@ class AccountCoordinator(DataUpdateCoordinator):
             self._last_attempt = monotonic()
             await self.async_refresh()
             if not self.last_update_success or any(
-                v is None for v in (self.data or {}).values()
+                v is None or v.unavailable for v in (self.data or {}).values()
             ):
                 raise HomeAssistantError(
                     translation_domain="dtek_monitor",
@@ -128,6 +128,13 @@ class AccountCoordinator(DataUpdateCoordinator):
                     result[number] = None
             if self.entry.data[CONF_ACCOUNTS] and not any(result.values()):
                 raise UpdateFailed("No selected personal accounts could be updated")
+            # Retry a partial meter outage without making its unavailable data
+            # look fresh, or stopping independently refreshed cabinet groups.
+            self.update_interval = (
+                timedelta(minutes=5)
+                if any(v is None or v.unavailable for v in result.values())
+                else timedelta(hours=ACCOUNT_UPDATE_HOURS)
+            )
             return result
         except AccountAPIChanged as err:
             report_api_issue(self.hass, self.entry.data[CONF_PROVIDER], err)

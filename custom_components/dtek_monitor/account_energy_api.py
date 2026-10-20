@@ -12,7 +12,7 @@ from homeassistant.const import EVENT_STATE_CHANGED
 from homeassistant.core import callback
 from homeassistant.helpers import entity_registry as er
 
-from .account import AccountAuthError, AccountError, AccountRateLimitError
+from .account import AccountAPIChanged, AccountAuthError, AccountError, AccountRateLimitError
 from .account_energy import EnergyManager
 from .account_submission import SubmissionError, digest
 from .account_submission_api import resolve
@@ -212,6 +212,11 @@ async def websocket_energy(hass, connection, msg):
         connection.send_error(
             msg["id"], error.code, "Local energy operation could not be completed"
         )
+    except AccountAPIChanged:
+        connection.send_error(
+            msg["id"], "api_changed", "DTEK service is incompatible; check HA Repairs"
+        )
+        return
     except AccountAuthError:
         if entry:
             entry.async_start_reauth(hass)

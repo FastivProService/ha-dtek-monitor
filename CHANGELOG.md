@@ -4,16 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [2.0.0-rc3] - 2026-10-20
+## [2.0.0-rc3] - 2026-10-21
 
-- Personal schedules and the personal-mode bot keep using cabinet groups confirmed
-  by fresh building data when the cabinet also reports additional, unconfirmed groups.
-  No overlap still pauses automatic personal schedules and schedule notifications.
-- My DTEK explains the unconfirmed groups in the overview and schedule, in English
-  and Ukrainian. Confirmed group changes still notify once; changes to unconfirmed
-  groups alone do not trigger a group-change alert. Building schedules and valid
-  manual HA selections remain independent.
-- Document the comparison, freshness safeguards and personal bot behavior.
+**Regular GitHub release**, without the Pre-release flag. Available through the standard HACS update channel. Requires HA 2026.3.0+.
+
+- Restore meter details, reading history and reading preparation after DTEK changed its meter API authorization format. Existing accounts and passwords can be kept; no new login is needed.
+- Automatically recognize the two known authorization formats on read-only requests, with bounded retries. If neither works, distinguish a service incompatibility from an expired login and show update/support guidance in HA and Telegram Bot 0.5.0-rc3. Meter submissions are never replayed automatically.
+- Keep meter details, readings, consumption and personal schedules independent during partial service failures. Unavailable data is labeled explicitly; valid history remains accessible when consumption is unavailable. Partial updates retry every five minutes.
+- Keep personal schedules and private bot alerts on cabinet groups confirmed by fresh building data when the cabinet also reports extra, unconfirmed groups. If none are confirmed, pause schedule alerts. My DTEK explains the discrepancy; building schedules and valid manual selections remain independent.
+- Update English/Ukrainian help and add regression coverage for authorization changes, partial outages, recovery, diagnostics and account cards.
+
+**Upgrade:** update the integration, restart HA and reload the HA page. Update Telegram Bot to 0.5.0-rc3 for the new error guidance. Existing addresses, accounts, calibration, sensors and bot destinations are preserved. No readings are sent during the update.
+
+[Upgrade guide](docs/UPGRADING.md) · [Оновлення](docs/UPGRADING.uk.md)
 
 ## [2.0.0-rc2] - 2026-10-20
 

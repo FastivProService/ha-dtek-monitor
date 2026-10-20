@@ -17,6 +17,25 @@ SCRIPT = (
 
 @unittest.skipUnless(HAS_PLAYWRIGHT, "Requires Playwright Chromium")
 class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_consumption_failure_keeps_readings_without_a_false_empty_chart(self):
+        await self.page.evaluate("""() => {
+          const old=result;result=year=>({...old(year),months:[],unavailable:['meter_consumption'],comparison_unavailable:true});
+        }""")
+        await self.load()
+        self.assertEqual(await self.page.locator('svg[aria-label="Monthly consumption, kWh"]').count(), 0)
+        await self.page.get_by_text("Monthly consumption is temporarily unavailable. Reading history remains available.", exact=True).wait_for()
+        await self.page.get_by_text("Comparison is unavailable because consumption could not be loaded for one of the years.", exact=True).wait_for()
+        self.assertGreater(await self.page.locator("table.readings tbody tr").count(), 0)
+
+    async def test_api_change_directs_to_repairs_without_exposing_raw_error(self):
+        await self.load("uk")
+        await self.page.evaluate("() => {hass.callWS=async()=>{throw {code:'api_changed',message:'PRIVATE_TOKEN'}};}")
+        await self.page.get_by_role("button", name="Оновити історію", exact=True).click()
+        await self.page.locator("p.error[role=alert]").wait_for()
+        message = await self.page.locator("p.error[role=alert]").inner_text()
+        self.assertIn("Виправлення", message)
+        self.assertNotIn("PRIVATE_TOKEN", message)
+
     async def test_modern_tariff_codes_have_readable_history_and_consumption_labels(self):
         await self.page.evaluate("""() => {
           const old=result;result=year=>{const data=old(year);

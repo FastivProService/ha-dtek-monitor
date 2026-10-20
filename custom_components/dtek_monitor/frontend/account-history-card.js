@@ -13,6 +13,7 @@ const words = {
     fetched: "Data fetched", empty: "No readings returned for this year.", previous: "Previous", next: "Next",
     note: "Only closed months are plotted. Missing periods are gaps. Negative values are retained as reported by DTEK.",
     scope: "History belongs to the account. DTEK does not identify the meter for each old record; readings are not subtracted to calculate consumption.",
+    api: "This DTEK service is unavailable or incompatible. Open Settings → System → Repairs for updates and support.", consumptionUnavailable: "Monthly consumption is temporarily unavailable. Reading history remains available.", comparisonUnavailable: "Comparison is unavailable because consumption could not be loaded for one of the years.",
     failure: "Could not load history. Try again later.", auth: "Reauthenticate the personal account in Settings → Devices & services.",
     limited: "Please wait before trying again (at least 60 seconds after a request; longer if DTEK limits requests).",
     denied: "This account is unavailable or you do not have permission to view it.",
@@ -29,6 +30,7 @@ const words = {
     fetched: "Дані отримано", empty: "За цей рік показів не отримано.", previous: "Назад", next: "Далі",
     note: "Графік містить лише закриті місяці. Пропуски означають відсутність даних. Від'ємні значення збережено так, як їх надає ДТЕК.",
     scope: "Історія належить рахунку. ДТЕК не вказує лічильник для кожного старого запису; різниця показів не використовується для обчислення споживання.",
+    api: "Цей сервіс ДТЕК недоступний або несумісний. Відкрийте Налаштування → Система → Виправлення для оновлень і підтримки.", consumptionUnavailable: "Місячне споживання тимчасово недоступне. Історія показів залишається доступною.", comparisonUnavailable: "Порівняння недоступне: не вдалося завантажити споживання за один із років.",
     failure: "Не вдалося завантажити історію. Спробуйте пізніше.", auth: "Виконайте повторний вхід у кабінет: Налаштування → Пристрої та служби.",
     limited: "Зачекайте перед повторною спробою (щонайменше 60 секунд після запиту; довше за обмежень ДТЕК).",
     denied: "Рахунок недоступний або у вас немає дозволу на перегляд.",
@@ -120,7 +122,7 @@ class DtekAccountHistoryCard extends HTMLElement {
       this._data=data; this._page=0;
     } catch (err) {
       if (sequence!==this._seq || !this.isConnected) return;
-      this._error = err.code === "rate_limited" ? "limited" : err.code === "auth_required" ? "auth" : ["unauthorized","not_available"].includes(err.code) ? "denied" : "failure";
+      this._error = err.code === "api_changed" ? "api" : err.code === "rate_limited" ? "limited" : err.code === "auth_required" ? "auth" : ["unauthorized","not_available"].includes(err.code) ? "denied" : "failure";
       if (this._error === "denied" || this._error === "auth") this._data=null;
     } finally {
       if (sequence===this._seq && this.isConnected) { this._busy=false; this._render(); }
@@ -150,6 +152,7 @@ class DtekAccountHistoryCard extends HTMLElement {
     card.append(element("p",`${t.fetched}: ${fetched} (Europe/Kyiv)`,"muted"));
     if (this._config.view !== "readings") {
     card.append(element("h3",`${t.consumption} · ${data.year}`));
+    if (data.unavailable?.includes("meter_consumption")) { card.append(element("p",t.consumptionUnavailable,"error")); } else {
     card.append(this._chart(data.months));card.append(element("p",t.note,"muted"));
     const details=element("details"),summary=element("summary",`${t.consumption} · kWh`);details.append(summary);
     const monthTable=this._table([t.period,t.total,t.zone,t.status]);
@@ -159,6 +162,8 @@ class DtekAccountHistoryCard extends HTMLElement {
       row.append(element("td",zones||"—"),element("td",t[month.status]||month.status));monthTable.body.append(row);
     }
     details.append(monthTable.wrap);card.append(details);
+    }
+    if(data.comparison_unavailable) card.append(element("p",t.comparisonUnavailable,"muted"));
     if(data.comparison){const c=data.comparison;card.append(element("h3",`${t.comparison} · ${c.year} / ${c.previous_year}`),element("p",t.pairNote,"muted"));
       const totals=this._table([t.period,`${c.year} · kWh`,`${c.previous_year} · kWh`,`${t.difference} · kWh`,t.coverage]);
       for(const p of c.periods){const row=element("tr");for(const value of [p.period==="year"?t.yearTotal:t[p.period],this.format(p.current),this.format(p.previous),this.format(p.difference),`${p.complete?t.complete:t.partial}: ${p.months.map(m=>String(m).padStart(2,"0")).join(", ")||"—"}`])row.append(element("td",value));totals.body.append(row);}card.append(totals.wrap);

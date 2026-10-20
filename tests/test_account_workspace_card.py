@@ -37,6 +37,16 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         await self.p.stop()
         self.assertFalse(self.errors)
 
+    async def test_partial_meter_availability_keeps_overview_and_schedule(self):
+        await self.page.evaluate("""() => {
+          hass.states['sensor.account_1'].attributes.unavailable_services=['meter_consumption'];
+          hass.states['sensor.consumption_1'].state='unavailable';
+          card.hass={...hass,states:{...hass.states}};
+        }""")
+        await self.page.get_by_text("Some meter data is temporarily unavailable. Other sections remain available.", exact=False).wait_for()
+        await self.page.get_by_role("tab", name="Schedule", exact=True).click()
+        self.assertEqual(await self.page.get_by_role("tab", name="Schedule", exact=True).get_attribute("aria-selected"), "true")
+
     async def readings(self):
         await self.page.get_by_role("tab", name="Readings", exact=True).click()
         return self.page.get_by_label("Single zone (kWh)", exact=True)

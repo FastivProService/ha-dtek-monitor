@@ -123,7 +123,7 @@ class DiagnosticsTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_empty_account_selection_and_legacy_address_defaults(self):
         result = await diagnostics.async_get_config_entry_diagnostics(None, entry("account"))
-        self.assertEqual(result["accounts"], {"selected_count": 0, "items": []})
+        self.assertEqual(result["accounts"], {"selected_count": 0, "items": [], "meter_auth_format": None})
         config = entry()
         config.data = {}
         result = await diagnostics.async_get_config_entry_diagnostics(None, config)

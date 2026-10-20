@@ -5,7 +5,7 @@ from homeassistant.helpers import issue_registry as ir
 from .const import DOMAIN
 
 ISSUES_URL = "https://github.com/groove-max/ha-dtek-monitor/issues"
-RELEASES_URL = "https://github.com/groove-max/ha-dtek-monitor/releases"
+RELEASES_URL = "https://github.com/groove-max/ha-dtek-monitor/releases/latest"
 INTERFACES = {
     "account_groups": "Optional legacy cabinet: account outage groups",
     "cabinet": "/api/billing/joint",

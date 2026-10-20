@@ -15,6 +15,7 @@ from .account import (
     CONF_ACCOUNTS,
     CONF_ENTRY_KIND,
     ENTRY_ACCOUNT,
+    AccountAPIChanged,
     AccountAuthError,
     AccountError,
     AccountRateLimitError,
@@ -331,7 +332,20 @@ async def websocket_history(hass, connection, msg):
             previous = await coordinator.history.get(
                 number, msg["year"] - 1, force=msg["force"]
             )
-            result = {**result, "comparison": compare_consumption(result, previous)}
+            result = {
+                **result,
+                "comparison": (
+                    compare_consumption(result, previous)
+                    if not result.get("unavailable") and not previous.get("unavailable")
+                    else None
+                ),
+                "comparison_unavailable": bool(result.get("unavailable") or previous.get("unavailable")),
+            }
+    except AccountAPIChanged:
+        connection.send_error(
+            msg["id"], "api_changed", "DTEK service is incompatible; check HA Repairs"
+        )
+        return
     except AccountAuthError:
         entry.async_start_reauth(hass)
         connection.send_error(
@@ -432,6 +446,11 @@ async def websocket_readback(hass, connection, msg):
         connection.send_result(msg["id"], match_readback(attempt, history, serial))
     except AccountAccessError as error:
         connection.send_error(msg["id"], error.code, "Personal account is unavailable")
+    except AccountAPIChanged:
+        connection.send_error(
+            msg["id"], "api_changed", "DTEK service is incompatible; check HA Repairs"
+        )
+        return
     except AccountAuthError:
         if entry:
             entry.async_start_reauth(hass)

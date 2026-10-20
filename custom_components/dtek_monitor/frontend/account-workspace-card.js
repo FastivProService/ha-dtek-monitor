@@ -21,6 +21,7 @@ const words = {
     send: "Enter readings", history: "Reading history", latest: "Latest DTEK meter reading", usage: "Consumption reported by DTEK",
     readingNote: "Cumulative meter reading", noReading: "DTEK has not provided a reading yet.", unit: "kWh", GENERAL: "Single zone", DAY: "Day", NIGHT: "Night",
     group: "My outage group", groupEmpty: "Not selected", scheduleLink: "View schedule", details: "Account and meter details", detailsShort: "Details",
+    partialData: "Some meter data is temporarily unavailable. Other sections remain available.",
     dated: "Account updated", unavailable: "Account data is unavailable. Retained values may be out of date.",
     sensor: "Home energy sensor", sensorNote: "Use your own cumulative energy sensor to suggest readings. You can also enter readings manually.",
     sensorSettings: "Set up or calibrate a sensor", notifications: "Groups, accounts and notifications", notificationsNote: "Manage DTEK cabinet links, choose accounts HA monitors, set the apartment's group or change reminders in integration settings.",
@@ -46,6 +47,7 @@ const words = {
     send: "Внести покази", history: "Історія показів", latest: "Останні покази в ДТЕК", usage: "Споживання за даними ДТЕК",
     readingNote: "Накопичувальні покази лічильника", noReading: "ДТЕК ще не надав показів.", unit: "кВт·год", GENERAL: "Одна зона", DAY: "День", NIGHT: "Ніч",
     group: "Моя група відключень", groupEmpty: "Не обрана", scheduleLink: "Переглянути графік", details: "Реквізити та лічильник", detailsShort: "Реквізити",
+    partialData: "Частина даних лічильника тимчасово недоступна. Інші розділи залишаються доступними.",
     dated: "Рахунок оновлено", unavailable: "Дані рахунку недоступні. Збережені значення можуть бути застарілими.",
     sensor: "Домашній лічильник енергії", sensorNote: "Накопичувальний датчик енергії може підказувати покази. Їх також можна вводити вручну.",
     sensorSettings: "Підключити або відкалібрувати датчик", notifications: "Група, рахунки та сповіщення", notificationsNote: "Керуйте прив’язками в ДТЕК, обирайте рахунки для моніторингу HA, групу квартири та нагадування в налаштуваннях інтеграції.",
@@ -280,6 +282,7 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     if(notice) group.append(el("p",notice,"group-notice"));
     const updated=this._state("account_updated:all") || this._hass.states?.[this._entity];
     this._overviewStamp.textContent=updated && !["unknown","unavailable"].includes(updated.state) ? `${t.dated}: ${date(updated.state,lang,true)}` : t.unavailable;
+    if(updated?.attributes?.unavailable_services?.length) this._overviewStamp.textContent=`${t.partialData} ${this._overviewStamp.textContent}`;
   }
   _create_readings(panel) {
     this._readings=this._child("dtek-account-readings-card", {read_only: !this._account.can_submit,energy_settings_external:true}, panel);

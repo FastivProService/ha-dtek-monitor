@@ -60,6 +60,9 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             impersonate="chrome136", timeout=25, allow_redirects=False
         )
         self._lock = asyncio.Lock()
+        self._meter_lock = asyncio.Lock()
+        self._meter_auth = "raw"
+        self._meter_rejections: dict[tuple, float] = {}
         self._token = ""
         self._token_expires = 0.0
         self._accounts: set[str] = set()
@@ -78,6 +81,7 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
         self._token = ""
         self._accounts.clear()
         self._linked_profiles.clear()
+        self._meter_rejections.clear()
         self.api_issue_handler = None
         self.api_recovered_handler = None
 
@@ -111,7 +115,9 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             else None
         )
 
-    async def _request(self, method: str, path: str, *, auth=False, **kwargs):
+    async def _request(
+        self, method: str, path: str, *, auth=False, meter_auth=None, **kwargs
+    ):
         origin = self.spec.auth_origin if auth else self.spec.cabinet_origin
         headers = {
             "Accept": "application/json",
@@ -123,8 +129,9 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             if csrf:
                 headers["X-CSRF"] = unquote(csrf)
         if self._token and not auth:
+            style = (meter_auth or self._meter_auth) if path.startswith(BILLING + "/") else "raw"
             headers["X-Id-Token"] = (
-                "Bearer " + self._token if path.startswith(BILLING) else self._token
+                "Bearer " + self._token if style == "bearer" else self._token
             )
         try:
             response = await self._session.request(
@@ -185,6 +192,8 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
     async def authenticate(self, phone: str, password: str) -> str:
         async with self._lock:
             self._token = ""
+            self._meter_auth = "raw"
+            self._meter_rejections.clear()
             self._accounts.clear()
             self._linked_profiles.clear()
             self.subject = None
@@ -294,26 +303,72 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             ):
                 await self._issue_token()
 
-    async def _get(self, path: str, **kwargs) -> Any:
+    async def _read_response(self, path: str, **kwargs):
         await self._ensure_token()
         token = self._token
         response = await self._request("GET", path, **kwargs)
         if response.status_code == 401:
             await self._ensure_token(rejected=token)
             response = await self._request("GET", path, **kwargs)
+        return response
+
+    async def _meter_response(self, path: str, interface: str, **kwargs):
+        """Negotiate only on reads; never replay or probe a submission POST."""
+        key = (path, str(kwargs.get("params", {}).get("accountNumber", "")))
+        # Serialize negotiation so concurrent readers reuse the discovered style.
+        async with self._meter_lock:
+            if self._meter_rejections.get(key, 0) > time.monotonic():
+                raise self._api_changed(interface, "authorization_rejected")
+            response = await self._read_response(path, **kwargs)
+            if response.status_code != 401:
+                return response
+            alternate = "bearer" if self._meter_auth == "raw" else "raw"
+            response = await self._request(
+                "GET", path, meter_auth=alternate, **kwargs
+            )
+            if 200 <= response.status_code < 300:
+                self._meter_auth = alternate
+                self._meter_rejections.pop(key, None)
+                return response
+            if response.status_code != 401:
+                return response
+            # A still-working cabinet distinguishes a meter service rejection
+            # from an expired login. This also rechecks current membership.
+            await self.list_accounts()
+            now = time.monotonic()
+            self._meter_rejections = {
+                k: until for k, until in self._meter_rejections.items() if until > now
+            }
+            if len(self._meter_rejections) >= 128:
+                self._meter_rejections.pop(next(iter(self._meter_rejections)))
+            self._meter_rejections[key] = now + 60
+            raise self._api_changed(interface, "authorization_rejected")
+
+    def _parse_meter(self, interface, parser, *args, recover=True):
+        """Clear compatibility warnings only after validating the response."""
+        try:
+            result = parser(*args)
+        except AccountError:
+            raise self._api_changed(interface, "response_format") from None
+        if recover:
+            self._api_recovered(interface)
+        return result
+
+    async def _get(self, path: str, **kwargs) -> Any:
+        interface = self._billing_interface(path)
+        response = (
+            await self._meter_response(path, interface, **kwargs)
+            if interface else await self._read_response(path, **kwargs)
+        )
         self._check(response)
         try:
             payload = self._decode(response)
         except AccountError:
             if path == "/api/billing/joint/objects/get_advanced":
                 raise self._api_changed("cabinet", "response_format") from None
+            if interface:
+                raise self._api_changed(interface, "response_format") from None
             raise
-        interface = self._billing_interface(path)
-        if interface and not (
-            isinstance(payload, dict)
-            and (payload.get("error") or payload.get("status") == "error")
-        ):
-            self._api_recovered(interface)
         return payload
 
     async def list_accounts(self) -> tuple[PersonalAccount, ...]:
@@ -372,27 +427,45 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             raise AccountError("Selected personal account is no longer linked")
         now = datetime.now(ZoneInfo("Europe/Kyiv"))
         path = f"{BILLING}/meters/household/{number}"
+        unavailable = []
         try:
             details = await self._get(path + "/data")
+            if not isinstance(details, dict) or "accountNumber" not in details:
+                raise self._api_changed("meter_details", "response_format")
         except (AccountAuthError, AccountRateLimitError):
             raise
         except AccountError:
             details = None
-        if details is not None and (
-            not isinstance(details, dict) or details.get("accountNumber") != number
-        ):
+            unavailable.append("meter_details")
+        if details is not None and details.get("accountNumber") != number:
             raise AccountError("Invalid meter details")
-        readings = parse_readings(
-            await self._get(path + "/meters-with-readings"), now.date()
-        )
+        if details is not None:
+            self._api_recovered("meter_details")
+        try:
+            readings = self._parse_meter(
+                "meter_readings", parse_readings,
+                await self._get(path + "/meters-with-readings"), now.date()
+            )
+        except (AccountAuthError, AccountRateLimitError):
+            raise
+        except AccountError:
+            readings = ()
+            unavailable.append("meter_readings")
         year = now.year if now.month != 1 else now.year - 1
-        consumption, period = parse_consumption(
-            await self._get(
-                BILLING + "/meters/household/customer-book",
-                params={"accountNumber": number, "year": year},
-            ),
-            now.date(),
-        )
+        try:
+            consumption, period = self._parse_meter(
+                "meter_consumption", parse_consumption,
+                await self._get(
+                    BILLING + "/meters/household/customer-book",
+                    params={"accountNumber": number, "year": year},
+                ),
+                now.date(),
+            )
+        except (AccountAuthError, AccountRateLimitError):
+            raise
+        except AccountError:
+            consumption, period = None, None
+            unavailable.append("meter_consumption")
         profile = parse_profile(details, self._linked_profiles.get(number))
         return AccountSnapshot(
             profile["model"],
@@ -402,6 +475,7 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
             period,
             now,
             profile,
+            tuple(unavailable),
         )
 
     async def read_history(self, number: str, year: int) -> dict:
@@ -417,7 +491,9 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
                 f"{BILLING}/meters/household/{number}/history",
                 params={"year": year, "page": page, "limit": 100},
             )
-            returned_page, pages, rows = parse_history_page(payload, year, now.date())
+            returned_page, pages, rows = self._parse_meter(
+                "meter_history", parse_history_page, payload, year, now.date(), recover=False
+            )
             if returned_page != page or (
                 expected_pages is not None and pages != expected_pages
             ):
@@ -432,14 +508,22 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
                 records[identity] = row
             if page >= pages:
                 break
-        months = parse_months(
-            await self._get(
-                BILLING + "/meters/household/customer-book",
-                params={"accountNumber": number, "year": year},
-            ),
-            year,
-            now.date(),
-        )
+        self._api_recovered("meter_history")
+        unavailable = []
+        try:
+            months = self._parse_meter(
+                "meter_consumption", parse_months,
+                await self._get(
+                    BILLING + "/meters/household/customer-book",
+                    params={"accountNumber": number, "year": year},
+                ),
+                year, now.date(),
+            )
+        except (AccountAuthError, AccountRateLimitError):
+            raise
+        except AccountError:
+            months = []
+            unavailable.append("meter_consumption")
         return {
             "year": year,
             "fetched_at": datetime.now(ZoneInfo("Europe/Kyiv")).isoformat(),
@@ -451,6 +535,7 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
                 reverse=True,
             ),
             "months": months,
+            "unavailable": unavailable,
         }
 
     async def read_submission_context(self, number: str) -> dict:
@@ -464,9 +549,12 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
         path = f"{BILLING}/meters/household/{number}"
         details = await self._get(path + "/data")
         readings = await self._get(path + "/meters-with-readings")
-        return submission_context(
+        context = submission_context(
             details, readings, number, datetime.now(ZoneInfo("Europe/Kyiv")).date()
         )
+        self._api_recovered("meter_details")
+        self._api_recovered("meter_readings")
+        return context
 
     async def submit_readings(self, number: str, readings: list, authorize) -> dict:
         from .account_submission import SubmissionError, submission_result

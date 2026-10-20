@@ -133,9 +133,17 @@ class AccountSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self):
+        service = {
+            "account_consumption": "meter_consumption",
+            "account_meter_model": "meter_details",
+            "account_verification_year": "meter_details",
+            "account_reading": "meter_readings",
+            "account_reading_date": "meter_readings",
+        }.get(self.key)
         return (
             super().available
             and self.snapshot is not None
+            and service not in self.snapshot.unavailable
             and (self.zone is None or self.reading is not None)
         )
 
@@ -157,6 +165,8 @@ class AccountSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self.key == "account_updated":
+            return {"unavailable_services": list(self.snapshot.unavailable) if self.snapshot else []}
         if self.key == "account_consumption":
             return {
                 "period": self.snapshot.consumption_period if self.snapshot else None

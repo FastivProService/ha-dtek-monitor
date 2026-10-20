@@ -190,6 +190,7 @@ class HistoryAccessTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_auth_and_upstream_errors_are_sanitized(self):
         for error, code in [
+            (runtime.account.AccountAPIChanged("meter_history", "authorization_rejected"), "api_changed"),
             (runtime.account.AccountAuthError("private token"), "auth_required"),
             (runtime.account.AccountRateLimitError("private token"), "rate_limited"),
             (runtime.account.AccountError("private token"), "history_unavailable"),

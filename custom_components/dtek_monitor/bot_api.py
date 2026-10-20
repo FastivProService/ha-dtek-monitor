@@ -13,7 +13,7 @@ from .account_reminders import reading_window
 from .account_analysis import match_readback
 from .account_history import MAX_HISTORY_ROWS, reading_history_page
 
-from .account import AccountAuthError, AccountError, AccountRateLimitError
+from .account import AccountAPIChanged, AccountAuthError, AccountError, AccountRateLimitError
 from .account_schedule import cabinet_groups, compare_cabinet_groups, selection
 from .account_submission import SubmissionError
 from .account_submission_api import resolve
@@ -321,6 +321,11 @@ async def websocket_bot_account(hass, connection, msg):
         connection.send_result(msg["id"], result)
     except SubmissionError as error:
         connection.send_error(msg["id"], error.code, "Account operation unavailable")
+    except AccountAPIChanged:
+        connection.send_error(
+            msg["id"], "api_changed", "DTEK service is incompatible; check HA Repairs"
+        )
+        return
     except AccountAuthError:
         if entry:
             entry.async_start_reauth(hass)

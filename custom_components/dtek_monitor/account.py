@@ -25,7 +25,7 @@ class AccountAuthError(AccountError):
 
 
 class AccountAPIChanged(AccountError):
-    """A known route disappeared or a successful list no longer fits its contract."""
+    """A service is incompatible while credentials may still be valid."""
 
     def __init__(self, interface: str, reason: str):
         super().__init__("DTEK account API is unavailable or incompatible")
@@ -63,6 +63,7 @@ class AccountSnapshot:
     consumption_period: str | None
     fetched_at: datetime
     profile: dict | None = field(default=None, repr=False)
+    unavailable: tuple[str, ...] = ()
 
 
 class AccountProvider(Protocol):

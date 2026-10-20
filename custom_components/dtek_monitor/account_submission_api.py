@@ -13,6 +13,7 @@ from .account import (
     CONF_ACCOUNTS,
     CONF_ENTRY_KIND,
     ENTRY_ACCOUNT,
+    AccountAPIChanged,
     AccountAuthError,
     AccountError,
     AccountRateLimitError,
@@ -145,6 +146,11 @@ async def websocket_submission(hass, connection, msg):
         connection.send_error(
             msg["id"], error.code, "Reading operation could not be completed"
         )
+    except AccountAPIChanged:
+        connection.send_error(
+            msg["id"], "api_changed", "DTEK service is incompatible; check HA Repairs"
+        )
+        return
     except AccountAuthError:
         if entry:
             entry.async_start_reauth(hass)
