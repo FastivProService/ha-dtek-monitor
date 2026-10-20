@@ -62,10 +62,10 @@ choice or the building's only verified group.
    outage group → Choose another building from the directory**. Confirm the city,
    street and building in the same dialog. Apartment numbers and cabinet credentials
    are never included in the public building connection.
-3. Leave **My apartment groups** empty for automatic selection. A single group
-   from the cabinet is used when it also belongs to the verified building groups.
+3. Leave **My apartment groups** empty for automatic selection. If exactly one
+   cabinet group is confirmed by the building data, it is selected automatically.
    Without a cabinet assignment, the building's sole verified group can be used.
-   If the cabinet lists several groups, choose yours in the same settings. Manual
+   If several cabinet groups are confirmed, choose yours in the same settings. Manual
    choices take priority while they still belong to the building. Building calendars and
    the building-mode bot keep every building group.
 
@@ -79,8 +79,18 @@ groups, the personal calendar then waits for confirmation or a manual choice;
 the building calendars continue independently. An explicit empty response means
 the cabinet has not assigned a group, not that there are no outages.
 
-If the cabinet group is absent from the building's groups, HA shows the mismatch
-instead of selecting it. Check the linked building and your group. If the legacy
+**What if the cabinet and building list different groups?** Only groups present
+in both fresh responses are used automatically. For example, if the cabinet lists
+3.1 and 4.1, but the building confirms only 3.1, your personal schedule and
+personal-mode bot continue using 3.1. The overview and schedule explain that 4.1
+is unconfirmed for this building; it is excluded from personal outage notifications.
+With no matching groups, automatic personal schedules and the personal bot's
+schedule notifications wait for confirmation. Check the linked building; you can
+still choose a verified building group manually for the HA calendar. The personal
+bot always requires a fresh cabinet match. Building calendars keep every building
+group. Changing only the unconfirmed groups does not send a group-change notification.
+
+If the legacy
 service disappears or its response changes, **Settings → System → Repairs** shows
 an issue for the optional account-group service with update/support links. Other
 cabinet features remain independent. Optional group lookup is currently enabled
@@ -103,8 +113,8 @@ calendars and the building-mode bot keep all groups.
 If a manually selected group disappears, HA switches to automatic selection only
 when a fresh cabinet assignment or the building's sole verified group provides an
 unambiguous replacement. HA notifies you of the change; the obsolete manual choice
-is cleared so it cannot silently return later. A conflicting cabinet assignment
-does not authorize replacement. If several candidates remain, choose your group
+is cleared so it cannot silently return later. Cabinet groups absent from the
+building do not authorize replacement. If several confirmed candidates remain, choose your group
 in Settings. If the public website hides group labels, the private schedule and bot can still use a cabinet-provided group after checking that it belongs to the building. Hidden groups without this confirmation, a removed building or failed verification leave the personal schedule unavailable; missing data never authorize a reassignment.
 Choosing **Do not link a building** removes only the personal link and prevents automatic relinking.
 

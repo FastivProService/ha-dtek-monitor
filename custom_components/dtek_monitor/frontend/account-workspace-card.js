@@ -1,12 +1,12 @@
-import "./account-options.js?v=2.0.0-rc2";
-import "./account-energy-settings.js?v=2.0.0-rc2";
-import "./account-profile-card.js?v=2.0.0-rc2";
-import "./account-readings-card.js?v=2.0.0-rc2";
-import "./account-history-card.js?v=2.0.0-rc2";
-import "./schedule-card.js?v=2.0.0-rc2";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc2";
-import { accountNumber } from "./account-number.js?v=2.0.0-rc2";
-import { zoneKey, isUkrainian, languageLocale,  el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc2";
+import "./account-options.js?v=2.0.0-rc3";
+import "./account-energy-settings.js?v=2.0.0-rc3";
+import "./account-profile-card.js?v=2.0.0-rc3";
+import "./account-readings-card.js?v=2.0.0-rc3";
+import "./account-history-card.js?v=2.0.0-rc3";
+import "./schedule-card.js?v=2.0.0-rc3";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc3";
+import { accountNumber } from "./account-number.js?v=2.0.0-rc3";
+import { zoneKey, isUkrainian, languageLocale, cabinetGroupNotice, el, date, number, embeddedCSS } from "./account-ui.js?v=2.0.0-rc3";
 
 const words = {
   en: {
@@ -273,9 +273,11 @@ class DtekAccountWorkspaceCard extends HTMLElement {
     if (["selected","auto_selected","cabinet_selected"].includes(status)) status=state?.attributes?.schedule_status || "current";
     if (status.startsWith("schedule_")) status=status.slice(9);
     group.replaceChildren(el("h3", t.group), el("strong", selected.length ? selected.map(g=>g.replace(/^GPV/, "")).join(", ") : t.groupEmpty), el("p", t[`state_${status}`] || t.state_unknown));
-    const source=state?.attributes?.selection_source, candidates=state?.attributes?.cabinet_groups || [];
+    const source=state?.attributes?.selection_source, candidates=state?.attributes?.verified_cabinet_groups || [];
     if(source) group.append(el("small", t[`groupSource_${source}`] || ""));
     if(!selected.length && candidates.length>1) group.append(el("small", `${t.groupCandidates}: ${candidates.map(g=>g.replace(/^GPV/, "")).join(", ")}`));
+    const notice=cabinetGroupNotice(state?.attributes,lang);
+    if(notice) group.append(el("p",notice,"group-notice"));
     const updated=this._state("account_updated:all") || this._hass.states?.[this._entity];
     this._overviewStamp.textContent=updated && !["unknown","unavailable"].includes(updated.state) ? `${t.dated}: ${date(updated.state,lang,true)}` : t.unavailable;
   }

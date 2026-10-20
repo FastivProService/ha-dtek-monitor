@@ -26,6 +26,17 @@ def cabinet_groups(entry, number):
     return manager.get(number) if manager is not None else None
 
 
+def compare_cabinet_groups(building_groups, cabinet):
+    """Compare fresh sources; None means the building cannot be checked yet."""
+    reported = set(cabinet.groups) if cabinet and cabinet.status == "current" else set()
+    building = set(building_groups) if building_groups is not None else None
+    return {
+        "cabinet_groups": sorted(reported),
+        "verified_cabinet_groups": sorted(reported & building) if building is not None else [],
+        "unverified_cabinet_groups": sorted(reported - building) if building is not None else [],
+    }
+
+
 def selectable_groups(coordinator, cabinet):
     """Private labels may come from the cabinet even if public labels are hidden.
 
@@ -38,23 +49,17 @@ def selectable_groups(coordinator, cabinet):
     building = data.get("schedule_groups", [])
     if data.get("group_labels_visible"):
         return list(building)
-    if (
-        cabinet
-        and cabinet.status == "current"
-        and cabinet.groups
-        and set(cabinet.groups).issubset(building)
-    ):
-        return sorted(set(cabinet.groups))
-    return []
+    return compare_cabinet_groups(building, cabinet)["verified_cabinet_groups"]
 
 
 def automatic_selection(building_groups, cabinet):
     """Resolve an unambiguous assignment without guessing from an ordered list."""
     if cabinet and cabinet.status == "current" and cabinet.groups:
-        if not set(cabinet.groups).issubset(building_groups):
+        verified = compare_cabinet_groups(building_groups, cabinet)["verified_cabinet_groups"]
+        if not verified:
             return [], "cabinet_group_mismatch"
-        if len(cabinet.groups) == 1:
-            return list(cabinet.groups), "cabinet_selected"
+        if len(verified) == 1:
+            return verified, "cabinet_selected"
         return [], "not_selected"
     if len(building_groups) == 1:
         return list(building_groups), "auto_selected"
@@ -172,7 +177,10 @@ class AccountScheduleEntity(Entity):
     def extra_state_attributes(self):
         address, coordinator, groups, status = self.selected
         cabinet = cabinet_groups(self.entry, self.number)
-        choices = selectable_groups(coordinator, cabinet)
+        building = (
+            coordinator.address_data.get("schedule_groups", [])
+            if coordinator and coordinator.address_success else None
+        )
         return {
             "selection_status": status,
             "selection_source": (
@@ -186,11 +194,7 @@ class AccountScheduleEntity(Entity):
             ),
             "selected_groups": groups,
             "cabinet_group_status": cabinet.status if cabinet else "unsupported",
-            "cabinet_groups": (
-                list(cabinet.groups)
-                if cabinet and set(cabinet.groups).issubset(choices)
-                else []
-            ),
+            **compare_cabinet_groups(building, cabinet),
             "cabinet_groups_checked_at": cabinet.checked_at.isoformat() if cabinet and cabinet.checked_at else None,
             "building_groups": (
                 coordinator.address_data.get("schedule_groups", [])

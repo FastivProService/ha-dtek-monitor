@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0-rc3] - 2026-10-20
+
+- Personal schedules and the personal-mode bot keep using cabinet groups confirmed
+  by fresh building data when the cabinet also reports additional, unconfirmed groups.
+  No overlap still pauses automatic personal schedules and schedule notifications.
+- My DTEK explains the unconfirmed groups in the overview and schedule, in English
+  and Ukrainian. Confirmed group changes still notify once; changes to unconfirmed
+  groups alone do not trigger a group-change alert. Building schedules and valid
+  manual HA selections remain independent.
+- Document the comparison, freshness safeguards and personal bot behavior.
+
 ## [2.0.0-rc2] - 2026-10-20
 
 **Published in the regular release channel**, with no GitHub Pre-release flag. HACS offers this version without enabling prereleases; the version name retains RC2. Kyiv oblast and Dnipropetrovsk oblast cabinets remain experimental.

@@ -62,6 +62,19 @@ class AccountScheduleUpdatesTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.calendar.available)
         self.assertEqual(self.create.call_count, 1)
 
+    async def test_extra_cabinet_groups_do_not_send_false_group_changes(self):
+        for reported in (("GPV3.1", "GPV4.1"), ("GPV3.1",), ("GPV4.1",), ("GPV3.1", "GPV4.1")):
+            self.result = groups.GroupResult("current", reported, datetime.now(timezone.utc))
+            await self.manager.reconcile()
+        self.assertEqual(self.sensor.native_value, "GPV3.1")
+        self.create.assert_not_called()
+        self.result = groups.GroupResult("current", ("GPV5.1", "GPV4.1"), datetime.now(timezone.utc))
+        await self.manager.reconcile()
+        self.assertEqual(self.sensor.native_value, "GPV5.1")
+        self.assertIn("GPV3.1 → GPV5.1", self.create.call_args.args[1])
+        await self.manager.reconcile()
+        self.assertEqual(self.create.call_count, 1)
+
     async def test_removed_hidden_manual_group_can_follow_verified_cabinet_replacement(self):
         schedules.AccountScheduleTests.link(self, ["GPV2.1"])
         self.coord.address_data["group_labels_visible"] = False

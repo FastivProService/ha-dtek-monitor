@@ -1,7 +1,7 @@
-import { zoneKey, isUkrainian,  embeddedCSS, date } from "./account-ui.js?v=2.0.0-rc2";
-import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc2";
+import { zoneKey, isUkrainian,  embeddedCSS, date } from "./account-ui.js?v=2.0.0-rc3";
+import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc3";
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=2.0.0-rc2";
+import { accountNumber } from "./account-number.js?v=2.0.0-rc3";
 const words = {
   en: {
     compare: "Compare with previous year", comparison: "Consumption for matching periods", pairNote: "Only months closed and published in both years are included. Partial totals cover the listed months, not the whole year or season. Winter here means January, February and December of the same calendar year. Negative corrections remain included.", yearTotal: "Year", winter: "Winter", spring: "Spring", summer: "Summer", autumn: "Autumn", coverage: "Included months", difference: "Difference", complete: "Complete", partial: "Partial", title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",

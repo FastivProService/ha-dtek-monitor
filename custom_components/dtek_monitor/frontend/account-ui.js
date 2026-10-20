@@ -8,6 +8,20 @@ export function isUkrainian(language) {
 export function languageLocale(language) {
   return isUkrainian(language) ? "uk-UA" : (language || "en");
 }
+export function cabinetGroupNotice(attributes, language) {
+  const extra=attributes?.unverified_cabinet_groups || [];
+  if (!extra.length) return "";
+  const matched=attributes.verified_cabinet_groups || [];
+  const labels=groups=>groups.map(g=>String(g).replace(/^GPV/, "")).join(", ");
+  if (isUkrainian(language)) return [
+    matched.length ? `Для будинку підтверджено групи з кабінету: ${labels(matched)}.` : "",
+    `Кабінет указує ${labels(extra)}, але дані будинку їх не підтверджують. Ці групи не використовуються в особистому графіку та сповіщеннях бота.`,
+  ].filter(Boolean).join(" ");
+  return [
+    matched.length ? `Cabinet groups confirmed for this building: ${labels(matched)}.` : "",
+    `The cabinet lists ${labels(extra)}, but the building data does not confirm them. These groups are excluded from the personal schedule and bot notifications.`,
+  ].filter(Boolean).join(" ");
+}
 export function el(tag, text, className) {
   const node = document.createElement(tag);
   if (text !== undefined) node.textContent = text;

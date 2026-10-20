@@ -14,7 +14,7 @@ from .account_analysis import match_readback
 from .account_history import MAX_HISTORY_ROWS, reading_history_page
 
 from .account import AccountAuthError, AccountError, AccountRateLimitError
-from .account_schedule import cabinet_groups, selection
+from .account_schedule import cabinet_groups, compare_cabinet_groups, selection
 from .account_submission import SubmissionError
 from .account_submission_api import resolve
 from .helpers import build_entity_unique_id
@@ -27,16 +27,18 @@ def account_snapshot(hass, connection, entry, number):
     address, coordinator, _, link_status = selection(hass, entry, number)
     cabinet = cabinet_groups(entry, number)
     status = cabinet.status if cabinet else "unsupported"
-    groups = sorted(set(cabinet.groups)) if cabinet and status == "current" else []
-    public = (
-        coordinator.address_data if coordinator and coordinator.address_success else {}
+    building = (
+        coordinator.address_data.get("schedule_groups", [])
+        if coordinator and coordinator.address_success else None
     )
-    if groups and (coordinator is None or not coordinator.address_success):
-        status, groups = link_status, []
+    comparison = compare_cabinet_groups(building, cabinet)
+    groups = comparison["verified_cabinet_groups"]
+    if comparison["cabinet_groups"] and building is None:
+        status = link_status
     # A private cabinet supplies its own group labels. Public display policy
     # must not disable a fresh, matching cabinet assignment (notably Kyiv).
-    if groups and not set(groups).issubset(public.get("schedule_groups", [])):
-        status, groups = "cabinet_group_mismatch", []
+    elif comparison["unverified_cabinet_groups"]:
+        status = "partial" if groups else "cabinet_group_mismatch"
     entities = {}
     if address:
         registry = er.async_get(hass)
@@ -94,6 +96,7 @@ def account_snapshot(hass, connection, entry, number):
         "provider_id": coordinator.address.provider_id if coordinator else None,
         "address_id": coordinator.address.identity if coordinator else None,
         "cabinet_group_status": status,
+        **comparison,
         "selection_source": "cabinet",
     }
     now = datetime.now(KYIV_TZ)

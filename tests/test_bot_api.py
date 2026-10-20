@@ -1,8 +1,9 @@
 """Cabinet-only schedule bridge and Telegram principal isolation."""
 
 from types import SimpleNamespace
+from datetime import datetime, timedelta, timezone
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 import test_account_submission_api as submission_tests
 from component_loader import load_component_module
 
@@ -263,6 +264,43 @@ class BotSnapshotTests(unittest.TestCase):
             a["attributes"]["schedule_snapshot_id"],
             self.snapshot()["attributes"]["schedule_snapshot_id"],
         )
+
+    def test_partial_match_keeps_only_verified_groups_and_stable_notification_revision(self):
+        now = datetime.now(timezone.utc)
+        self.coordinator.schedule.coverage = [
+            SimpleNamespace(group_id="GPV3.1", kind=kind, start=now - timedelta(days=1), end=now + timedelta(days=1))
+            for kind in ("outage", "possible")
+        ]
+        self.coordinator.get_events_for_range = Mock(return_value=[
+            SimpleNamespace(start=now, end=now + timedelta(hours=1), summary="Verified outage", description="group=GPV3.1")
+        ])
+        baseline = self.snapshot()
+        self.coordinator.address_data["group_labels_visible"] = False
+        result = self.snapshot(("GPV4.1", "GPV3.1"))
+        self.assertEqual(result["group_status"], "partial")
+        self.assertEqual(result["groups"], ["GPV3.1"])
+        attrs = result["attributes"]
+        self.assertTrue(attrs["schedule_notifications_ready"])
+        self.assertEqual(attrs["cabinet_groups"], ["GPV3.1", "GPV4.1"])
+        self.assertEqual(attrs["verified_cabinet_groups"], ["GPV3.1"])
+        self.assertEqual(attrs["unverified_cabinet_groups"], ["GPV4.1"])
+        self.assertEqual(attrs["schedule_snapshot_id"], baseline["attributes"]["schedule_snapshot_id"])
+        self.assertTrue(result["calendars"]["outage"]["available"])
+        self.assertEqual(len(result["calendars"]["outage"]["events"]), 1)
+        for call in self.coordinator.get_events_for_range.call_args_list:
+            self.assertEqual(call.args[2], ["GPV3.1"])
+        self.assertEqual(self.coordinator.address_data["schedule_groups"], ["GPV3.1", "GPV5.1"])
+        for status in ("expired", "unavailable", "disabled", "pending"):
+            stale = self.snapshot(("GPV3.1", "GPV4.1"), status)
+            self.assertFalse(stale["attributes"]["schedule_notifications_ready"])
+            self.assertEqual(stale["attributes"]["unverified_cabinet_groups"], [])
+            self.assertEqual(stale["groups"], [])
+        self.coordinator.address_success = False
+        unavailable = self.snapshot(("GPV3.1", "GPV4.1"))
+        self.assertEqual(unavailable["groups"], [])
+        self.assertEqual(unavailable["attributes"]["unverified_cabinet_groups"], [])
+        self.coordinator.address_success = True
+        self.assertEqual(self.snapshot()["group_status"], "current")
 
     def test_conflict_and_missing_publication_block_calendar(self):
         result = self.snapshot(("GPV9.1",))

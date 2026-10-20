@@ -103,6 +103,27 @@ class ScheduleCardTests(unittest.IsolatedAsyncioTestCase):
             "No planned outages today", await self.page.locator(".status").inner_text()
         )
 
+    async def test_partial_group_notice_keeps_calendar_and_is_visible_in_grid(self):
+        await self.update("cabinet_selected", "off")
+        await self.page.locator(".test-calendar").wait_for()
+        await self.page.evaluate("""() => {
+          Object.assign(hass.states['sensor.status'].attributes,{
+            selection_source:'cabinet',verified_cabinet_groups:['GPV3.1'],unverified_cabinet_groups:['GPV4.1']});
+          card.hass={...hass};
+        }""")
+        notice = self.page.locator(".group-notice")
+        self.assertIn("confirmed for this building: 3.1", await notice.inner_text())
+        self.assertIn("lists 4.1", await notice.inner_text())
+        self.assertEqual(await self.page.evaluate("created.length"), 1)
+        await self.page.locator(".grid-view").click()
+        self.assertTrue(await notice.is_visible())
+        await self.page.evaluate("hass.language='ru';card.hass={...hass}")
+        self.assertIn("Для будинку підтверджено", await notice.inner_text())
+        self.assertLessEqual(await self.page.evaluate("document.documentElement.scrollWidth"), 390)
+        await self.page.evaluate("hass.states['sensor.status'].attributes.unverified_cabinet_groups=[];card.hass={...hass}")
+        self.assertFalse(await notice.is_visible())
+        self.assertEqual(await self.page.locator(".grid-view").get_attribute("aria-pressed"), "true")
+
     async def test_ukrainian_error_and_mobile_long_title_do_not_overflow(self):
         await self.page.evaluate(
             'hass.language="uk";card.setConfig({...card._config,title:"<img src=x onerror=alert(1)>".repeat(3)});card.hass=hass'

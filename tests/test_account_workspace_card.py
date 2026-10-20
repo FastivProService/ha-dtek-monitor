@@ -69,6 +69,25 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='context').length"), 1)
         self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='confirm').length"), 0)
 
+    async def test_partial_group_notice_updates_without_resetting_reading_draft(self):
+        field = await self.readings()
+        await field.fill("12503")
+        await self.page.evaluate("""() => {
+          Object.assign(hass.states['sensor.schedule_1'].attributes,{
+            selection_source:'cabinet',verified_cabinet_groups:['GPV3.1'],unverified_cabinet_groups:['GPV4.1']});
+          card.hass={...hass};
+        }""")
+        self.assertEqual(await field.input_value(), "12503")
+        self.assertTrue(await field.evaluate("e=>e===e.getRootNode().activeElement"))
+        await self.page.get_by_role("tab", name="Overview", exact=True).click()
+        notice = self.page.locator("#panel-overview .group-notice")
+        self.assertIn("confirmed for this building: 3.1", await notice.inner_text())
+        self.assertIn("lists 4.1", await notice.inner_text())
+        await self.page.evaluate("hass.states['sensor.schedule_1'].attributes.unverified_cabinet_groups=[];card.hass={...hass}")
+        self.assertEqual(await notice.count(), 0)
+        await self.page.get_by_role("tab", name="Readings", exact=True).click()
+        self.assertEqual(await field.input_value(), "12503")
+
     async def test_overview_shortcuts_keep_keyboard_focus_and_existing_draft(self):
         action = self.page.get_by_role("button", name="Enter readings", exact=True)
         await action.focus()
@@ -326,7 +345,7 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("From the DTEK personal account", await self.page.locator(".group").inner_text())
         await self.page.evaluate("""() => {
           hass.states['sensor.group_1'].attributes.selected_groups=[];
-          hass.states['sensor.schedule_1']={state:'not_selected',attributes:{cabinet_groups:['GPV3.1','GPV5.1']}};
+          hass.states['sensor.schedule_1']={state:'not_selected',attributes:{cabinet_groups:['GPV3.1','GPV5.1'],verified_cabinet_groups:['GPV3.1','GPV5.1']}};
           card.hass={...hass};
         }""")
         text = await self.page.locator(".group").inner_text()
