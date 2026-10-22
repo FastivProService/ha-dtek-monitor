@@ -137,6 +137,10 @@ def parse_history_page(payload, year: int, today: date):
                     "status": status,
                     "blocked": blocked,
                     "inactive": inactive,
+                    "has_photo": item.get("hasPhoto") is True,
+                    "controller_note": item.get("controllerNote")
+                    if isinstance(item.get("controllerNote"), str)
+                    and len(item["controllerNote"]) <= 1000 else None,
                 },
             )
         )

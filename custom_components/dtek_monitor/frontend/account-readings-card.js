@@ -5,8 +5,15 @@ import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc3";
 /* Explicit readings submission. HA state updates never replace an edited form. */
 import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc3";
 import { DtekEnergyEditor, energyMessage } from "./account-energy-editor.js?v=2.0.0-rc3";
+import { preparePhoto, photoPreview } from "./account-photos.js?v=2.0.0-rc3";
 const labels = {
   en: {
+    photo: "Meter photo", photoHelp: "Optional: photograph the official meter with its reading, serial number and tariff zone visible. For Day/Night, attach a photo for each zone. JPEG, PNG or WebP, up to 20 MB. Images are optimized locally; check that the preview is legible.",
+    photoAdd: "Choose a photo", photoReplace: "Replace photo", photoRemove: "Remove photo", photoBusy: "Preparing photo…", photoCheck: "Check the photos and make sure the entered readings match them. Only confirmation sends them to DTEK.",
+    photoAttempt: "This request included meter photos. Completion of a controller check and issuance of an inspection report are not confirmed here.",
+    invalid_photo: "Could not read this photo. Choose a JPEG, PNG or WebP image.", photo_too_large: "This image is too large. Choose a smaller, clear photo of the meter.",
+    photos_incomplete: "Attach a photo for every tariff zone, or remove all photos to send readings only.",
+    photo_required: "DTEK asks for a meter photo to verify these readings. Check the values and your cabinet before a new submission.",
     correction: "Save these readings for calibration", correctionTitle: "Check the local correction",
     correctionHelp: "Only use readings taken from the official meter at the time of the sensor samples below. Earlier readings must not be paired with current samples. This action does not send anything to DTEK.",
     correctionCheck: "I read every tariff on the official meter at the time shown for the corresponding sensor.",
@@ -44,6 +51,12 @@ const labels = {
     journal_unavailable: "The local submission record could not be saved or read. Check submission status and the cabinet before any new attempt.",
   },
   uk: {
+    photo: "Фото лічильника", photoHelp: "Необов’язково: сфотографуйте розрахунковий лічильник, щоб було видно покази, серійний номер і тарифну зону. Для День/Ніч додайте фото кожної зони. JPEG, PNG або WebP до 20 МБ. Фото оптимізується на вашому пристрої; перевірте чіткість у перегляді.",
+    photoAdd: "Вибрати фото", photoReplace: "Замінити фото", photoRemove: "Видалити фото", photoBusy: "Готуємо фото…", photoCheck: "Перевірте фото та відповідність введених показів. Лише підтвердження надсилає їх у ДТЕК.",
+    photoAttempt: "Запит містив фото лічильника. Завершення перевірки контролера та видача акта тут не підтверджені.",
+    invalid_photo: "Не вдалося прочитати фото. Виберіть зображення JPEG, PNG або WebP.", photo_too_large: "Зображення завелике. Виберіть менше фото з чіткими показами лічильника.",
+    photos_incomplete: "Додайте фото кожної тарифної зони або видаліть усі фото, щоб передати лише покази.",
+    photo_required: "ДТЕК просить фото лічильника для перевірки цих показів. Перевірте значення та кабінет перед новою передачею.",
     correction: "Зберегти ці покази для калібрування", correctionTitle: "Перевірте локальне коригування",
     correctionHelp: "Використовуйте лише покази фізичного лічильника, зняті одночасно з наведеними відліками датчиків. Давніші покази не можна поєднувати з поточними відліками. Ця дія нічого не передає у ДТЕК.",
     correctionCheck: "Я зняв покази кожного тарифу фізичного лічильника одночасно з наведеним відліком відповідного датчика.",
@@ -91,11 +104,13 @@ class DtekAccountReadingsCard extends HTMLElement {
   static get workspaceVersion() { return 2; }
   constructor() {
     super(); this.attachShadow({mode: "open"}); this._seq = 0; this._values = {};
+    this._photos={}; this._photoJobs=new Map(); this._photoErrors={};
   }
   setConfig(config) {
     if (!config.entity || typeof config.entity !== "string") throw new Error("Set an account entity");
     if (this._config?.entity === config.entity) { this._config={...config}; this.toggleAttribute("embedded",!!config.embedded); this.render(); return; }
     this._seq++; this._config = {...config}; this.toggleAttribute("embedded",!!config.embedded); this._context = null; this._draft = null;
+    this.clearPhotos();
     this._opening = null; this._readback = null; this._energyEditor = null; this._sourceInvalid=false;this._energyLocked=false;this._sourceToken = null; this._result = null; this._values = {}; this._error = null; this._uncertain = false; this._busy = false;
     this._calibration = null; this._calibrationSaved = false;
     this.render();
@@ -115,16 +130,47 @@ class DtekAccountReadingsCard extends HTMLElement {
     this._seq++; this._draft = null; this._calibration = null; this._busy = false;
     if (this._sending) this._uncertain = true;
     this._sending = false;
+    this.clearPhotos();
   }
   getCardSize() { return 5; }
-  get hasDraft() { return !!this._calibration || !!this._draft || Object.values(this._values).some(v => v !== "") || !!this._energyEditor?.hasDraft; }
+  get hasDraft() { return Object.keys(this._photos).length>0 || this._photoJobs.size>0 || !!this._calibration || !!this._draft || Object.values(this._values).some(v => v !== "") || !!this._energyEditor?.hasDraft; }
   set energyLocked(value){if(this._energyLocked!==value){this._energyLocked=value;this.render();}}
   invalidateEnergy(){
     this._energyEditor?.invalidate();
     if(this._sourceToken || this._draft?.source){this._draft=null;this._sourceInvalid=true;}
     this.render();
   }
-  get busy() { return this._busy || !!this._energyEditor?._busy; }
+  get busy() { return this._busy || this._photoJobs.size>0 || !!this._energyEditor?._busy; }
+  clearPhotos() { this._photos={}; this._photoJobs.clear(); this._photoErrors={}; }
+  async choosePhoto(zone,file) {
+    if(!file || this._busy || this._draft || this.readOnly)return;
+    const job=Symbol();this._photoJobs.set(zone,job);delete this._photoErrors[zone];this.render();
+    try {
+      const photo=await preparePhoto(file);
+      if(this._photoJobs.get(zone)===job && this.isConnected)this._photos[zone]=photo;
+    } catch(error) { if(this._photoJobs.get(zone)===job)this._photoErrors[zone]=error.message; }
+    finally { if(this._photoJobs.get(zone)===job){this._photoJobs.delete(zone);this.render();} }
+  }
+  photos(card,review=false) {
+    if(!review)card.append(node("p",this.w.photoHelp));
+    else if(Object.keys(this._photos).length)card.append(node("p",this.w.photoCheck));
+    for(const zone of this._context?.zones||[]) {
+      const title=`${this.w.photo} · ${this.w[zoneKey(zone.zone).toLowerCase()]||zone.zone}`, photo=this._photos[zone.zone];
+      if(review&&!photo)continue;
+      const wrap=node("section");wrap.className="photo-field";
+      if(!review){
+        const input=node("input");input.type="file";input.accept="image/jpeg,image/png,image/webp";input.disabled=this._busy;input.hidden=true;
+        input.setAttribute("aria-label",title);input.onchange=()=>this.choosePhoto(zone.zone,input.files?.[0]);
+        const choose=this.button(photo?this.w.photoReplace:this.w.photoAdd,()=>input.click());choose.setAttribute("aria-label",`${choose.textContent} · ${this.w[zoneKey(zone.zone).toLowerCase()]||zone.zone}`);
+        wrap.append(node("h4",title),input,choose);
+      }else wrap.append(node("h4",title));
+      if(photo)wrap.append(photoPreview(photo,title));
+      if(this._photoJobs.has(zone.zone))wrap.append(node("p",this.w.photoBusy));
+      if(this._photoErrors[zone.zone]){const error=node("p",this.w[this._photoErrors[zone.zone]]||this.w.invalid_photo);error.setAttribute("role","alert");wrap.append(error);}
+      if(!review&&(photo||this._photoErrors[zone.zone]||this._photoJobs.has(zone.zone)))wrap.append(this.button(this.w.photoRemove,()=>{delete this._photos[zone.zone];delete this._photoErrors[zone.zone];this._photoJobs.delete(zone.zone);this.render();}));
+      card.append(wrap);
+    }
+  }
   get readOnly() { return !!this._config?.read_only || this._hass?.user?.is_admin === false; }
   async open() {
     if (this._opening) return this._opening;
@@ -166,6 +212,7 @@ class DtekAccountReadingsCard extends HTMLElement {
       this._calibration=null;this._error=error?.code||"unavailable";
       if(["unauthorized","not_available","auth_required"].includes(this._error)){
         this._context=null;this._values={};this._result=null;this._energyEditor=null;
+        this.clearPhotos();
       }
     } finally {
       if(seq===this._seq){this._busy=false;this.render();this.dispatchEvent(new CustomEvent("submission-operation"));}
@@ -173,6 +220,7 @@ class DtekAccountReadingsCard extends HTMLElement {
   }
   async act(action) {
     if (this._busy || this._calibration || !this._hass || this.readOnly) return;
+    if(this._photoJobs.size || ((action==="prepare"||action==="confirm")&&Object.keys(this._photoErrors).length))return;
     if((action==="prepare"||action==="confirm")&&(this._energyLocked||this._sourceInvalid))return;
     const seq = ++this._seq;
     const draft = this._draft;
@@ -184,16 +232,18 @@ class DtekAccountReadingsCard extends HTMLElement {
       if (action === "context") {
         result = await this.request(action);
         if (seq !== this._seq) return;
+        if (context?.revision !== result.revision) this.clearPhotos();
         if (context?.serial !== result.serial) {this._values = {}; this._sourceToken = null; this._energyEditor = null;}
         this._context = result; this._draft = null; this._result = null; this._uncertain = false; this._calibrationSaved=false;
       } else if (action === "prepare") {
-        result = await this.request(action, {revision: context.revision, values: {...this._values}, ...(this._sourceToken ? {source_token: this._sourceToken} : {})});
+        result = await this.request(action, {revision: context.revision, values: {...this._values}, ...(Object.keys(this._photos).length ? {photos:this._photos} : {}), ...(this._sourceToken ? {source_token: this._sourceToken} : {})});
         if (seq !== this._seq) return;
         this._draft = result; this._result = null;
       } else if (action === "confirm") {
         result = await this.request(action, {confirmation: draft.confirmation});
         if (seq !== this._seq) return;
         this._draft = null; this._result = result; this._uncertain = true; this._values = {}; this._sourceToken = null;
+        this.clearPhotos();
         this._readback?.reset();
       } else {
         result = await this.request(action, {attempt: context.last_attempt.id});
@@ -203,9 +253,10 @@ class DtekAccountReadingsCard extends HTMLElement {
     } catch (error) {
       if (seq !== this._seq) return;
       this._error = error?.code || "unavailable";
-      if (action === "confirm") { this._draft = null; this._uncertain = true; }
+      if (action === "confirm") { this._draft = null; this._uncertain = true; this.clearPhotos(); }
       if (["unauthorized", "not_available", "auth_required"].includes(this._error)) {
         this._context = null; this._draft = null; this._values = {}; this._result = null;
+        this.clearPhotos();
       }
     } finally {
       if (seq === this._seq) { this._busy = false; this._sending = false; this.render();this.dispatchEvent(new CustomEvent("submission-operation")); }
@@ -256,6 +307,8 @@ class DtekAccountReadingsCard extends HTMLElement {
       const p = node("p", w[result.status] || w.unknown); p.setAttribute("role", "status"); card.append(p);
       if (result.at) card.append(node("small", `${w.last}: ${date(result.at, this._hass?.language, true)}`));
       if (result.readings) this.table(card, result.readings);
+      if (result.reason && w[result.reason]) card.append(node("p",w[result.reason]));
+      if (result.photos && Object.keys(result.photos).length) card.append(node("p",w.photoAttempt));
     }
     if (this._calibration) {
       card.append(node("h3",w.correctionTitle),node("p",w.correctionHelp));
@@ -269,6 +322,7 @@ class DtekAccountReadingsCard extends HTMLElement {
       this.gate(card,w.correctionCheck,this.button(w.correctionSave,()=>this.calibrate("save")));
     } else if (this._draft) {
       card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Перевірте адресу, лічильник і покази перед передачею." : "Check the address, meter and readings before sending.") : w.review)); this.table(card, this._draft.readings);
+      this.photos(card,true);
       if (this._draft.source) {
         card.append(node("p", this._config.embedded ? (isUkrainian(this._hass?.language) ? "Покази розраховано за домашнім датчиком. Перед передачею джерело буде перевірено ще раз." : "These readings use your home sensor. Its data is checked again before sending.") : w.sourceReview), node("p", energyMessage(this._hass?.language, this._draft.source.mode)));
         for (const [zone, row] of Object.entries(this._draft.source.readings)) card.append(node("small", `${w[zoneKey(zone).toLowerCase()]}: ${row.source.value} kWh · ${row.source.at}`));
@@ -289,10 +343,11 @@ class DtekAccountReadingsCard extends HTMLElement {
         const input = node("input"); input.type = "text"; input.inputMode = "numeric"; input.pattern = "[0-9]+";
         input.maxLength = ctx.digits; input.required = true; input.disabled = this._busy;
         input.value = this._values[z.zone] || ""; input.setAttribute("aria-label", `${w[zoneKey(z.zone).toLowerCase()] || z.zone} (kWh)`);
-        input.addEventListener("input", () => {this._values[z.zone] = input.value; this._sourceToken = null;this._sourceInvalid=false;this._calibrationSaved=false;card.querySelector(".calibration-saved")?.remove();const button=form.querySelector("button[type=submit]");if(button)button.disabled=this._busy||this._energyLocked;const notice=card.querySelector(".source-notice");if(notice&&!this._energyLocked)notice.remove();});
+        input.addEventListener("input", () => {this._values[z.zone] = input.value; this._sourceToken = null;this._sourceInvalid=false;this._calibrationSaved=false;card.querySelector(".calibration-saved")?.remove();const button=form.querySelector("button[type=submit]");if(button)button.disabled=this.busy||this._energyLocked||Object.keys(this._photoErrors).length>0;const notice=card.querySelector(".source-notice");if(notice&&!this._energyLocked)notice.remove();});
         label.append(input); form.append(label);
       }
-      const prepare = this.button(w.prepare, () => {}); prepare.className="primary"; prepare.type = "submit";prepare.disabled=this._busy||this._energyLocked||this._sourceInvalid; form.append(prepare);
+      this.photos(form);
+      const prepare = this.button(w.prepare, () => {}); prepare.className="primary"; prepare.type = "submit";prepare.disabled=this.busy||this._energyLocked||this._sourceInvalid||Object.keys(this._photoErrors).length>0; form.append(prepare);
       form.addEventListener("submit", e => {e.preventDefault(); this.act("prepare");}); card.append(form);
       if (!this._config.embedded) card.append(this.button(w.calibrate, () => this._energyEditor?.calibrate({...this._values})));
     }
@@ -315,6 +370,7 @@ class DtekAccountReadingsCard extends HTMLElement {
       this._readback.configure(this._hass, this._config.entity); card.append(this._readback);
     }
     style.textContent+=embeddedCSS+`:host{container-type:inline-size}.fields button.primary{width:100%;margin-right:0}
+      .photo-field{margin:16px 0;padding:12px;border:1px solid var(--divider-color,#ddd);border-radius:12px}.meter-photo{display:block;max-width:100%;max-height:420px;object-fit:contain;margin:12px auto}.photo-field input[hidden]{display:none}
       @container(max-width:500px){.review-table tr:first-child{display:none}.review-table tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:16px 0}.review-table td{white-space:normal;overflow-wrap:anywhere;padding:8px 0}.review-table td:first-child{grid-column:1/-1;font-weight:600}.review-table td::before{content:attr(data-label);display:block;font-size:.8em;color:var(--secondary-text-color);margin-bottom:4px}}`;
 
     this.shadowRoot.replaceChildren(style, card);

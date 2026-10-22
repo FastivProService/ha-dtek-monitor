@@ -42,6 +42,17 @@ def month(period="2026-09", value=-12, zones=None):
 
 
 class HistoryParsingTests(unittest.TestCase):
+    def test_photo_and_controller_metadata_are_optional_and_bounded(self):
+        rows = [row(hasPhoto=True, controllerNote="Photo checked"),
+                row("bad", hasPhoto="true", controllerNote={"unexpected": "data"}),
+                row("long", controllerNote="x" * 1001), row("absent")]
+        parsed = [item for _, item in history.parse_history_page(page(*rows), 2026, TODAY)[2]]
+        self.assertTrue(parsed[0]["has_photo"])
+        self.assertEqual(parsed[0]["controller_note"], "Photo checked")
+        for item in parsed[1:]:
+            self.assertFalse(item["has_photo"])
+            self.assertIsNone(item["controller_note"])
+
     def test_display_filter_preserves_warnings_and_distinct_periods_without_mutation(self):
         rows = [{"energy": "ACTIVE", "status": "inactive", "value": "120"} for _ in range(8)]
         # The same value in different periods or tariff zones is not a duplicate.

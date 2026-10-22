@@ -122,6 +122,8 @@ Use the eye button to reveal or hide an account number.
 An energy sensor is optional. It need not be ATORCH: use a cumulative grid-import
 sensor for the correct apartment. Linking, official-meter calibration, corrections,
 scheduled checks and reminders are covered in the [readings guide](docs/ENERGY_AND_READINGS.md).
+You can also attach meter photos in the HA readings form and review them before confirming the send. See the [photo instructions](docs/ENERGY_AND_READINGS.md#attach-a-meter-photo).
+
 **There is no automatic submission.** In HA, an administrator confirms each send; in the companion bot, only the assigned user with submission permission can confirm it.
 
 [Complete cabinet setup and features](docs/PERSONAL_ACCOUNT.md).

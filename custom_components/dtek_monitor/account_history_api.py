@@ -98,6 +98,11 @@ async def async_setup_history(hass):
                     False,
                 ),
                 StaticPathConfig(
+                    "/dtek_monitor/account-photos.js",
+                    str(Path(__file__).parent / "frontend" / "account-photos.js"),
+                    False,
+                ),
+                StaticPathConfig(
                     "/dtek_monitor/account-readback.js",
                     str(Path(__file__).parent / "frontend" / "account-readback.js"),
                     False,

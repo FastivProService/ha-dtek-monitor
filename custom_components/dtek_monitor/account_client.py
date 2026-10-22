@@ -556,9 +556,14 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
         self._api_recovered("meter_readings")
         return context
 
-    async def submit_readings(self, number: str, readings: list, authorize) -> dict:
+    async def submit_readings(self, number: str, readings: list, authorize, *, photos=None) -> dict:
         from .account_submission import SubmissionError, submission_result
+        from .account_photos import PhotoError, validate_photos
 
+        try:
+            photos, _ = validate_photos(photos, [r["zone"] for r in readings])
+        except PhotoError as error:
+            raise SubmissionError(error.code) from None
         await self._ensure_token()
         authorize()
         if number not in self._accounts:
@@ -570,6 +575,9 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
                     "deviceEnergyType": "ACTIVE",
                     "deviceScaleType": r["zone"],
                     "value": r["value"],
+                    **({"photo": photos[r["zone"]]["data"],
+                        "photoMimeType": photos[r["zone"]]["mime_type"]}
+                       if r["zone"] in photos else {}),
                 }
                 for r in readings
             ],
@@ -583,6 +591,21 @@ class DTEKAccountClient(AccountLinksClientMixin, AccountGroupAuthorizationMixin)
         except AccountError:
             return {"status": "unknown"}
         result = submission_result(payload, len(readings))
+        if isinstance(payload, list):
+            codes = {r.get("messageCode") for r in payload if isinstance(r, dict)
+                     and isinstance(r.get("messageCode"), str)}
+            if codes & {"READING_ARE_LARGE_ADD_PHOTO_TO_CHECK", "READING_IS_SMALLER_THAN_PREVIOUS"}:
+                # Even an unexpected SUCCESS must not disguise a photo request as acceptance.
+                if result["status"] == "accepted":
+                    result["status"] = "unknown"
+                result["reason"] = "photo_required"
+            if photos:
+                # Keep only bounded machine codes for investigating new processing states.
+                result["upstream_results"] = [
+                    {k: r[k] for k in ("status", "messageCode")
+                     if isinstance(r.get(k), str) and re.fullmatch(r"[A-Z][A-Z0-9_]{0,99}", r[k])}
+                    for r in payload[:len(readings)] if isinstance(r, dict)
+                ]
         if result.get("status") == "accepted":
             self._api_recovered("meter_submission")
         return result

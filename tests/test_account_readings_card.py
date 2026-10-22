@@ -373,3 +373,88 @@ class ReadingsCardTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             await self.page.evaluate("document.documentElement.scrollWidth<=innerWidth")
         )
+
+    async def upload_photo(self, label="Meter photo · Single zone"):
+        import base64
+        png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5XcAAAAASUVORK5CYII="
+        await self.page.get_by_label(label, exact=True).set_input_files({
+            "name": "synthetic-meter.png", "mimeType": "image/png", "buffer": base64.b64decode(png),
+        })
+        await self.page.get_by_role("img", name=label, exact=True).wait_for()
+
+    async def test_photo_preview_survives_updates_and_is_sent_only_with_confirmation(self):
+        await self.load()
+        await self.page.get_by_label("Single zone (kWh)", exact=True).fill("123")
+        async with self.page.expect_file_chooser():
+            await self.page.get_by_role("button", name="Choose a photo · Single zone", exact=True).click()
+        self.assertFalse(await self.page.get_by_label("Meter photo · Single zone", exact=True).is_visible())
+        await self.upload_photo()
+        await self.page.get_by_role("button", name="Replace photo · Single zone", exact=True).wait_for()
+        original = await self.page.get_by_role("img", name="Meter photo · Single zone").get_attribute("src")
+        self.assertTrue(original.startswith("data:image/jpeg;base64,"))
+        self.assertEqual(await self.page.evaluate("calls.map(c=>c.action)"), ["context"])
+        await self.page.evaluate("card.hass={...hass,states:{other:{state:'changed'}}};card.render()")
+        self.assertEqual(await self.page.get_by_label("Single zone (kWh)", exact=True).input_value(), "123")
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("checkbox").wait_for()
+        self.assertEqual(await self.page.get_by_role("img", name="Meter photo · Single zone").get_attribute("src"), original)
+        sent = await self.page.evaluate("calls.find(c=>c.action==='prepare').photos")
+        self.assertEqual("data:"+sent["GENERAL"]["mime_type"]+";base64,"+sent["GENERAL"]["data"], original)
+        self.assertNotIn("confirm", await self.page.evaluate("calls.map(c=>c.action)"))
+        await self.page.get_by_role("button", name="Back to editing", exact=True).click()
+        self.assertEqual(await self.page.get_by_role("img", name="Meter photo · Single zone").get_attribute("src"), original)
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("checkbox").check()
+        await self.page.get_by_role("button", name="Confirm and send to DTEK", exact=True).click()
+        await self.page.get_by_role("button", name="Check submission status", exact=True).wait_for()
+        self.assertEqual(await self.page.evaluate("calls.filter(c=>c.action==='confirm').length"), 1)
+        self.assertEqual(await self.page.evaluate("Object.keys(card._photos).length"), 0)
+        self.assertEqual(await self.page.locator("img.meter-photo").count(), 0)
+        self.assertFalse(await self.page.evaluate("JSON.stringify(localStorage).includes('image/jpeg')"))
+
+    async def test_removing_photo_and_invalid_file_do_not_erase_entered_reading(self):
+        await self.load()
+        field = self.page.get_by_label("Single zone (kWh)", exact=True)
+        await field.fill("123")
+        await self.upload_photo()
+        await self.page.get_by_label("Meter photo · Single zone", exact=True).set_input_files({
+            "name":"unsafe.svg", "mimeType":"image/svg+xml", "buffer":b"<svg onload='alert(1)'/>"})
+        await self.page.get_by_role("alert").wait_for()
+        self.assertTrue(await self.page.get_by_role("button", name="Review readings", exact=True).is_disabled())
+        await field.fill("124")
+        self.assertTrue(await self.page.get_by_role("button", name="Review readings", exact=True).is_disabled())
+        await self.page.get_by_role("button", name="Remove photo", exact=True).click()
+        self.assertEqual(await field.input_value(), "124")
+        self.assertEqual(await self.page.locator("img.meter-photo").count(), 0)
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("checkbox").wait_for()
+        self.assertNotIn("photos", await self.page.evaluate("calls.find(c=>c.action==='prepare')"))
+
+    async def test_day_and_night_photos_keep_their_zone_keys(self):
+        await self.page.evaluate("ctx.zones=['DAY_2_ZONE','NIGHT_2_ZONE'].map(zone=>({zone,previous:'100',date:'2026-09-30'}))")
+        await self.page.get_by_role("button", name="Load current meter", exact=True).click()
+        await self.page.get_by_label("Day (kWh)", exact=True).fill("123")
+        await self.page.get_by_label("Night (kWh)", exact=True).fill("456")
+        await self.upload_photo("Meter photo · Day")
+        await self.upload_photo("Meter photo · Night")
+        await self.page.get_by_role("button", name="Review readings", exact=True).click()
+        await self.page.get_by_role("checkbox").wait_for()
+        self.assertEqual(set(await self.page.evaluate("Object.keys(calls.find(c=>c.action==='prepare').photos)")), {"DAY_2_ZONE","NIGHT_2_ZONE"})
+        self.assertEqual(await self.page.locator("img.meter-photo").count(), 2)
+        self.assertTrue(await self.page.evaluate("document.documentElement.scrollWidth<=innerWidth"))
+
+    async def test_late_image_conversion_cannot_attach_to_another_account(self):
+        import base64
+        await self.load()
+        await self.page.evaluate("""() => {
+          window.photoReads=[];const Original=window.FileReader;
+          window.FileReader=class extends Original {readAsDataURL(blob){photoReads.push(()=>super.readAsDataURL(blob));}};
+        }""")
+        await self.page.get_by_label("Meter photo · Single zone", exact=True).set_input_files({
+            "name":"late.png", "mimeType":"image/png", "buffer":base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5XcAAAAASUVORK5CYII=")})
+        await self.page.wait_for_function("photoReads.length===1")
+        self.assertTrue(await self.page.get_by_role("button", name="Review readings", exact=True).is_disabled())
+        await self.page.evaluate("card.setConfig({entity:'sensor.other'});photoReads.forEach(f=>f())")
+        await self.page.wait_for_timeout(50)
+        self.assertEqual(await self.page.evaluate("Object.keys(card._photos).length"),0)
+        self.assertEqual(await self.page.locator("img.meter-photo").count(),0)

@@ -1,9 +1,10 @@
 import { zoneKey, isUkrainian,  embeddedCSS, date } from "./account-ui.js?v=2.0.0-rc3";
 import { accountCardEditor } from "./account-card-editor.js?v=2.0.0-rc3";
 /* DTEK account history. No external assets or credentials in the browser. */
-import { accountNumber } from "./account-number.js?v=2.0.0-rc3";
+import { accountNumber, cabinetLink } from "./account-number.js?v=2.0.0-rc3";
 const words = {
   en: {
+    photo: "📷 Photo available in DTEK", photoOpen: "Open photos in the DTEK cabinet", controller: "Controller comment",
     compare: "Compare with previous year", comparison: "Consumption for matching periods", pairNote: "Only months closed and published in both years are included. Partial totals cover the listed months, not the whole year or season. Winter here means January, February and December of the same calendar year. Negative corrections remain included.", yearTotal: "Year", winter: "Winter", spring: "Spring", summer: "Summer", autumn: "Autumn", coverage: "Included months", difference: "Difference", complete: "Complete", partial: "Partial", title: "DTEK account history", year: "Year", refresh: "Refresh history", loading: "Loading…",
     consumption: "Monthly consumption", readings: "Meter readings", period: "Month", value: "Value",
     zone: "Tariff scale", energy: "Energy type", source: "Source", status: "Status", date: "Date (Kyiv)",
@@ -21,6 +22,7 @@ const words = {
     total: "Total", page: "Page", general: "Single zone", day: "Day", night: "Night",
   },
   uk: {
+    photo: "📷 ДТЕК має фото", photoOpen: "Відкрити фото в кабінеті ДТЕК", controller: "Коментар контролера",
     compare: "Порівняти з попереднім роком", comparison: "Споживання за однакові періоди", pairNote: "Враховано лише місяці, закриті та опубліковані в обох роках. Часткові підсумки охоплюють перелічені місяці, а не весь рік чи сезон. Зима тут — січень, лютий і грудень одного календарного року. Від’ємні коригування збережено.", yearTotal: "Рік", winter: "Зима", spring: "Весна", summer: "Літо", autumn: "Осінь", coverage: "Враховані місяці", difference: "Різниця", complete: "Повний", partial: "Частковий", title: "Історія особового рахунку ДТЕК", year: "Рік", refresh: "Оновити історію", loading: "Завантаження…",
     consumption: "Місячне споживання", readings: "Покази лічильника", period: "Місяць", value: "Значення",
     zone: "Тарифна шкала", energy: "Тип енергії", source: "Джерело", status: "Статус", date: "Дата (Київ)",
@@ -180,6 +182,7 @@ class DtekAccountHistoryCard extends HTMLElement {
     filter.append(showAll,document.createTextNode(t.showAll));card.append(filter);
     if(!this._showInactive&&inactiveCount)card.append(element("p",`${t.hiddenInactive}: ${inactiveCount}`,"muted"));
     if(!readings.length) {card.append(element("p",data.readings.length?t.onlyInactive:t.empty));return;}
+    if(readings.some(r=>r.has_photo))card.append(cabinetLink(this._hass,this._config.entity,t.photoOpen));
     const table=this._table([t.date,t.value,t.status,t.zone,t.energy,t.source]);
     table.wrap.querySelector("table").classList.add("readings");
     const pageSize=10, pages=Math.ceil(readings.length/pageSize);this._page=Math.min(this._page,pages-1);
@@ -187,7 +190,10 @@ class DtekAccountHistoryCard extends HTMLElement {
       const row=element("tr",undefined,record.status);
       const local=date(record.date_time, this._lang, true);
       row.append(element("td",local,"numeric"),element("td",this.format(record.value),"numeric"));
-      const status=element("td");status.append(element("span",t[record.status]||t.unknown,"pill"));row.append(status,element("td",this.zone(record.zone)),element("td",record.energy),element("td",record.source||"—"));table.body.append(row);
+      const status=element("td");status.append(element("span",t[record.status]||t.unknown,"pill"));row.append(status,element("td",this.zone(record.zone)),element("td",record.energy),element("td",record.source||"—"));
+      if(record.has_photo)status.append(element("small",t.photo));
+      if(record.controller_note)row.lastChild.append(element("p",`${t.controller}: ${record.controller_note}`));
+      table.body.append(row);
     }
     card.append(table.wrap);
     const pagination=element("div",undefined,"pagination"), prev=element("button",t.previous), next=element("button",t.next);

@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Add optional, per-zone meter photos to the HA reading submission form, with local image optimization, preview and explicit confirmation.
+- Keep image data out of the durable submission journal. Bind attachments to short-lived account/user drafts and preserve the single-attempt submission barrier.
+- Show DTEK photo requests, history attachment indicators and controller comments. Photo submission does not establish completion of an inspection or issuance of an act.
+
 - Keep cabinet-group expiry notifications on Home Assistant's event loop, fixing
   repeated thread-safety errors and rejected entity updates. Preserve timer
   cancellation when group data changes or the integration unloads; cover expiry

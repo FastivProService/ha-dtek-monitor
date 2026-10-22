@@ -119,3 +119,15 @@ class SubmissionAccessTests(unittest.IsolatedAsyncioTestCase):
             await self.invoke()
             self.assertEqual(self.connection.send_error.call_args.args[1], code)
             self.assertNotIn("secret", str(self.connection.send_error.call_args))
+
+    async def test_photos_follow_resolved_account_and_require_active_admin(self):
+        from test_account_photos import photo
+        self.msg.update(action="prepare", revision="rev", values={"GENERAL":"123"}, photos={"GENERAL":photo()})
+        await self.invoke()
+        args = self.manager.prepare.call_args
+        self.assertEqual(args.args[:2], ("100001", "admin-user"))
+        self.assertEqual(args.kwargs["photos"], self.msg["photos"])
+        self.manager.prepare.reset_mock()
+        self.connection.user.is_admin = False
+        await self.invoke()
+        self.manager.prepare.assert_not_awaited()

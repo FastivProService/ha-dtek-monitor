@@ -20,6 +20,7 @@ from .account import (
     account_key,
 )
 from .account_submission import SubmissionError
+from .account_photos import MAX_PHOTO_ENCODED
 from .const import DOMAIN
 from .providers import CONF_PROVIDER
 
@@ -99,6 +100,12 @@ async def async_setup_submissions(hass):
         vol.Optional("confirmation"): vol.All(str, vol.Length(max=64)),
         vol.Optional("attempt"): vol.All(str, vol.Length(max=64)),
         vol.Optional("source_token"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("photos"): vol.All({
+            vol.All(str, vol.Length(max=40)): {
+                vol.Required("data"): vol.All(str, vol.Length(max=MAX_PHOTO_ENCODED)),
+                vol.Required("mime_type"): vol.In(("image/jpeg", "image/png")),
+            },
+        }, vol.Length(max=2)),
     }
 )
 @websocket_api.async_response
@@ -131,6 +138,7 @@ async def websocket_submission(hass, connection, msg):
                 msg.get("values"),
                 authorize,
                 source_token=msg.get("source_token"),
+                photos=msg.get("photos"),
             )
         elif action == "confirm":
             result = await manager.confirm(

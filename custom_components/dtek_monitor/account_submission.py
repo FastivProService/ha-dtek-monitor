@@ -16,6 +16,7 @@ from zoneinfo import ZoneInfo
 
 from .account import AccountError, account_key, decimal_value
 from .account_zones import SUBMISSION_SCHEMES
+from .account_photos import MAX_DRAFT_PHOTO_BYTES, PhotoError, validate_photos
 
 KYIV = ZoneInfo("Europe/Kyiv")
 
@@ -192,6 +193,8 @@ class SubmissionManager:
     async def _load(self):
         if self._closed:
             raise SubmissionError("not_available")
+        now = monotonic()
+        self._drafts = OrderedDict((k, v) for k, v in self._drafts.items() if v["expires"] > now)
         if self._journal is None:
             try:
                 data = await self.store.async_load()
@@ -268,7 +271,7 @@ class SubmissionManager:
             return {**context, "blocked": False, "last_attempt": record}
 
     async def prepare(
-        self, number, user, revision, values, authorize, source_token=None
+        self, number, user, revision, values, authorize, source_token=None, photos=None
     ):
         async with self._lock:
             await self._load()
@@ -280,6 +283,10 @@ class SubmissionManager:
             if context["revision"] != revision:
                 raise SubmissionError("context_changed")
             readings = validate_values(context, values)
+            try:
+                photo_data, photo_metadata = validate_photos(photos, values)
+            except PhotoError as error:
+                raise SubmissionError(error.code) from None
             source = None
             if source_token:
                 if self.energy is None:
@@ -300,8 +307,12 @@ class SubmissionManager:
             now = monotonic()
             self._drafts = OrderedDict(
                 (k, v) for k, v in self._drafts.items() if v["expires"] > now
+                and (v["number"] != number or v["user"] != user)
             )
-            while len(self._drafts) >= 32:
+            photo_bytes = sum(p["bytes"] for p in photo_metadata.values())
+            while self._drafts and (len(self._drafts) >= 32 or photo_bytes + sum(
+                p["bytes"] for d in self._drafts.values() for p in d.get("photos", {}).values()
+            ) > MAX_DRAFT_PHOTO_BYTES):
                 self._drafts.popitem(last=False)
             token = secrets.token_urlsafe(32)
             self._drafts[token] = {
@@ -312,6 +323,8 @@ class SubmissionManager:
                 "signature": signature,
                 "expires": now + 300,
                 "source_token": source_token,
+                "photo_data": photo_data,
+                "photos": photo_metadata,
             }
             return {
                 "confirmation": token,
@@ -320,6 +333,7 @@ class SubmissionManager:
                 "date": context["date"],
                 "readings": readings,
                 "source": source,
+                **({"photos": photo_metadata} if photo_metadata else {}),
             }
 
     async def check_source(self, number, authorize):
@@ -435,6 +449,7 @@ class SubmissionManager:
                 "signature": draft["signature"],
                 "readings": draft["readings"],
                 "source": source,
+                **({"photos": draft["photos"]} if draft.get("photos") else {}),
             }
             key = self._key(number)
             await self._save(key, record)
@@ -450,7 +465,8 @@ class SubmissionManager:
             try:
                 authorize_send()
                 result = await self.client.submit_readings(
-                    number, draft["readings"], authorize_send
+                    number, draft["readings"], authorize_send,
+                    **({"photos": draft["photo_data"]} if draft.get("photo_data") else {}),
                 )
             except SubmissionError:
                 await self._save(key, {**record, "status": "not_sent"})

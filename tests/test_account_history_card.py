@@ -17,6 +17,18 @@ SCRIPT = (
 
 @unittest.skipUnless(HAS_PLAYWRIGHT, "Requires Playwright Chromium")
 class HistoryCardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_photo_marker_and_controller_comment_are_safe_text(self):
+        await self.page.evaluate("""() => {
+          const old=result;result=year=>{const data=old(year);
+            data.readings[1].has_photo=true;
+            data.readings[1].controller_note='<img src=x onerror="window.injected=true">';return data;};
+        }""")
+        await self.load("uk")
+        await self.page.get_by_text("📷 ДТЕК має фото", exact=True).wait_for()
+        await self.page.get_by_text('Коментар контролера: <img src=x onerror="window.injected=true">', exact=True).wait_for()
+        self.assertEqual(await self.page.locator("img").count(), 0)
+        self.assertIsNone(await self.page.evaluate("window.injected"))
+
     async def test_consumption_failure_keeps_readings_without_a_false_empty_chart(self):
         await self.page.evaluate("""() => {
           const old=result;result=year=>({...old(year),months:[],unavailable:['meter_consumption'],comparison_unavailable:true});

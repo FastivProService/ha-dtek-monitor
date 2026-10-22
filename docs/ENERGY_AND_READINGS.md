@@ -62,22 +62,50 @@ title: Send my meter readings
    and meter serial number. The account must still be linked in DTEK.
 3. Enter the whole-number kWh from your meter for every tariff zone. Values must
    fit the meter's digit limit and cannot be lower than the previous reading.
-4. Choose **Review readings**. Check the previous/new values and differences.
-5. Tick the confirmation checkbox and choose **Confirm and send to DTEK**.
+4. Optionally add a **Meter photo** for each zone. Make sure the official meter’s reading and serial number are legible. For Day/Night, include a separate photo of each tariff display.
+5. Choose **Review readings**. Check the previous/new values, differences and photo previews.
+6. Tick the confirmation checkbox and choose **Confirm and send to DTEK**.
 
 The confirmation is tied to your HA user and selected account, expires after
 five minutes and is usable once. Before sending, the integration checks the
 account, meter and previous readings again. Changed data requires a new review.
-Regular HA state updates do not overwrite your inputs. Drafts are held only in
-browser memory and disappear when the page is reloaded; no scheduled or automatic submissions
+Regular HA state updates do not overwrite your inputs. The browser keeps your unfinished form in memory; reloading the page discards it.
+A reviewed draft is also held temporarily in HA memory for confirmation; no scheduled or automatic submissions
 are provided.
 
 Initially this supports one connected household consumption meter with either
 one tariff zone or Day/Night. Generation/green tariffs, multiple meters, other
 zone schemes, current/pending readings, blocked inputs and unknown meter
 metadata require the DTEK cabinet. Use the cabinet for meter rollover,
-replacement, corrections or photo attachments. The integration does not invent
+replacement or corrections. The integration does not invent
 a reading date: the observed submission endpoint assigns it on DTEK's side.
+
+### Attach a meter photo
+
+Choose a JPEG, PNG or WebP image up to 20 MB. The browser converts it to JPEG,
+removes EXIF metadata, and optimizes it to at most 2560 pixels on its longest
+side and 1 MB per photo. Check the resulting preview: the reading, serial number
+and tariff must remain clear. You can replace or remove the photo before review.
+Ordinary HA updates retain your input and selected images. Switching accounts,
+signing out, or reloading the page clears them.
+
+Photos are optional. If you attach photos to a Day/Night submission, attach one
+for each zone. The entered readings must match the photos; a home-sensor
+suggestion is not a substitute for checking the official meter. This feature is
+currently available in the HA readings form; the companion Telegram bot still
+submits numerical readings.
+
+**Review readings** transfers a temporary draft to your HA, without sending it
+to DTEK. **Confirm and send to DTEK** sends the readings and photos together in
+one request. The integration keeps photos in temporary memory, not in the
+submission journal or entity states. The journal records only the image type,
+size, dimensions and checksum alongside the readings and result.
+
+An accepted reading does **not** confirm that DTEK completed a controller's
+inspection or issued an inspection report. Unknown processing responses remain
+unconfirmed and are never automatically retried. If DTEK publishes an attachment
+or controller comment in reading history, it is shown there; photos can be opened
+in the official cabinet. End-to-end photo acceptance is awaiting a real submission.
 
 [DTEK's FAQ](https://www.dtek-oem.com.ua/ua/faq) explains that readings submitted
 outside the monthly reporting window are recorded on the submission date. They
