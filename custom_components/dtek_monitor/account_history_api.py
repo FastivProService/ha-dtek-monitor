@@ -49,6 +49,7 @@ def _can_read_account(hass, connection, entry, number):
 
 
 async def async_setup_history(hass):
+    from .account_documents_api import websocket_documents
     from .account_submission_api import async_setup_submissions
     from .account_energy_api import async_setup_energy
 
@@ -57,6 +58,7 @@ async def async_setup_history(hass):
     from .bot_api import websocket_bot_account
 
     websocket_api.async_register_command(hass, websocket_bot_account)
+    websocket_api.async_register_command(hass, websocket_documents)
 
     websocket_api.async_register_command(hass, websocket_options)
     websocket_api.async_register_command(hass, websocket_grid)
@@ -95,6 +97,11 @@ async def async_setup_history(hass):
                 StaticPathConfig(
                     "/dtek_monitor/account-ui.js",
                     str(Path(__file__).parent / "frontend" / "account-ui.js"),
+                    False,
+                ),
+                StaticPathConfig(
+                    "/dtek_monitor/account-documents.js",
+                    str(Path(__file__).parent / "frontend" / "account-documents.js"),
                     False,
                 ),
                 StaticPathConfig(

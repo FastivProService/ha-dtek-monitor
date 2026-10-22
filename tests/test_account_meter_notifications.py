@@ -176,11 +176,12 @@ class MeterNoticeTests(unittest.IsolatedAsyncioTestCase):
         )
         await flowmod.configure(flow, self.entry, None)
         schema = flow.async_show_form.call_args.kwargs["data_schema"]
-        self.assertEqual(schema({}), {"verification": False, "replacement": False})
+        self.assertEqual(schema({}), {"verification": False, "replacement": False, "documents": False})
         await flowmod.configure(
-            flow, self.entry, {"verification": True, "replacement": False}
+            flow, self.entry, {"verification": True, "replacement": False, "documents": True}
         )
         options = flow.async_create_entry.call_args.kwargs["data"]
         self.assertTrue(options["unrelated"])
         self.assertTrue(options[mod.CONF_NOTICES]["100001"]["verification"])
+        self.assertTrue(options[mod.CONF_NOTICES]["100001"]["documents"])
         self.assertEqual(self.entry.options, {"unrelated": True})

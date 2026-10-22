@@ -15,6 +15,35 @@ if HAS_HA:
 
 @unittest.skipUnless(HAS_HA, "Requires Home Assistant")
 class BotAccessTests(unittest.IsolatedAsyncioTestCase):
+    async def test_photos_are_forwarded_only_to_the_authorized_confirmation_draft(self):
+        photos = {"GENERAL": {"mime_type": "image/jpeg", "data": "synthetic"}}
+        self.msg.update(action="prepare", revision="meter", values={"GENERAL": "1030"}, photos=photos)
+        await self.invoke()
+        self.assertIs(self.manager.prepare.call_args.kwargs["photos"], photos)
+        self.assertEqual(self.manager.prepare.call_args.args[0], "100001")
+        self.assertIn("profile-a", self.manager.prepare.call_args.args[1])
+        self.manager.confirm.assert_not_awaited()
+        self.manager.prepare.reset_mock()
+        self.connection.user.permissions.check_entity.return_value = False
+        await self.invoke()
+        self.manager.prepare.assert_not_awaited()
+
+    async def test_documents_use_selected_account_and_recheck_permissions_after_fetch(self):
+        self.account_coord.documents = SimpleNamespace(get=AsyncMock(return_value={"documents": []}), download=AsyncMock(return_value={"data": "private"}))
+        self.msg.update(action="documents")
+        await self.invoke()
+        self.account_coord.documents.get.assert_awaited_once_with("100001")
+        self.msg.update(action="document", document_id="a"*32)
+        await self.invoke()
+        self.account_coord.documents.download.assert_awaited_once_with("100001", "a"*32)
+        self.connection.send_result.reset_mock()
+        async def revoked(*args):
+            self.connection.user.permissions.check_entity.return_value = False
+            return {"data": "private"}
+        self.account_coord.documents.download.side_effect = revoked
+        await self.invoke()
+        self.connection.send_result.assert_not_called()
+
     async def test_calibration_uses_isolated_principal_and_explicit_local_confirmation(self):
         draft = {"confirmation": "local", "change": {"changes": {}}, "binding": {"private": "not for bot"}}
         self.manager.prepare_calibration = AsyncMock(return_value=draft)

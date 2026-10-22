@@ -388,7 +388,8 @@
         "description": "Separate notifications for this account, off by default. Verification: a reminder in the year specified by DTEK and subsequent years, without assuming an exact due date. Replacement: a changed meter number after the first observation. Data refreshes every 6 hours; dismissed notices stay dismissed until a new event. Sensor bindings do not transfer to a new meter automatically. Notifications are visible to users of this HA; the account number is masked.",
         "data": {
           "verification": "Remind about verification year",
-          "replacement": "Notify when meter number changes"
+          "replacement": "Notify when meter number changes",
+          "documents": "New DTEK documents and acts (checked every 30 minutes)"
         }
       },
       "account_management": {

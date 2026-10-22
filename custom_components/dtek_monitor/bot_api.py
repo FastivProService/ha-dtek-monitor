@@ -16,6 +16,7 @@ from .account_history import MAX_HISTORY_ROWS, reading_history_page
 from .account import AccountAPIChanged, AccountAuthError, AccountError, AccountRateLimitError
 from .account_schedule import cabinet_groups, compare_cabinet_groups, selection
 from .account_submission import SubmissionError
+from .account_photos import MAX_PHOTO_ENCODED
 from .account_submission_api import resolve
 from .helpers import build_entity_unique_id
 from .schedule import KYIV_TZ
@@ -167,6 +168,8 @@ def account_snapshot(hass, connection, entry, number):
                 "history",
                 "calibration_preview",
                 "calibration_save",
+                "documents",
+                "document",
             )
         ),
         vol.Optional("telegram_user_id"): vol.All(int, vol.Range(min=1)),
@@ -177,7 +180,14 @@ def account_snapshot(hass, connection, entry, number):
             vol.All(str, vol.Length(max=40)): vol.All(str, vol.Length(max=8))
         },
         vol.Optional("confirmation"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("document_id"): vol.All(str, vol.Match(r"^[a-f0-9]{32}$")),
         vol.Optional("source_token"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("photos"): vol.All({
+            vol.All(str, vol.Length(max=40)): {
+                vol.Required("data"): vol.All(str, vol.Length(max=MAX_PHOTO_ENCODED)),
+                vol.Required("mime_type"): vol.In(("image/jpeg", "image/png")),
+            },
+        }, vol.Length(max=2)),
         vol.Optional("binding_revision"): vol.All(str, vol.Length(max=64)),
         vol.Optional("contemporaneous"): bool,
         vol.Optional("include_inactive"): bool,
@@ -251,7 +261,7 @@ async def websocket_bot_account(hass, connection, msg):
             manager = runtime.submissions
             if action == "context":
                 result = await manager.context(number, authorize)
-                result.update(account=f"••••{number[-4:]}")
+                result.update(account=f"••••{number[-4:]}", photo_submission=True)
             elif action in ("history", "readback"):
                 attempt = await manager.last_attempt(number)
                 year = datetime.now(KYIV_TZ).year
@@ -292,6 +302,10 @@ async def websocket_bot_account(hass, connection, msg):
                 )
             elif action == "energy":
                 result = await runtime.energy.get(number, principal, authorize)
+            elif action == "documents":
+                result = await runtime.documents.get(number)
+            elif action == "document":
+                result = await runtime.documents.download(number, msg.get("document_id"))
             elif action == "prepare":
                 result = await manager.prepare(
                     number,
@@ -300,6 +314,7 @@ async def websocket_bot_account(hass, connection, msg):
                     msg.get("values"),
                     authorize,
                     source_token=msg.get("source_token"),
+                    photos=msg.get("photos"),
                 )
             elif action == "calibration_preview":
                 draft = await manager.prepare_calibration(

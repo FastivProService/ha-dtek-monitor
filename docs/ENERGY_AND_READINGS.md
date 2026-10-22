@@ -91,9 +91,9 @@ signing out, or reloading the page clears them.
 
 Photos are optional. If you attach photos to a Day/Night submission, attach one
 for each zone. The entered readings must match the photos; a home-sensor
-suggestion is not a substitute for checking the official meter. This feature is
-currently available in the HA readings form; the companion Telegram bot still
-submits numerical readings.
+suggestion is not a substitute for checking the official meter. The matching development version of the companion Telegram bot also supports
+photos in its private reading review: choose a tariff and send one photo or image
+file, review the preview, then confirm. See the [bot guide](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
 
 **Review readings** transfers a temporary draft to your HA, without sending it
 to DTEK. **Confirm and send to DTEK** sends the readings and photos together in
@@ -336,3 +336,11 @@ errors for both the building and the optional personal calendars.
 ## Readings through a personal Telegram profile
 
 Monitor **2.0.0-rc2** and bot **0.5.0-rc2** let an authorized private chat enter readings or use the energy source configured here. Zone validation, freshness, calibration and duplicate protection remain in the integration. The HA administrator separately grants submission permission to the assigned Telegram user; every send requires confirmation. There is no unattended submission. [Profiles and permissions](PERSONAL_ACCOUNT.md#section-13).
+
+## DTEK documents and inspection acts
+
+In **My DTEK → Readings → DTEK documents**, open the list and choose **Download PDF** next to a document. The list belongs to the account selected at the top of the card. An empty list means DTEK returned no documents; service errors are displayed separately. Downloading does not sign an act or accept its contents. PDFs up to 2 MB are supported; use the official cabinet for larger files or other formats. Files are fetched through authenticated HA access, never published in `/local` or entity states.
+
+To receive HA notifications, enable **New DTEK documents and acts** in **My DTEK → Settings → Meter notifications** for this account. Checks run every 30 minutes. Existing documents form the initial baseline without a notification flood. New document IDs trigger one notification; the baseline survives HA restarts. The notification directs you to the protected document list. In the companion bot, enable its separate **New DTEK documents and acts** switch to receive the actual PDF privately.
+
+This is an unreleased feature using the document-list and file routes observed in the official legacy cabinet. A real Odesa account returned a successful empty list. A real act download and whether DTEK publishes the act from the photo/controller workflow here are still unverified. Do not interpret accepted readings, a controller comment or an empty document list as issuance of an act. Documents available only in DTEK's own bot may not be available through this cabinet API. The optional document service can fail without disabling readings or outage monitoring; incompatible routes are reported through HA Repairs.

@@ -61,7 +61,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             coordinator.buildings.start()
             coordinator.groups.start()
             await coordinator.schedule_updates.start()
+            await coordinator.documents.start()
         except BaseException:
+            await coordinator.documents.close()
             await coordinator.schedule_updates.close()
             await coordinator.groups.close()
             await coordinator.buildings.close()
@@ -140,6 +142,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry, ACCOUNT_PLATFORMS
         )
         if unload_ok:
+            await entry.runtime_data.documents.close()
             await entry.runtime_data.schedule_updates.close()
             await entry.runtime_data.groups.close()
             await entry.runtime_data.buildings.close()
@@ -170,8 +173,10 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     if entry.data.get(CONF_ENTRY_KIND) == ENTRY_ACCOUNT:
         from .account_api_health import clear_api_issue
         from .account_schedule_updates import remove_account_schedule_updates
+        from .account_documents import remove_account_documents
 
         await remove_account_schedule_updates(hass, entry)
+        await remove_account_documents(hass, entry)
 
         clear_api_issue(
             hass, entry.data.get(CONF_PROVIDER, DEFAULT_PROVIDER_ID),

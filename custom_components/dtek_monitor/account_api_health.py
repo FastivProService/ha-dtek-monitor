@@ -7,6 +7,7 @@ from .const import DOMAIN
 ISSUES_URL = "https://github.com/groove-max/ha-dtek-monitor/issues"
 RELEASES_URL = "https://github.com/groove-max/ha-dtek-monitor/releases/latest"
 INTERFACES = {
+    "account_documents": "Optional legacy cabinet: technical documents",
     "account_groups": "Optional legacy cabinet: account outage groups",
     "cabinet": "/api/billing/joint",
     "meter_details": "/api/billing-service/api/…/data",
@@ -31,7 +32,7 @@ def report_api_issue(hass, provider, error, *, scope=None):
         f"account_api_{provider}_{interface}" + (f"_{scope}" if scope else ""),
         is_fixable=False,
         is_persistent=True,
-        severity=ir.IssueSeverity.WARNING if interface == "account_groups" else ir.IssueSeverity.ERROR,
+        severity=ir.IssueSeverity.WARNING if interface in ("account_groups", "account_documents") else ir.IssueSeverity.ERROR,
         translation_key="account_groups_api_changed" if interface == "account_groups" else "account_api_changed",
         translation_placeholders={
             "interface": INTERFACES[interface],

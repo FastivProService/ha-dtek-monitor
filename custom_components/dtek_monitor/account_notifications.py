@@ -23,6 +23,7 @@ def settings(entry, number):
     return {
         "verification": False,
         "replacement": False,
+        "documents": False,
         **entry.options.get(CONF_NOTICES, {}).get(number, {}),
     }
 

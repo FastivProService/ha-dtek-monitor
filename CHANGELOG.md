@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Add private bot photo submission through the existing account-bound draft/confirmation API.
+- Add account-scoped technical documents from the legacy cabinet, protected PDF downloads and optional HA notifications for new documents. Existing documents form a silent baseline. Real inspection-act delivery after photo submission remains unverified.
+
 - Add optional, per-zone meter photos to the HA reading submission form, with local image optimization, preview and explicit confirmation.
 - Keep image data out of the durable submission journal. Bind attachments to short-lived account/user drafts and preserve the single-attempt submission barrier.
 - Show DTEK photo requests, history attachment indicators and controller comments. Photo submission does not establish completion of an inspection or issuance of an act.
