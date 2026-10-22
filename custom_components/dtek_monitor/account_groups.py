@@ -102,10 +102,12 @@ class AccountGroups:
             self.results[number] = result
             if result.checked_at:
                 self._expiry[number] = async_call_later(
-                    self.hass, REFRESH_INTERVAL.total_seconds(), lambda _now: self._notify()
+                    self.hass, REFRESH_INTERVAL.total_seconds(), self._notify
                 )
 
-    def _notify(self):
+    @callback
+    def _notify(self, _now=None):
+        """Notify on HA's event loop, including calls from the expiry timer."""
         if self._closed:
             return
         self._notifying = True

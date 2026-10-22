@@ -2,6 +2,7 @@
 
 import asyncio
 from datetime import datetime, timedelta, timezone
+from threading import get_ident
 from types import SimpleNamespace as NS
 import unittest
 from unittest.mock import AsyncMock, Mock, patch
@@ -16,6 +17,8 @@ if runtime.HAS_HA:
     account = load_component_module("account")
     health = load_component_module("account_api_health")
     from homeassistant.helpers import issue_registry as ir
+    from homeassistant.core import callback
+    from homeassistant.helpers.event import async_call_later
 
 
 @unittest.skipUnless(runtime.HAS_HA, "Requires Home Assistant")
@@ -130,15 +133,61 @@ class AccountGroupsRuntimeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.provider.read_groups.await_count, 4)
 
     async def test_expiration_notifies_entities_even_without_a_new_response(self):
-        callbacks = []
-        with patch.object(mod, "async_call_later", side_effect=lambda hass, delay, cb: callbacks.append(cb) or Mock()):
-            await self.manager.refresh()
-        observed = []
-        self.account_coord.async_update_listeners = Mock(side_effect=lambda: observed.append(self.manager.get(self.numbers[0]).status))
-        with patch.object(mod, "datetime") as clock:
-            clock.now.return_value = datetime.now(timezone.utc) + timedelta(minutes=16)
-            callbacks[0](None)
-        self.assertEqual(observed, ["expired"])
+        loop = asyncio.get_running_loop()
+        loop_thread = get_ident()
+        notified = loop.create_future()
+
+        @callback
+        def observe():
+            # Deliver the observation safely even if HA dispatches the timer
+            # to its executor, so that the regression fails with a clear reason.
+            result = (get_ident(), self.manager.get(self.numbers[0]).status)
+            loop.call_soon_threadsafe(notified.set_result, result)
+
+        self.addCleanup(self.account_coord.async_add_listener(observe))
+        with patch.object(mod, "REFRESH_INTERVAL", timedelta(0)):
+            self.manager._set_result(
+                self.numbers[0],
+                mod.GroupResult("current", ("GPV3.1",), datetime.now(timezone.utc)),
+            )
+            thread, status = await asyncio.wait_for(notified, timeout=2)
+
+        self.assertEqual(thread, loop_thread, "Group expiry must notify HA on its event loop")
+        self.assertEqual(status, "expired")
+        self.provider.read_groups.assert_not_awaited()
+
+    async def test_replaced_removed_and_closed_results_cancel_expiry_notifications(self):
+        observed = Mock()
+        self.addCleanup(self.account_coord.async_add_listener(observed))
+        for action in ("replace", "remove", "close"):
+            with self.subTest(action=action):
+                result = mod.GroupResult(
+                    "current", ("GPV3.1",), datetime.now(timezone.utc)
+                )
+                with patch.object(mod, "REFRESH_INTERVAL", timedelta(0)):
+                    self.manager._set_result(self.numbers[0], result)
+                if action == "replace":
+                    self.manager._set_result(self.numbers[0], result)
+                elif action == "remove":
+                    self.manager._set_result(self.numbers[0], None)
+                else:
+                    await self.manager.close()
+
+                # Drain real HA timer dispatch and any executor work before
+                # checking that the cancelled callback did not notify listeners.
+                drained = asyncio.get_running_loop().create_future()
+
+                @callback
+                def finish(_now):
+                    drained.set_result(None)
+
+                cancel = async_call_later(self.hass, 0, finish)
+                try:
+                    await asyncio.wait_for(drained, timeout=2)
+                    await self.hass.async_block_till_done()
+                finally:
+                    cancel()
+                observed.assert_not_called()
 
     async def test_changed_meter_snapshot_queues_a_fresh_lookup_after_inflight_request(self):
         started, release = asyncio.Event(), asyncio.Event()

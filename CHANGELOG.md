@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+- Keep cabinet-group expiry notifications on Home Assistant's event loop, fixing
+  repeated thread-safety errors and rejected entity updates. Preserve timer
+  cancellation when group data changes or the integration unloads; cover expiry
+  and cancellation with Home Assistant's real timer scheduler.
+
 ## [2.0.0-rc3] - 2026-10-21
 
 **Regular GitHub release**, without the Pre-release flag. Available through the standard HACS update channel. Requires HA 2026.3.0+.
