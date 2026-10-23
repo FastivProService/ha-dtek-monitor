@@ -1,4 +1,4 @@
-import { zoneKey, isUkrainian,  el, date, number } from "./account-ui.js?v=2.0.0-rc3";
+import { zoneKey, isUkrainian,  el, date, number } from "./account-ui.js?v=2.0.0-rc4";
 
 const words = {
   en: {

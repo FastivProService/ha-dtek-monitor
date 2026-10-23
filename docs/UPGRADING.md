@@ -6,6 +6,8 @@ Install the **[latest regular release](https://github.com/groove-max/ha-dtek-mon
 
 Version 2 adds My DTEK, cabinets for four operators, history, readings and suggestions from cumulative energy sensors. Kyiv oblast and Dnipropetrovsk oblast cabinets, including apartment-group lookup, remain experimental and await real-account validation. Building schedules work independently, without a cabinet login.
 
+RC4 adds optional [meter photos and cabinet documents](ENERGY_AND_READINGS.md#attach-a-meter-photo). For these features in Telegram, use **Bot 0.5.0-rc4 or newer**. Update Monitor first and restart HA. New-document notifications must be enabled separately in HA and the bot; an accepted photo does not prove that an inspection act has been issued.
+
 ## Before updating
 
 1. Use Home Assistant **2026.3.0 or newer**.

@@ -91,7 +91,7 @@ signing out, or reloading the page clears them.
 
 Photos are optional. If you attach photos to a Day/Night submission, attach one
 for each zone. The entered readings must match the photos; a home-sensor
-suggestion is not a substitute for checking the official meter. The matching development version of the companion Telegram bot also supports
+suggestion is not a substitute for checking the official meter. Telegram Bot **0.5.0-rc4 or newer**, paired with Monitor **2.0.0-rc4 or newer**, also supports
 photos in its private reading review: choose a tariff and send one photo or image
 file, review the preview, then confirm. See the [bot guide](https://github.com/groove-max/ha-dtek-telegram-bot/blob/main/docs/PERSONAL.md).
 
@@ -105,7 +105,7 @@ An accepted reading does **not** confirm that DTEK completed a controller's
 inspection or issued an inspection report. Unknown processing responses remain
 unconfirmed and are never automatically retried. If DTEK publishes an attachment
 or controller comment in reading history, it is shown there; photos can be opened
-in the official cabinet. End-to-end photo acceptance is awaiting a real submission.
+in the official cabinet. A real single-zone Odesa submission with a photo was accepted and confirmed in DTEK history. Live multi-zone photo submission remains unverified.
 
 [DTEK's FAQ](https://www.dtek-oem.com.ua/ua/faq) explains that readings submitted
 outside the monthly reporting window are recorded on the submission date. They
@@ -343,4 +343,4 @@ In **My DTEK → Readings → DTEK documents**, open the list and choose **Downl
 
 To receive HA notifications, enable **New DTEK documents and acts** in **My DTEK → Settings → Meter notifications** for this account. Checks run every 30 minutes. Existing documents form the initial baseline without a notification flood. New document IDs trigger one notification; the baseline survives HA restarts. The notification directs you to the protected document list. In the companion bot, enable its separate **New DTEK documents and acts** switch to receive the actual PDF privately.
 
-This is an unreleased feature using the document-list and file routes observed in the official legacy cabinet. A real Odesa account returned a successful empty list. A real act download and whether DTEK publishes the act from the photo/controller workflow here are still unverified. Do not interpret accepted readings, a controller comment or an empty document list as issuance of an act. Documents available only in DTEK's own bot may not be available through this cabinet API. The optional document service can fail without disabling readings or outage monitoring; incompatible routes are reported through HA Repairs.
+Available since **2.0.0-rc4**, this experimental feature uses the document-list and file routes observed in the official legacy cabinet. A real Odesa account returned a successful empty list. A real act download and whether DTEK publishes the act from the photo/controller workflow here are still unverified. Do not interpret accepted readings, a controller comment or an empty document list as issuance of an act. Documents available only in DTEK's own bot may not be available through this cabinet API. The optional document service can fail without disabling readings or outage monitoring; incompatible routes are reported through HA Repairs.

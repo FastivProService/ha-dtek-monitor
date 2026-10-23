@@ -4,17 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-- Add private bot photo submission through the existing account-bound draft/confirmation API.
-- Add account-scoped technical documents from the legacy cabinet, protected PDF downloads and optional HA notifications for new documents. Existing documents form a silent baseline. Real inspection-act delivery after photo submission remains unverified.
+## [2.0.0-rc4] - 2026-10-23
 
-- Add optional, per-zone meter photos to the HA reading submission form, with local image optimization, preview and explicit confirmation.
-- Keep image data out of the durable submission journal. Bind attachments to short-lived account/user drafts and preserve the single-attempt submission barrier.
-- Show DTEK photo requests, history attachment indicators and controller comments. Photo submission does not establish completion of an inspection or issuance of an act.
+**Regular GitHub release**, without the Pre-release flag. Available through the standard HACS update channel. Requires HA 2026.3.0+.
 
-- Keep cabinet-group expiry notifications on Home Assistant's event loop, fixing
-  repeated thread-safety errors and rejected entity updates. Preserve timer
-  cancellation when group data changes or the integration unloads; cover expiry
-  and cancellation with Home Assistant's real timer scheduler.
+- Attach optional meter photos in My DTEK or Telegram Bot 0.5.0-rc4, review the optimized images and explicitly confirm readings with their photos. For multi-zone meters, attach a photo for every tariff or submit numerical readings only. Short-lived drafts and the single-attempt submission barrier prevent old confirmations from resending readings; image bytes are not stored in the submission journal.
+- Show photo requests, attachment indicators and controller comments in reading history. A real single-zone Odesa submission was accepted and its photo confirmed in DTEK history. Live multi-zone photo submission remains unverified.
+- Add an account-specific DTEK document list, protected PDF downloads up to 2 MB, and optional HA notifications every 30 minutes. Existing documents become a silent baseline. This document feature remains experimental: real inspection-act download and publication after a photo submission are not yet verified. Documents sent only by DTEK's own bot may be absent from the cabinet API.
+- Fix cabinet-group expiry callbacks running outside Home Assistant's event loop, preventing thread-safety errors and rejected updates. Test expiry and cancellation with the real HA timer scheduler.
+- Update English/Ukrainian photo, document and upgrade guides; add backend, permission and browser regression tests.
+
+**Upgrade:** update the integration, restart HA and reload the HA page. Update Telegram Bot to **0.5.0-rc4** for private photos and documents. Existing addresses, accounts, calibration and bot destinations are preserved. Document notifications are opt-in. Updating does not submit readings or sign an act.
+
+[Photo and document guide](docs/ENERGY_AND_READINGS.md) · [Фото та документи](docs/ENERGY_AND_READINGS.uk.md) · [Upgrade guide](docs/UPGRADING.md) · [Оновлення](docs/UPGRADING.uk.md)
 
 ## [2.0.0-rc3] - 2026-10-21
 
