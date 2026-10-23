@@ -1,0 +1,17 @@
+{
+  "name": "dtek-outage-card",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Компактна картка відключень ДТЕК для Home Assistant",
+  "license": "MIT",
+  "scripts": {
+    "check": "node --check dtek-outage-card.js",
+    "test": "npm run check && node tests/browser.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
