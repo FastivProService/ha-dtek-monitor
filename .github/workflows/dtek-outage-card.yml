@@ -1,0 +1,28 @@
+name: Compact outage card
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compact-outage-card:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser tools
+        run: |
+          npm install --prefix "$RUNNER_TEMP/dtek-card-tests" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/dtek-card-tests/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Check syntax and run browser regressions
+        run: |
+          export NODE_PATH="$RUNNER_TEMP/dtek-card-tests/node_modules"
+          node --check examples/dtek-outage-card/dtek-outage-card.js
+          node examples/dtek-outage-card/tests/browser.cjs
